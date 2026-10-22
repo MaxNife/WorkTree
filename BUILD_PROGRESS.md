@@ -6,7 +6,7 @@ The resume point for the build agent. **Read this file first on every start or r
 - **Current checkpoint:** CP-01
 - **Status:** in-progress (paused on request; backend implementation is ahead of the checkpoint gates)
 - **Next action:** run the formal CP-01 gate (`pre-commit run --all-files`), commit/tag CP-01, then verify the code that already exists checkpoint by checkpoint (CP-02 to CP-26) instead of assuming it is done.
-- **Last commit:** `cp-00`; a local `wip(cp-01)` progress commit is being created with this file.
+- **Last commit:** `4dd33b9` (`wip(cp-01): backend foundation, activities, fixtures and tests`).
 - **Last updated:** 2026-10-22
 
 ## Verification snapshot (run, not assumed)
