@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -20,7 +21,10 @@ from app.api.deps import (
 from app.api.schemas import RolesUpdateRequest, SecretSetRequest, UserCreateRequest
 from app.api.serializers import iso
 from app.api.serializers import user as serialize_user
+from app.errors import ValidationFailed
 from app.security.rbac import Permission
+
+SECRET_NAME_RE = re.compile(r"[A-Za-z0-9_.\-/]{1,200}")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -131,6 +135,10 @@ def set_secret(
     _permission: Annotated[Any, require(Permission.ADMIN_SECRETS)],
 ) -> dict[str, Any]:
     container = request.app.state.container
+    if not SECRET_NAME_RE.fullmatch(name):
+        raise ValidationFailed(
+            "secret names are 1-200 characters of letters, digits, '_', '.', '-' or '/'"
+        )
     container.secrets.set(name, body.value)
     row = session.get(SecretMetadata, name)
     now = container.clock.now()

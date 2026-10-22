@@ -6,7 +6,6 @@ injectable so the adapter can be unit-tested without a live Vault.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from app.adapters.secrets.base import SecretInfo, SecretNotFound
@@ -42,8 +41,11 @@ class VaultSecretStore:
             response = self._client.secrets.kv.v2.read_secret_version(
                 path=name, mount_point=self.mount
             )
-        except Exception:
-            return None
+        except Exception as exc:
+            # Only "no such path" means missing; an outage must not look like an absent secret.
+            if type(exc).__name__ == "InvalidPath":
+                return None
+            raise
         data = response.get("data", {}).get("data", {})
         value = data.get("value")
         return str(value) if value is not None else None
@@ -79,7 +81,3 @@ class VaultSecretStore:
         generated = str(factory()) if factory else pysecrets.token_urlsafe(48)
         self.set(name, generated)
         return generated
-
-    @staticmethod
-    def now_for_test() -> datetime:  # pragma: no cover - helper
-        return datetime.now(tz=None)

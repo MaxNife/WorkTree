@@ -16,10 +16,12 @@ from app.domain.clock import Clock
 
 
 class LocalSecretStore:
-    """Resolution order: environment, then the local file, then the ``UAF_SECRET_`` prefix.
+    """Resolution order: ``UAF_SECRET_<NAME>`` environment variable, then the local file.
 
-    The file holds ``{"values": {name: value}, "rotated": {name: iso8601}}`` and is created
-    with owner-only permissions. It is git-ignored and is never served by the API.
+    Only the ``UAF_SECRET_`` prefix is consulted in the environment: resolving arbitrary
+    variable names would let a workflow read the server's own environment (``VAULT_TOKEN``,
+    cloud credentials, ...). The file holds ``{"values": {name: value}, "rotated": {name:
+    iso8601}}``, is created with owner-only permissions, is git-ignored and is never served.
     """
 
     def __init__(self, path: Path, clock: Clock) -> None:
@@ -47,11 +49,12 @@ class LocalSecretStore:
             os.chmod(tmp, stat.S_IRUSR | stat.S_IWUSR)
         tmp.replace(self.path)
 
+    @staticmethod
+    def env_name(name: str) -> str:
+        return "UAF_SECRET_" + name.upper().replace("-", "_").replace(".", "_").replace("/", "_")
+
     def get(self, name: str) -> str | None:
-        env_value = os.environ.get(name)
-        if env_value is not None:
-            return env_value
-        prefixed = os.environ.get(f"UAF_SECRET_{name.upper().replace('-', '_')}")
+        prefixed = os.environ.get(self.env_name(name))
         if prefixed is not None:
             return prefixed
         value = self._load()["values"].get(name)
@@ -85,11 +88,7 @@ class LocalSecretStore:
         for name in sorted(names):
             rotated_raw = data["rotated"].get(name)
             rotated = datetime.fromisoformat(rotated_raw) if rotated_raw else None
-            source = (
-                "env"
-                if name in os.environ or f"UAF_SECRET_{name.upper()}" in os.environ
-                else "file"
-            )
+            source = "env" if self.env_name(name) in os.environ else "file"
             result.append(SecretInfo(name=name, last_rotated_at=rotated, source=source))
         return result
 

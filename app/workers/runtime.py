@@ -6,7 +6,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from app.adapters.secrets.base import SecretStore
+from app.adapters.secrets.base import SecretStore, is_internal_secret
 from app.bus.base import MessageBus
 from app.bus.db_bus import worker_identity
 from app.domain.clock import Clock
@@ -77,6 +77,9 @@ class WorkerRuntime:
         secrets: dict[str, str] = {}
         missing: list[str] = []
         for name in envelope.secret_refs:
+            if is_internal_secret(name):
+                missing.append(name)
+                continue
             value = self.secret_store.get(name)
             if value is None:
                 missing.append(name)

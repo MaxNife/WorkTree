@@ -34,6 +34,15 @@ class SecretStore(Protocol):
         """Return the secret, creating it when missing (used for generated keys)."""
 
 
+# Platform-internal secrets. Workflows can never reference them: a step that could read the
+# session signing key could forge any user's session.
+INTERNAL_SECRET_NAMES = frozenset({"session_signing_key"})
+
+
+def is_internal_secret(name: str) -> bool:
+    return name in INTERNAL_SECRET_NAMES or name.startswith("uaf_internal_")
+
+
 class SecretNotFound(LookupError):
     def __init__(self, name: str) -> None:
         super().__init__(f"secret not found: {name}")

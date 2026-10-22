@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.models import Promotion, Workflow, WorkflowVersion
+from app.adapters.secrets.base import is_internal_secret
 from app.audit.writer import AuditWriter
 from app.domain.activity_registry import ActivityRegistry
 from app.domain.clock import Clock
@@ -20,6 +21,7 @@ from app.domain.workflow import (
     WorkflowDefinition,
     assert_valid,
     dump_workflow_yaml,
+    secret_refs,
 )
 from app.errors import Conflict, Forbidden, NotFound, ValidationFailed
 
@@ -64,6 +66,17 @@ class WorkflowService:
         if Role.ADMIN not in actor_roles and Role.AUTHOR not in actor_roles:
             raise Forbidden("only an Author or Admin can save a workflow")
         assert_valid(definition, self.registry.names())
+        reserved = sorted(
+            name
+            for step in definition.steps
+            for name in secret_refs([step.inputs, step.foreach or ""])
+            if is_internal_secret(name)
+        )
+        if reserved:
+            raise ValidationFailed(
+                f"secret(s) {', '.join(reserved)} are reserved for the platform and cannot be "
+                "used in a workflow"
+            )
         if Role.ADMIN not in actor_roles:
             restricted = sorted(
                 {
