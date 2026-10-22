@@ -3,17 +3,17 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-02
-- **Status:** in-progress (CP-01 closed after a full code review; CP-02 onward: verify the existing code against each "Done when", adding missing tests)
-- **Next action:** CP-02: run/extend the config and clock tests against the CP-02 "Done when", then CP-03, CP-04 (Alembic round trip already passes), CP-05 ... in order.
-- **Last commit:** see `git log -1` (`cp-01: project skeleton, tooling and layering rules`, tag `cp-01`).
+- **Current checkpoint:** CP-04
+- **Status:** in-progress (verifying existing code checkpoint by checkpoint)
+- **Next action:** CP-04: confirm data model doc (`docs/DATA_MODEL.md`) and repository tests; Alembic round trip already passes.
+- **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
 ## Verification snapshot (run, not assumed)
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **51 passed** |
+| Tests | `uv run pytest -q` | **66 passed** |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (127 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (80 source files) |
@@ -69,9 +69,9 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | ID | Title | Status | Commit | Verified by (command -> result) |
 |---|---|---|---|---|
 | CP-00 | Bootstrap: git, tracker, baseline commit | done | `fdeef4e` | `git log` -> baseline commit; `git status` -> clean at CP-00 |
-| CP-01 | Repository skeleton and Python tooling | done | (cp-01 tag) | `uv sync` ok; `ruff check .` pass; `ruff format --check .` pass; `mypy --strict app activities fixtures` pass (80 files); `pytest` 51 passed; `lint-imports` 1 kept; `pre-commit run --all-files` all passed |
-| CP-02 | Configuration, settings and injected clock | in-progress* | | config precedence/validation tests pass; formal checkpoint gate pending |
-| CP-03 | Structured logging, correlation id, secret masking | in-progress* | | masking + correlation-id log test passes; formal checkpoint gate pending |
+| CP-01 | Repository skeleton and Python tooling | done | `96bd415` | `uv sync` ok; `ruff check .` pass; `ruff format --check .` pass; `mypy --strict app activities fixtures` pass (80 files); `pytest` 51 passed; `lint-imports` 1 kept; `pre-commit run --all-files` all passed |
+| CP-02 | Configuration, settings and injected clock | done | (cp-02 tag) | `pytest tests/unit/test_settings_clock_logging.py` 15 passed: safe defaults with no file, repo config.yaml holds no secret keys, file < env < init layering, 6 invalid-value rejections, Fake/System clock, container wiring |
+| CP-03 | Structured logging, correlation id, secret masking | done | (cp-03 tag) | planted secret never in log file (`test_logs_are_masked...`); every line incl. stdlib loggers carries a correlation id; run/step ids bound in engine + worker (`correlation_scope`); generated run correlation ids; OTel `app/telemetry.py` off by default, no-op without extra (tests pass) |
 | CP-04 | Database layer and first Alembic migration | in-progress* | | `alembic upgrade head`/`downgrade base`/`check` pass on SQLite (build-3); repository tests and data-model doc still to confirm |
 | CP-05 | Immutable hash-chained audit | in-progress* | | chain verification, tamper detection and ORM mutation rejection tests pass |
 | CP-06 | Secret store interface and adapters | in-progress* | | local/env store wired; Vault test still todo |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-02: confirm tests load defaults, apply an override file and env overrides, reject invalid values; DI providers for DB/bus/secrets/clock/audit.
+- [ ] CP-04: data model doc + repository tests.
 
 ## Blockers and workarounds
 
@@ -130,3 +130,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-22 | build-1 | CP-00 | git init, repo-local identity, .gitignore, baseline commit. A reference document was absent; gap recorded (G1, later withdrawn). | cp-00 |
 | 2026-10-22 | build-2 | CP-01 to CP-26 (code only) | Built backend foundation, API/CLI, activity library, fakes and tests. Fixed bus timestamp claim, audit bulk mutation guard and foreach. `pytest` 26 passed; ruff/format/mypy/lint-imports pass. Paused on request; formal checkpoint verification remains. | wip(cp-01) |
 | 2026-10-22 | build-3 | CP-01 (+ CP-04/05/09/12/14/15/16 fixes) | Full code review: 21 defects found and fixed (see "Code review"), incl. a failing test, double execution on recovery, audit chain fork, unenforced admin-only activities. Added 25 regression/bus tests. All gates incl. pre-commit and Alembic round trip pass. CP-01 closed. | cp-01 |
+| 2026-10-22 | build-3 | CP-02, CP-03 | Added defaults/override/invalid/clock/DI tests; per-run/step correlation ids in engine and worker, generated run correlation ids; OTel hook module (off by default). 66 tests pass. | cp-03 |

@@ -51,7 +51,7 @@ from app.domain.workflow import (
     secret_refs,
 )
 from app.errors import Conflict, DuplicateRun, Forbidden, NotFound
-from app.logging_setup import get_logger
+from app.logging_setup import correlation_scope, get_logger, new_correlation_id
 from app.security.masking import get_masker
 
 ACTIVE_RUN_STATUSES = {RunStatus.PENDING.value, RunStatus.RUNNING.value, RunStatus.SUSPENDED.value}
@@ -154,7 +154,7 @@ class RunEngine:
                 status=RunStatus.PENDING.value,
                 trigger=trigger,
                 trigger_detail=details,
-                correlation_id=correlation_id or "",
+                correlation_id=correlation_id or new_correlation_id(),
                 workspace="",
                 current_step=definition.start_step.id,
                 inputs=run_inputs,
@@ -275,7 +275,8 @@ class RunEngine:
                     if self._is_queued(session, run):
                         continue
                     definition = self._definition(session, run)
-                    self._advance(session, run, definition)
+                    with correlation_scope(run.correlation_id, run_id=run.id):
+                        self._advance(session, run, definition)
                     advanced += 1
                 except Exception as exc:
                     self.log.error(
@@ -708,8 +709,9 @@ class RunEngine:
             step = definition.step_map.get(envelope.step_id)
             if step is None:
                 return
-            self._apply_result(session, run, definition, step, row, result)
-            self._advance(session, run, definition)
+            with correlation_scope(run.correlation_id, run_id=run.id, step_id=step.id):
+                self._apply_result(session, run, definition, step, row, result)
+                self._advance(session, run, definition)
             self._emit(
                 {
                     "type": "step.completed",

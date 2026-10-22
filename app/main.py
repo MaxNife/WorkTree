@@ -30,6 +30,7 @@ from app.logging_setup import (
     new_correlation_id,
 )
 from app.security.masking import get_masker
+from app.telemetry import configure_telemetry
 
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
 
@@ -45,6 +46,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        configure_telemetry(active.settings)
         active.startup(start_background=start_background)
         yield
         active.shutdown()

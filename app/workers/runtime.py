@@ -11,8 +11,9 @@ from app.bus.base import MessageBus
 from app.bus.db_bus import worker_identity
 from app.domain.clock import Clock
 from app.domain.envelope import JobEnvelope, ResultEnvelope
-from app.logging_setup import get_logger
+from app.logging_setup import correlation_scope, get_logger
 from app.security.masking import get_masker
+from app.telemetry import span
 from app.workers.process import ProcessOutcome, run_activity_process
 
 ResultCallback = Callable[[JobEnvelope, ResultEnvelope], None]
@@ -61,6 +62,16 @@ class WorkerRuntime:
         # Hold the job for as long as the activity may legitimately run, so the lease never
         # expires (and the job is never redelivered) while the child process still works.
         self.bus.extend(job.id, envelope.timeout_seconds + LEASE_GRACE_SECONDS)
+        with (
+            correlation_scope(
+                envelope.correlation_id, run_id=envelope.run_id, step_id=envelope.step_id
+            ),
+            span("uaf.activity", activity=envelope.activity, run_id=envelope.run_id),
+        ):
+            self._execute(job.id, envelope)
+        return True
+
+    def _execute(self, job_id: int, envelope: JobEnvelope) -> None:
 
         masker = get_masker()
         secrets: dict[str, str] = {}
@@ -76,8 +87,8 @@ class WorkerRuntime:
             result = ResultEnvelope.failure(
                 envelope, f"secret(s) not found: {', '.join(sorted(missing))}"
             )
-            self._finish(job.id, envelope, result)
-            return True
+            self._finish(job_id, envelope, result)
+            return
 
         try:
             outcome = run_activity_process(
@@ -89,11 +100,10 @@ class WorkerRuntime:
             )
         except Exception as exc:  # defensive: worker must not die on a launcher bug
             result = ResultEnvelope.failure(envelope, f"worker error: {type(exc).__name__}")
-            self._finish(job.id, envelope, result)
-            return True
+            self._finish(job_id, envelope, result)
+            return
         self._log_outcome(envelope, outcome)
-        self._finish(job.id, envelope, outcome.result)
-        return True
+        self._finish(job_id, envelope, outcome.result)
 
     def _log_outcome(self, envelope: JobEnvelope, outcome: ProcessOutcome) -> None:
         self.log.info(

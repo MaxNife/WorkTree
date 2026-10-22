@@ -104,7 +104,7 @@ exclude = ["app/api/generated"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["pyzipper.*", "calamine.*", "apscheduler.*", "oracledb.*", "paramiko.*", "hvac.*", "pandas.*", "openpyxl.*", "xlsxwriter.*", "pyarrow.*"]
+module = ["pyzipper.*", "calamine.*", "apscheduler.*", "oracledb.*", "paramiko.*", "hvac.*", "pandas.*", "openpyxl.*", "xlsxwriter.*", "pyarrow.*", "opentelemetry.*", "aio_pika.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

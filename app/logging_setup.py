@@ -6,6 +6,8 @@ import logging
 import logging.handlers
 import sys
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import structlog
@@ -26,6 +28,15 @@ def bind_correlation_id(correlation_id: str) -> None:
 
 def clear_correlation_id() -> None:
     structlog.contextvars.unbind_contextvars("correlation_id")
+
+
+@contextmanager
+def correlation_scope(correlation_id: str, **ids: str) -> Iterator[None]:
+    """Bind a correlation id (plus run/step ids) to every log line inside the block."""
+    with structlog.contextvars.bound_contextvars(
+        correlation_id=correlation_id or "-", **{k: v for k, v in ids.items() if v}
+    ):
+        yield
 
 
 def add_correlation_id(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
