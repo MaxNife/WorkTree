@@ -58,6 +58,7 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | Package | Licence |
 |---|---|
 | pytest, pytest-cov, pytest-asyncio | MIT |
+| jsonschema (schema file tests) | MIT |
 | Hypothesis | MPL-2.0 |
 | mypy | MIT |
 | ruff | MIT |

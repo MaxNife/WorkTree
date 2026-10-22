@@ -60,6 +60,7 @@ dev = [
   "types-psutil>=6.0",
   "types-PyYAML>=6.0",
   "types-requests>=2.32",
+  "jsonschema>=4.23",
 ]
 
 [tool.hatch.build.targets.wheel]

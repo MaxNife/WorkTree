@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uaf.local/schemas/workflow-v1.json",
+  "description": "UAF workflow definition. References inside step inputs use {{ steps.<id>.<path> }}, {{ inputs.<path> }}, {{ run.<field> }} and {{ secret:<name> }}; the server-side validator also checks activities, routes, reachability and cycles (app/domain/workflow.py).",
+  "$defs": {
+    "DuplicateGuard": {
+      "enum": [
+        "allow",
+        "reject",
+        "queue"
+      ],
+      "title": "DuplicateGuard",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "ResumeMode": {
+      "enum": [
+        "restart",
+        "skip"
+      ],
+      "title": "ResumeMode",
+      "type": "string"
+    },
+    "RetryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "delay_seconds": {
+          "default": 0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Delay Seconds",
+          "type": "number"
+        },
+        "backoff": {
+          "default": 1.0,
+          "maximum": 10.0,
+          "minimum": 1.0,
+          "title": "Backoff",
+          "type": "number"
+        }
+      },
+      "title": "RetryPolicy",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "activity": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activity"
+        },
+        "workflow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SubWorkflowRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "inputs": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Inputs",
+          "type": "object"
+        },
+        "on_done": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Done"
+        },
+        "on_failed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Failed"
+        },
+        "timeout_seconds": {
+          "default": 300,
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "retries": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "resume": {
+          "$ref": "#/$defs/ResumeMode",
+          "default": "restart"
+        },
+        "foreach": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Foreach"
+        },
+        "foreach_item": {
+          "default": "item",
+          "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+          "title": "Foreach Item",
+          "type": "string"
+        },
+        "persist": {
+          "default": "inherit",
+          "enum": [
+            "inherit",
+            "include",
+            "exclude"
+          ],
+          "title": "Persist",
+          "type": "string"
+        },
+        "start": {
+          "default": false,
+          "title": "Start",
+          "type": "boolean"
+        },
+        "disabled": {
+          "default": false,
+          "title": "Disabled",
+          "type": "boolean"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "SubWorkflowRef": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "SubWorkflowRef",
+      "type": "object"
+    },
+    "WorkflowSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_guard": {
+          "$ref": "#/$defs/DuplicateGuard",
+          "default": "reject"
+        },
+        "duplicate_guard_key": {
+          "default": "workflow",
+          "title": "Duplicate Guard Key",
+          "type": "string"
+        },
+        "catch_up": {
+          "default": false,
+          "title": "Catch Up",
+          "type": "boolean"
+        },
+        "sla_minutes": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sla Minutes"
+        },
+        "persistence": {
+          "default": "summary",
+          "enum": [
+            "none",
+            "summary",
+            "full"
+          ],
+          "title": "Persistence",
+          "type": "string"
+        },
+        "max_duration_minutes": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration Minutes"
+        }
+      },
+      "title": "WorkflowSettings",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "owner": {
+      "default": "",
+      "title": "Owner",
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "settings": {
+      "$ref": "#/$defs/WorkflowSettings"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 200,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name",
+    "steps"
+  ],
+  "title": "WorkflowDefinition",
+  "type": "object"
+}

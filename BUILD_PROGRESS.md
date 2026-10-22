@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-08
+- **Current checkpoint:** CP-09
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-08: versioned JSON Schema file in docs/, Hypothesis property tests for the validator, `validate` CLI test.
+- **Next action:** CP-09: API tests for immutable versions, diff, promotion chain, SoD and prod refusal.
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -76,7 +76,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-05 | Immutable hash-chained audit | done | (cp-05 tag) | `tests/integration/test_audit.py` 9 passed: chain verifies after 250 writes; 4 raw-SQL tamper/delete cases detected; static scan of app/activities/fixtures/scripts finds no UPDATE/DELETE path; ORM guard rejects object update, delete and bulk update; `verify-audit` CLI exit 0/1; API search filters + verify + RBAC; concurrent-writer chain test (review R5) |
 | CP-06 | Secret store interface and adapters | done | (cp-06 tag) | `tests/integration/test_secrets.py` 6 passed: local resolve/missing/metadata/rotation; env only via `UAF_SECRET_` prefix; Vault adapter with stub client (missing vs outage); reserved platform secrets refused; planted secret absent from run/step/audit records, API run detail + secrets listing, log file and workspace files. Hardening: DECISIONS 9.9 |
 | CP-07 | Authentication, sessions and RBAC | done | (cp-07 tag) | `tests/integration/test_auth_rbac.py` 13 passed: 5 roles x 15 endpoints allowed/denied; every mutating /api route (OpenAPI-enumerated) rejects a missing CSRF token (found `/workflows/validate` unguarded, fixed); `serve` exits 2 with no admin; 5 weak/default passwords refused via API; login, user create and role change audited with before/after; single-step run isolated + Admin-only for code (DECISIONS 9.10). Plus `tests/test_auth_api.py` (rate limit, expiry, cookie, CSRF) |
-| CP-08 | Workflow definition schema and validator | in-progress* | | schema/reference/validation tests pass |
+| CP-08 | Workflow definition schema and validator | done | (cp-08 tag) | `tests/unit/test_workflow_validator.py` 8 passed: Hypothesis properties (valid chains round-trip through YAML; back edges -> cycle; unknown activity on exactly that step; missing-step references; disconnected step unreachable; validator never crashes on 150 random routing graphs); `docs/schemas/workflow-v1.json` current (`scripts/gen_schemas.py --check`), Draft 2020-12 valid; `validate` CLI exit 0/1/2 |
 | CP-09 | Version registry, environments, promotion and SoD | in-progress* | | code present; promotion/SoD tests still todo |
 | CP-10 | Job/result envelope contract | in-progress* | | round-trip test passes |
 | CP-11 | Activity framework, registry and discovery | in-progress* | | contract/registry/drop-in discovery tests pass |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-08: schema file, Hypothesis validator tests, validate CLI.
+- [ ] CP-09: promotion/SoD API tests.
 
 ## Blockers and workarounds
 
