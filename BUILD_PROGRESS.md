@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-09
+- **Current checkpoint:** CP-10
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-09: API tests for immutable versions, diff, promotion chain, SoD and prod refusal.
+- **Next action:** CP-10: docs/ENVELOPE.md and the reusable activity contract suite (tests/contract).
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -77,7 +77,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-06 | Secret store interface and adapters | done | (cp-06 tag) | `tests/integration/test_secrets.py` 6 passed: local resolve/missing/metadata/rotation; env only via `UAF_SECRET_` prefix; Vault adapter with stub client (missing vs outage); reserved platform secrets refused; planted secret absent from run/step/audit records, API run detail + secrets listing, log file and workspace files. Hardening: DECISIONS 9.9 |
 | CP-07 | Authentication, sessions and RBAC | done | (cp-07 tag) | `tests/integration/test_auth_rbac.py` 13 passed: 5 roles x 15 endpoints allowed/denied; every mutating /api route (OpenAPI-enumerated) rejects a missing CSRF token (found `/workflows/validate` unguarded, fixed); `serve` exits 2 with no admin; 5 weak/default passwords refused via API; login, user create and role change audited with before/after; single-step run isolated + Admin-only for code (DECISIONS 9.10). Plus `tests/test_auth_api.py` (rate limit, expiry, cookie, CSRF) |
 | CP-08 | Workflow definition schema and validator | done | (cp-08 tag) | `tests/unit/test_workflow_validator.py` 8 passed: Hypothesis properties (valid chains round-trip through YAML; back edges -> cycle; unknown activity on exactly that step; missing-step references; disconnected step unreachable; validator never crashes on 150 random routing graphs); `docs/schemas/workflow-v1.json` current (`scripts/gen_schemas.py --check`), Draft 2020-12 valid; `validate` CLI exit 0/1/2 |
-| CP-09 | Version registry, environments, promotion and SoD | in-progress* | | code present; promotion/SoD tests still todo |
+| CP-09 | Version registry, environments, promotion and SoD | done | (cp-09 tag) | `tests/integration/test_promotion_api.py` 3 passed (separate client per user): saves create immutable versions + step diff; prod refuses unpromoted (API + engine); dev->prod blocked without exact test approval; requester and version author cannot decide; operator/author lack approve; double decision 409; prod pinned to promoted v1 when v2 exists; all audited. Plus review regressions R12 |
 | CP-10 | Job/result envelope contract | in-progress* | | round-trip test passes |
 | CP-11 | Activity framework, registry and discovery | in-progress* | | contract/registry/drop-in discovery tests pass |
 | CP-12 | Message bus interface and adapters | in-progress* | | `tests/integration/test_bus.py` 8 passed (enqueue/claim/ack/retry/dead-letter/redelivery/no double processing); formal gate pending |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-09: promotion/SoD API tests.
+- [ ] CP-10: ENVELOPE.md + contract suite over all activities.
 
 ## Blockers and workarounds
 
