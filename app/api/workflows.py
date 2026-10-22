@@ -80,6 +80,7 @@ def save_workflow(
 def validate_workflow(
     body: WorkflowSaveRequest,
     request: Request,
+    _csrf: Annotated[Any, Depends(csrf_guard)],
     _user: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
 ) -> dict[str, Any]:
     definition = (

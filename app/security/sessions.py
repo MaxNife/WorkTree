@@ -1,7 +1,7 @@
 """Signed session cookies and CSRF tokens.
 
-The auth layer is an interface (``SessionService``) so SSO can replace it without touching
-route handlers: routes depend on ``current_user``, not on the cookie format.
+Routes depend on ``current_user`` (``app/api/deps.py``), which calls the ``Authenticator``
+protocol in ``app/services/auth.py``; an SSO backend replaces that, not the route handlers.
 """
 
 from __future__ import annotations

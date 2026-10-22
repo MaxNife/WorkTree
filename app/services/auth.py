@@ -5,12 +5,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import timedelta
+from typing import Protocol
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.models import RoleRow, SessionRow, User, UserRole
 from app.audit.writer import AuditWriter
+from app.config import is_insecure_password
 from app.domain.clock import Clock
 from app.domain.enums import Role
 from app.errors import Conflict, Forbidden, Unauthorized, ValidationFailed
@@ -40,6 +42,21 @@ class AuthUser:
 
     def require(self, permission: Permission) -> None:
         require_permission(self.roles, permission)
+
+
+class Authenticator(Protocol):
+    """What the API needs from an authentication backend.
+
+    ``AuthService`` (local users, argon2id, signed cookies) is the default. An SSO backend
+    implements the same two calls, mapping the identity provider's session to an ``AuthUser``
+    with roles; route handlers and RBAC do not change.
+    """
+
+    def resolve_session(
+        self, session: Session, *, cookie_value: str | None, source_ip: str = ""
+    ) -> AuthUser | None: ...
+
+    def check_csrf(self, auth: AuthUser, supplied: str | None) -> None: ...
 
 
 def _roles_for(session: Session, user_id: str) -> list[Role]:
@@ -95,6 +112,8 @@ class AuthService:
         ).scalar_one_or_none()
         if existing is not None:
             raise Conflict(f"user {username!r} already exists")
+        if is_insecure_password(password):
+            raise ValidationFailed("refusing an empty or well-known default password")
         try:
             password_hash = hash_password(password)
         except ValueError as exc:

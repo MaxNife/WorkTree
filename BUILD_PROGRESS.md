@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-07
+- **Current checkpoint:** CP-08
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-07: auth/RBAC API tests per role, `serve` refusal without admin, login/role-change audit.
+- **Next action:** CP-08: versioned JSON Schema file in docs/, Hypothesis property tests for the validator, `validate` CLI test.
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -13,7 +13,7 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **66 passed** |
+| Tests | `uv run pytest -q` | **98 passed** |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (127 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (80 source files) |
@@ -75,7 +75,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-04 | Database layer and first Alembic migration | done | (cp-04 tag) | `tests/integration/test_database.py` 3 passed: `alembic upgrade head` == models (compare_metadata empty), dashboard indexes present, audit lock row seeded, `downgrade base` leaves no tables; UTC round trip; `scripts/gen_data_model.py --check` (docs/DATA_MODEL.md, 25 tables + Oracle dialect notes) |
 | CP-05 | Immutable hash-chained audit | done | (cp-05 tag) | `tests/integration/test_audit.py` 9 passed: chain verifies after 250 writes; 4 raw-SQL tamper/delete cases detected; static scan of app/activities/fixtures/scripts finds no UPDATE/DELETE path; ORM guard rejects object update, delete and bulk update; `verify-audit` CLI exit 0/1; API search filters + verify + RBAC; concurrent-writer chain test (review R5) |
 | CP-06 | Secret store interface and adapters | done | (cp-06 tag) | `tests/integration/test_secrets.py` 6 passed: local resolve/missing/metadata/rotation; env only via `UAF_SECRET_` prefix; Vault adapter with stub client (missing vs outage); reserved platform secrets refused; planted secret absent from run/step/audit records, API run detail + secrets listing, log file and workspace files. Hardening: DECISIONS 9.9 |
-| CP-07 | Authentication, sessions and RBAC | in-progress* | | login/logout/CSRF/expiry/rate-limit/role-matrix tests pass |
+| CP-07 | Authentication, sessions and RBAC | done | (cp-07 tag) | `tests/integration/test_auth_rbac.py` 13 passed: 5 roles x 15 endpoints allowed/denied; every mutating /api route (OpenAPI-enumerated) rejects a missing CSRF token (found `/workflows/validate` unguarded, fixed); `serve` exits 2 with no admin; 5 weak/default passwords refused via API; login, user create and role change audited with before/after; single-step run isolated + Admin-only for code (DECISIONS 9.10). Plus `tests/test_auth_api.py` (rate limit, expiry, cookie, CSRF) |
 | CP-08 | Workflow definition schema and validator | in-progress* | | schema/reference/validation tests pass |
 | CP-09 | Version registry, environments, promotion and SoD | in-progress* | | code present; promotion/SoD tests still todo |
 | CP-10 | Job/result envelope contract | in-progress* | | round-trip test passes |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-07: role matrix tests, serve refusal, auth interface.
+- [ ] CP-08: schema file, Hypothesis validator tests, validate CLI.
 
 ## Blockers and workarounds
 

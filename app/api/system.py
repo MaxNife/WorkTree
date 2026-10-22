@@ -19,12 +19,15 @@ from app.api.deps import (
 from app.api.schemas import ActivityTestRequest, SavedViewRequest
 from app.api.serializers import notification as serialize_notification
 from app.api.serializers import saved_view as serialize_saved_view
-from app.domain.activity import ActivityContext, file_artifact
-from app.domain.enums import TaskStatus
-from app.domain.workflow import secret_refs, substitute_secrets
-from app.errors import NotFound
+from app.domain.enums import Role, TaskStatus
+from app.domain.envelope import JobEnvelope
+from app.domain.workflow import secret_refs
+from app.errors import Forbidden, NotFound
+from app.logging_setup import new_correlation_id
 from app.security.masking import get_masker
 from app.security.rbac import Permission
+from app.workers.process import run_activity_process
+from app.workers.runtime import resolve_secrets
 
 router = APIRouter(prefix="/api", tags=["system"])
 
@@ -116,43 +119,53 @@ def test_activity(
     name: str,
     body: ActivityTestRequest,
     request: Request,
-    _user: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
+    user: Annotated[Any, Depends(csrf_guard)],
+    _permission: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
 ) -> dict[str, Any]:
+    """Run one activity ("Run this step") exactly as a worker would: in a child process,
+    with a timeout, with secrets resolved for this call only."""
     container = request.app.state.container
     activity = container.registry.require(name)
-    workspace = (
-        container.settings.data.root
-        / "activity-tests"
-        / container.clock.now().strftime("%Y%m%d%H%M%S%f")
-    )
+    if activity.requires_admin_author and Role.ADMIN not in user.roles:
+        raise Forbidden(f"only an Admin can run {name} (it runs code on the server)")
+    test_id = container.clock.now().strftime("%Y%m%d%H%M%S%f")
+    workspace = container.settings.data.root / "activity-tests" / test_id
     workspace.mkdir(parents=True, exist_ok=True)
-    secrets: dict[str, str] = {}
-    for secret_name in secret_refs(body.inputs):
-        value = container.secrets.get(secret_name)
-        if value is not None:
-            secrets[secret_name] = value
-            get_masker().register(value)
-    resolved = substitute_secrets(body.inputs, secrets)
-    ctx = ActivityContext(
-        run_id="activity-test",
+    names = secret_refs(body.inputs)
+    secrets, missing = resolve_secrets(container.secrets, names)
+    if missing:
+        return {
+            "activity": name,
+            "outcome": "failed",
+            "outputs": {},
+            "message": f"secret(s) not found: {', '.join(sorted(missing))}",
+            "artifacts": [],
+        }
+    envelope = JobEnvelope(
+        run_id=f"activity-test-{test_id}",
         step_id=name,
-        workspace=workspace,
-        clock=container.clock,
-        correlation_id="activity-test",
-        resolved_secrets=secrets,
+        activity=name,
+        inputs=body.inputs,
+        secret_refs=names,
+        workspace=str(workspace),
+        correlation_id=new_correlation_id(),
+        timeout_seconds=body.timeout_seconds,
     )
-    result = activity.execute(ctx, resolved if isinstance(resolved, dict) else {})
-    artifacts = []
-    for artifact in result.artifacts:
-        path = workspace / artifact.path
-        if path.is_file():
-            artifacts.append(file_artifact(ctx, path, artifact.name).model_dump())
+    outcome = run_activity_process(
+        envelope,
+        secrets,
+        extra_folder=str(container.settings.activities.extra_folder),
+        ai_enabled=container.settings.ai.enabled,
+        ai_endpoint=container.settings.ai.endpoint,
+    )
+    result = outcome.result
     return {
         "activity": name,
-        "outcome": result.outcome.value,
+        "outcome": result.outcome,
         "outputs": get_masker().mask_obj(result.outputs),
         "message": get_masker().mask(result.message),
-        "artifacts": artifacts,
+        "artifacts": [artifact.model_dump() for artifact in result.artifacts],
+        "timed_out": outcome.timed_out,
     }
 
 

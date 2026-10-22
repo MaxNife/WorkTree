@@ -87,6 +87,7 @@ class SavedViewRequest(StrictModel):
 
 class ActivityTestRequest(StrictModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
+    timeout_seconds: int = Field(default=120, ge=1, le=900)
 
 
 class FileTriggerCreateRequest(StrictModel):

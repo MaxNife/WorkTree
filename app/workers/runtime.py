@@ -20,6 +20,24 @@ ResultCallback = Callable[[JobEnvelope, ResultEnvelope], None]
 LEASE_GRACE_SECONDS = 60
 
 
+def resolve_secrets(store: SecretStore, names: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Resolve secrets for one call and register them for masking. Returns (values, missing).
+
+    Platform-internal secrets are never resolved for activities.
+    """
+    masker = get_masker()
+    values: dict[str, str] = {}
+    missing: list[str] = []
+    for name in names:
+        value = None if is_internal_secret(name) else store.get(name)
+        if value is None:
+            missing.append(name)
+        else:
+            values[name] = value
+            masker.register(value)
+    return values, missing
+
+
 class WorkerRuntime:
     def __init__(
         self,
@@ -73,19 +91,7 @@ class WorkerRuntime:
 
     def _execute(self, job_id: int, envelope: JobEnvelope) -> None:
 
-        masker = get_masker()
-        secrets: dict[str, str] = {}
-        missing: list[str] = []
-        for name in envelope.secret_refs:
-            if is_internal_secret(name):
-                missing.append(name)
-                continue
-            value = self.secret_store.get(name)
-            if value is None:
-                missing.append(name)
-            else:
-                secrets[name] = value
-                masker.register(value)
+        secrets, missing = resolve_secrets(self.secret_store, envelope.secret_refs)
         if missing:
             result = ResultEnvelope.failure(
                 envelope, f"secret(s) not found: {', '.join(sorted(missing))}"
