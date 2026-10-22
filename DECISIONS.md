@@ -57,6 +57,8 @@ letting the engine use the bus and workers.
 
 ## 5. Data contract and DB choices (closes SD §6.5 / §13 q18-q20)
 
+Table and column names: `docs/DATA_MODEL.md` (generated from the models; `scripts/gen_data_model.py --check` keeps it current).
+
 **Workflow YAML (version `1`)** — top level: `schema_version`, `name`, `description`, `owner`,
 `tags`, `settings` (`duplicate_guard: allow|reject|queue`, `duplicate_guard_key`,
 `catch_up`, `sla_minutes`, `persistence: none|summary|full`), `steps`. Step: `id`, `activity`,
