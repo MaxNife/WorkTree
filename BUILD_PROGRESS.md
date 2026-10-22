@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-05
+- **Current checkpoint:** CP-06
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-05: static no-UPDATE/DELETE audit test, verify-audit CLI + API tests, retention setting.
+- **Next action:** CP-06: secret store unit tests (resolve, missing, metadata, Vault stub), no value in API responses or logs.
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -73,7 +73,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-02 | Configuration, settings and injected clock | done | (cp-02 tag) | `pytest tests/unit/test_settings_clock_logging.py` 15 passed: safe defaults with no file, repo config.yaml holds no secret keys, file < env < init layering, 6 invalid-value rejections, Fake/System clock, container wiring |
 | CP-03 | Structured logging, correlation id, secret masking | done | (cp-03 tag) | planted secret never in log file (`test_logs_are_masked...`); every line incl. stdlib loggers carries a correlation id; run/step ids bound in engine + worker (`correlation_scope`); generated run correlation ids; OTel `app/telemetry.py` off by default, no-op without extra (tests pass) |
 | CP-04 | Database layer and first Alembic migration | done | (cp-04 tag) | `tests/integration/test_database.py` 3 passed: `alembic upgrade head` == models (compare_metadata empty), dashboard indexes present, audit lock row seeded, `downgrade base` leaves no tables; UTC round trip; `scripts/gen_data_model.py --check` (docs/DATA_MODEL.md, 25 tables + Oracle dialect notes) |
-| CP-05 | Immutable hash-chained audit | in-progress* | | chain verification, tamper detection and ORM mutation rejection tests pass |
+| CP-05 | Immutable hash-chained audit | done | (cp-05 tag) | `tests/integration/test_audit.py` 9 passed: chain verifies after 250 writes; 4 raw-SQL tamper/delete cases detected; static scan of app/activities/fixtures/scripts finds no UPDATE/DELETE path; ORM guard rejects object update, delete and bulk update; `verify-audit` CLI exit 0/1; API search filters + verify + RBAC; concurrent-writer chain test (review R5) |
 | CP-06 | Secret store interface and adapters | in-progress* | | local/env store wired; Vault test still todo |
 | CP-07 | Authentication, sessions and RBAC | in-progress* | | login/logout/CSRF/expiry/rate-limit/role-matrix tests pass |
 | CP-08 | Workflow definition schema and validator | in-progress* | | schema/reference/validation tests pass |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-05: static audit grep test; verify-audit CLI and API.
+- [ ] CP-06: secret store tests incl. Vault stub client.
 
 ## Blockers and workarounds
 

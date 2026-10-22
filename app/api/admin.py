@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -158,10 +159,38 @@ def audit_log(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     action: str | None = None,
+    actor: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    q: str | None = Query(default=None, max_length=200),
 ) -> dict[str, Any]:
     query = select(AuditLog)
     if action:
-        query = query.where(AuditLog.action == action)
+        # A trailing ".*" filters a whole family, for example "run.*".
+        if action.endswith(".*"):
+            query = query.where(AuditLog.action.startswith(action[:-1], autoescape=True))
+        else:
+            query = query.where(AuditLog.action == action)
+    if actor:
+        query = query.where(AuditLog.actor == actor)
+    if resource_type:
+        query = query.where(AuditLog.resource_type == resource_type)
+    if resource_id:
+        query = query.where(AuditLog.resource_id == resource_id)
+    if since:
+        query = query.where(AuditLog.ts >= since)
+    if until:
+        query = query.where(AuditLog.ts < until)
+    if q:
+        pattern = f"%{q}%"
+        query = query.where(
+            AuditLog.action.like(pattern)
+            | AuditLog.actor.like(pattern)
+            | AuditLog.resource_id.like(pattern)
+            | AuditLog.correlation_id.like(pattern)
+        )
     rows = list(
         session.execute(query.order_by(AuditLog.id.desc()).limit(limit).offset(offset)).scalars()
     )
