@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+        exclude: ^web/dist/
+      - id: end-of-file-fixer
+        exclude: ^web/dist/
+      - id: trailing-whitespace
+        exclude: ^web/dist/
+      - id: check-added-large-files
+        args: ["--maxkb=5120"]
+        exclude: ^web/dist/
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy --strict (app, activities, fixtures)
+        entry: uv run mypy --strict app activities fixtures
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: import-linter
+        name: import-linter layering
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        files: ^app/

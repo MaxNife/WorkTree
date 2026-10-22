@@ -1,0 +1,159 @@
+"""Shared pytest fixtures: a temp database, deterministic clock, users and API client."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.config import Settings, load_settings
+from app.container import Container, build_container, seed_reference_data
+from app.domain.clock import FakeClock
+from app.domain.enums import Role
+from app.main import create_app
+
+
+@dataclass
+class Api:
+    client: TestClient
+    headers: dict[str, str]
+    csrf: str
+    user_id: str
+    username: str
+
+    def as_role(self, role: Role) -> Api:
+        response = self.client.post(
+            "/api/auth/login",
+            json={"username": role.value, "password": "FixturePassword123!"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        return Api(
+            self.client,
+            {"X-CSRF-Token": data["csrf_token"]},
+            data["csrf_token"],
+            data["user"]["id"],
+            role.value,
+        )
+
+
+@pytest.fixture
+def fake_clock() -> FakeClock:
+    return FakeClock()
+
+
+@pytest.fixture
+def settings(tmp_path: Path) -> Settings:
+    return load_settings(
+        app={"environment": "test", "base_url": "http://testserver"},
+        database={"url": f"sqlite:///{(tmp_path / 'uaf.db').as_posix()}"},
+        data={
+            "root": tmp_path,
+            "workspaces": tmp_path / "workspaces",
+            "artifacts": tmp_path / "artifacts",
+            "playwright_state": tmp_path / "playwright",
+        },
+        logging={"directory": tmp_path / "logs", "json_logs": True},
+        secrets={"file": tmp_path / "secrets.json"},
+        activities={"extra_folder": tmp_path / "extra-activities"},
+        scheduler={"enabled": False, "tick_seconds": 1},
+        workers={"count": 1, "poll_seconds": 0.01},
+        ai={"enabled": True, "endpoint": ""},
+    )
+
+
+@pytest.fixture
+def container(settings: Settings, fake_clock: FakeClock) -> Container:
+    built = build_container(settings, clock=fake_clock, create_schema=True)
+    seed_reference_data(built.database)
+    with built.database.session() as session:
+        for role in Role:
+            built.auth.create_user(
+                session,
+                username=role.value,
+                password="FixturePassword123!",
+                role=role,
+                display_name=role.value.title(),
+                actor="fixture",
+            )
+    yield built
+    built.shutdown()
+
+
+@pytest.fixture
+def client(container: Container) -> TestClient:
+    application = create_app(container.settings, container=container, start_background=False)
+    with TestClient(application) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def api(client: TestClient) -> Api:
+    response = client.post(
+        "/api/auth/login",
+        json={"username": "admin", "password": "FixturePassword123!"},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    return Api(
+        client,
+        {"X-CSRF-Token": data["csrf_token"]},
+        data["csrf_token"],
+        data["user"]["id"],
+        "admin",
+    )
+
+
+@pytest.fixture
+def workflow_definition() -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "name": "Fixture flow",
+        "steps": [
+            {
+                "id": "first",
+                "activity": "echo",
+                "inputs": {"message": "hello"},
+                "on_done": "second",
+                "retries": {"count": 1},
+            },
+            {
+                "id": "second",
+                "activity": "echo",
+                "inputs": {"message": "{{ steps.first.message }}"},
+            },
+        ],
+    }
+
+
+def run_to_completion(container: Container, run_id: str, *, max_loops: int = 80) -> Any:
+    """Drive one run with no background thread: claim a job, complete, repeat."""
+    from app.adapters.db.models import Run
+    from app.domain.enums import TERMINAL_RUN_STATUSES
+
+    for _ in range(max_loops):
+        with container.database.session() as session:
+            run = session.get(Run, run_id)
+            assert run is not None
+            if run.status in {status.value for status in TERMINAL_RUN_STATUSES}:
+                return run
+        container.engine.tick()
+        processed = container.workers.process_one()
+        if not processed:
+            container.engine.tick()
+        container.engine.tick()
+    with container.database.session() as session:
+        run = session.get(Run, run_id)
+        assert run is not None
+        if run.status not in {status.value for status in TERMINAL_RUN_STATUSES}:
+            from sqlalchemy import select
+
+            from app.adapters.db.models import RunStep
+
+            steps = list(session.execute(select(RunStep).where(RunStep.run_id == run_id)).scalars())
+            detail = [(item.step_id, item.state, item.attempt, item.message) for item in steps]
+            raise AssertionError(f"run did not finish: {run.status} steps={detail}")
+        return run

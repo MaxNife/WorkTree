@@ -1,0 +1,81 @@
+# UAF configuration. Defaults are safe for a local single-machine install.
+# No secret values belong in this file. Override any key with environment variables,
+# using the UAF_ prefix and __ between levels (for example UAF_DATABASE__URL).
+
+app:
+  name: UAF
+  environment: dev
+  base_url: "http://127.0.0.1:8000"
+
+database:
+  url: "sqlite:///./runtime/uaf.db"
+  echo: false
+  # Oracle example (python-oracledb thin mode):
+  # url: "oracle+oracledb://user:password@host:1521/?service_name=ORCLPDB1"
+
+data:
+  root: "./runtime"
+  workspaces: "./runtime/workspaces"
+  artifacts: "./runtime/artifacts"
+  playwright_state: "./runtime/playwright-state"
+  retention_days: 30
+
+logging:
+  level: "INFO"
+  directory: "./runtime/logs"
+  json_logs: true
+  max_bytes: 10485760
+  backup_count: 10
+
+audit:
+  retention_years: 7
+
+security:
+  session_ttl_minutes: 480
+  cookie_secure: false
+  cookie_name: "uaf_session"
+  login_rate_limit_attempts: 10
+  login_rate_limit_window_seconds: 60
+
+workers:
+  count: 2
+  poll_seconds: 0.5
+  default_timeout_seconds: 300
+
+bus:
+  adapter: "db"           # db | rabbitmq
+  visibility_timeout_seconds: 300
+  max_attempts: 3
+  rabbitmq_url: ""        # e.g. amqp://guest:guest@localhost/
+
+secrets:
+  adapter: "local"        # local | vault
+  file: "./runtime/secrets.json"
+  vault_url: ""
+  vault_token: ""
+  vault_mount: "secret"
+
+activities:
+  extra_folder: "./runtime/activities"
+
+scheduler:
+  enabled: true
+  tick_seconds: 15
+  file_watch_seconds: 5
+
+notifications:
+  webhook_url: ""       # optional HTTP POST for SLA alerts
+  smtp_host: ""
+  smtp_port: 25
+  smtp_from: ""
+  smtp_to: ""
+  smtp_user: ""
+  smtp_password_secret: "smtp_password"
+
+ai:
+  enabled: false
+  endpoint: ""
+  timeout_seconds: 30
+
+otel:
+  enabled: false
