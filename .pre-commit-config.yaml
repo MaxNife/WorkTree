@@ -14,15 +14,20 @@ repos:
         exclude: ^web/dist/
       - id: detect-private-key
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
-    hooks:
-      - id: ruff
-        args: ["--fix"]
-      - id: ruff-format
-
+  # ruff, mypy and import-linter run from the uv-locked environment so the hooks and CI
+  # always use the same tool versions as `uv run`.
   - repo: local
     hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
       - id: mypy
         name: mypy --strict (app, activities, fixtures)
         entry: uv run mypy --strict app activities fixtures

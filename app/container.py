@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,7 +48,7 @@ def make_secret_store(settings: Settings, clock: Clock) -> SecretStore:
 
         return VaultSecretStore(
             settings.secrets.vault_url,
-            settings.secrets.vault_token,
+            os.environ.get(settings.secrets.vault_token_env, ""),
             settings.secrets.vault_mount,
             clock,
         )

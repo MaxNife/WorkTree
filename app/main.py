@@ -181,9 +181,10 @@ def create_app(
     return app
 
 
-app = create_app()
-
-
 def get_application() -> FastAPI:
-    """Uvicorn factory target (``--factory``)."""
+    """Uvicorn factory target: ``uvicorn app.main:get_application --factory``.
+
+    There is deliberately no module-level ``app``: building one on import would open the
+    configured database and create runtime folders as a side effect of ``import app.main``.
+    """
     return create_app()

@@ -10,7 +10,9 @@ import threading
 from typing import Any
 
 MASK = "***"
-_MIN_LENGTH = 1
+# Shorter values are not masked: replacing every "a" or "12" would corrupt all output
+# (including JSON keys) and a 1-3 character secret protects nothing anyway.
+MIN_MASK_LENGTH = 4
 
 
 class SecretMasker:
@@ -22,7 +24,7 @@ class SecretMasker:
         if value is None:
             return
         text = str(value)
-        if len(text) < _MIN_LENGTH:
+        if len(text) < MIN_MASK_LENGTH:
             return
         with self._lock:
             self._values.add(text)
@@ -55,7 +57,7 @@ class SecretMasker:
             return self.mask(obj)
         if isinstance(obj, dict):
             return {self.mask(str(k)): self.mask_obj(v) for k, v in obj.items()}
-        if isinstance(obj, (list, tuple)):
+        if isinstance(obj, list | tuple):
             return [self.mask_obj(v) for v in obj]
         if isinstance(obj, set):
             return {self.mask_obj(v) for v in obj}

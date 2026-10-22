@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from activities._common import artifact_for, read_table, safe_path, write_json, write_rows
 from app.domain.activity import Activity, ActivityContext, ActivityResult
+from app.domain.masking import get_masker
 
 
 class MatchingInputs(BaseModel):
@@ -125,6 +126,7 @@ class RunPythonActivity(Activity[RunPythonInputs]):
             env=_safe_env(ctx),
             check=False,
         )
+        completed = _masked(completed)
         log_path = safe_path(ctx, inputs.output_path)
         log_path.write_text(
             f"$ {' '.join(command)}\n--- stdout ---\n{completed.stdout}\n--- stderr ---\n{completed.stderr}",
@@ -187,6 +189,7 @@ class LegacyRobotWrapperActivity(Activity[LegacyWrapperInputs]):
             )
         except subprocess.TimeoutExpired:
             return ActivityResult.failed(f"legacy robot exceeded {inputs.timeout_seconds}s")
+        completed = _masked(completed)
         log = safe_path(ctx, inputs.output_path)
         log.write_text(
             f"$ {' '.join([executable, *inputs.args])}\n--- stdout ---\n{completed.stdout}\n"
@@ -208,7 +211,7 @@ class LegacyRobotWrapperActivity(Activity[LegacyWrapperInputs]):
 class HumanTaskInputs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["approval", "exception", "manual_match", "review"] = "approval"
+    type: Literal["approval", "manual_match", "data_entry", "exception_disposition"] = "approval"
     title: str = ""
     description: str = ""
     assignee_role: str = "operator"
@@ -290,6 +293,17 @@ class AiExtractActivity(Activity[AiExtractInputs]):
         return ActivityResult.done(
             {"fields": value}, "AI extraction completed", [artifact_for(ctx, path)]
         )
+
+
+def _masked(completed: subprocess.CompletedProcess[str]) -> subprocess.CompletedProcess[str]:
+    """Mask resolved secrets in captured output before it reaches files, outputs or logs."""
+    masker = get_masker()
+    return subprocess.CompletedProcess(
+        completed.args,
+        completed.returncode,
+        masker.mask(completed.stdout or ""),
+        masker.mask(completed.stderr or ""),
+    )
 
 
 def _normalise(value: str) -> str:

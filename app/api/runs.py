@@ -32,7 +32,6 @@ from app.api.serializers import artifact as serialize_artifact
 from app.api.serializers import incident as serialize_incident
 from app.api.serializers import run as serialize_run
 from app.api.serializers import step as serialize_step
-from app.domain.enums import TERMINAL_RUN_STATUSES, RunStatus, StepState
 from app.errors import Conflict, NotFound, ValidationFailed
 from app.security.rbac import Permission
 
@@ -203,37 +202,11 @@ def retry_run(
     session: Annotated[Session, Depends(get_session)],
     _permission: Annotated[Any, require(Permission.RUN_RETRY)],
 ) -> dict[str, Any]:
-    container = request.app.state.container
-    row = session.get(Run, run_id)
-    if row is None:
-        raise NotFound(f"run {run_id} not found")
-    if row.status not in TERMINAL_RUN_STATUSES:
-        raise Conflict("only a finished run can be retried")
-    failed_step = session.execute(
-        select(RunStep)
-        .where(RunStep.run_id == run_id, RunStep.state == StepState.FAILED.value)
-        .order_by(RunStep.iteration.desc())
-        .limit(1)
-    ).scalar_one_or_none()
-    if failed_step is None:
-        raise Conflict("run has no failed step to retry")
-    failed_step.state = StepState.PENDING.value
-    failed_step.next_attempt_at = None
-    failed_step.finished_at = None
-    failed_step.message = ""
-    row.status = RunStatus.RUNNING.value
-    row.current_step = failed_step.step_id
-    row.finished_at = None
-    row.error = ""
-    row.updated_at = container.clock.now()
-    container.audit.write(
+    row = request.app.state.container.engine.retry_from_failed_step(
         session,
+        run_id,
         actor=user.username,
-        action="run.retry",
-        resource_type="run",
-        resource_id=row.id,
         source_ip=client_ip(request),
-        after={"step": failed_step.step_id},
         correlation_id=correlation_id(request),
     )
     return {"run": serialize_run(row)}
@@ -247,19 +220,10 @@ def cancel_run(
     session: Annotated[Session, Depends(get_session)],
     _permission: Annotated[Any, require(Permission.RUN_RETRY)],
 ) -> dict[str, Any]:
-    row = session.get(Run, run_id)
-    if row is None:
-        raise NotFound(f"run {run_id} not found")
-    if row.status in TERMINAL_RUN_STATUSES:
-        raise Conflict("run is already finished")
-    row.status = RunStatus.CANCELLED.value
-    row.finished_at = request.app.state.container.clock.now()
-    request.app.state.container.audit.write(
+    row = request.app.state.container.engine.cancel_run(
         session,
+        run_id,
         actor=user.username,
-        action="run.cancel",
-        resource_type="run",
-        resource_id=row.id,
         source_ip=client_ip(request),
         correlation_id=correlation_id(request),
     )

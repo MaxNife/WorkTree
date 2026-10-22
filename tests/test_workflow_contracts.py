@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
 from activities.core import EchoActivity
 from app.domain.activity import ActivityContext, ActivityResult
@@ -25,6 +24,7 @@ from app.domain.workflow import (
     substitute_secrets,
     validate_definition,
 )
+from app.errors import ValidationFailed
 
 
 def test_reference_parsing_resolution_and_secret_refs() -> None:
@@ -75,7 +75,7 @@ def test_yaml_round_trip_and_invalid_definitions() -> None:
     text = dump_workflow_yaml(definition)
     loaded = load_workflow_yaml(text)
     assert loaded.name == "Round trip"
-    with pytest.raises(yaml.YAMLError):
+    with pytest.raises(ValidationFailed, match="invalid YAML"):
         load_workflow_yaml("not: [valid")
     bad = WorkflowDefinition.model_validate(
         {

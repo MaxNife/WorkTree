@@ -64,6 +64,22 @@ class WorkflowService:
         if Role.ADMIN not in actor_roles and Role.AUTHOR not in actor_roles:
             raise Forbidden("only an Author or Admin can save a workflow")
         assert_valid(definition, self.registry.names())
+        if Role.ADMIN not in actor_roles:
+            restricted = sorted(
+                {
+                    step.activity
+                    for step in definition.steps
+                    if step.activity
+                    and (activity := self.registry.get(step.activity)) is not None
+                    and activity.requires_admin_author
+                }
+            )
+            if restricted:
+                raise Forbidden(
+                    "only an Admin can save a workflow that uses "
+                    + ", ".join(restricted)
+                    + " (these activities run code on the server)"
+                )
 
         if workflow_id is None:
             workflow = session.execute(
@@ -222,10 +238,18 @@ class WorkflowService:
         from_environment = PROMOTION_CHAIN[to_environment]
         assert from_environment is not None
         if to_environment is Environment.PROD:
-            approved_in_test = self.approved_in(session, workflow_id, Environment.TEST)
-            if approved_in_test is None or approved_in_test.version < version_number:
+            approved_in_test = session.execute(
+                select(Promotion.id).where(
+                    Promotion.workflow_id == workflow_id,
+                    Promotion.version_id == version.id,
+                    Promotion.to_environment == Environment.TEST.value,
+                    Promotion.status == PromotionStatus.APPROVED.value,
+                )
+            ).first()
+            if approved_in_test is None:
                 raise ValidationFailed(
-                    "the version must be approved in test before it can be promoted to prod"
+                    f"version {version_number} must be approved in test before it can be "
+                    "promoted to prod"
                 )
         duplicate = session.execute(
             select(Promotion).where(

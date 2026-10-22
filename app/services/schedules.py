@@ -15,13 +15,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.database import Database
-from app.adapters.db.models import ProcessedFile, Run, Schedule, Workflow
+from app.adapters.db.models import ProcessedFile, Run, Schedule, Workflow, WorkflowVersion
 from app.audit.writer import AuditWriter
 from app.domain.clock import Clock
 from app.domain.enums import Environment, TriggerKind
 from app.engine.run_engine import RunEngine
 from app.errors import DuplicateRun, NotFound, ValidationFailed
 from app.logging_setup import get_logger
+
+# A cron fire that is this late (the service was down or busy) counts as missed and is
+# skipped unless the schedule or workflow asks for catch-up.
+DEFAULT_MISFIRE_GRACE_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -164,8 +168,14 @@ def validate_cron(expression: str) -> None:
 
 
 def next_cron_fire(expression: str, timezone: str, after: datetime) -> datetime:
+    """The first fire time strictly after ``after``.
+
+    APScheduler's lookup is inclusive, so passing a fire time back in would return the same
+    instant and fire it forever; start from the next whole second instead.
+    """
     trigger = CronTrigger.from_crontab(expression, timezone=ZoneInfo(timezone))
-    fire = trigger.get_next_fire_time(None, after)
+    start = after.replace(microsecond=0) + timedelta(seconds=1)
+    fire = trigger.get_next_fire_time(None, start)
     if fire is None:  # pragma: no cover - crontab always has a next fire
         raise ValidationFailed(f"cron expression {expression!r} never fires")
     return datetime(fire.year, fire.month, fire.day, fire.hour, fire.minute, tzinfo=fire.tzinfo)
@@ -213,6 +223,9 @@ class TriggerService:
                 started.append(run.id)
             except DuplicateRun as exc:
                 self.log.info("trigger_suppressed", schedule_id=action.schedule_id, reason=str(exc))
+                if action.trigger == "file":
+                    # The file was not processed: forget it so a later tick picks it up again.
+                    self._forget_file(action)
             except Exception as exc:
                 self.log.error(
                     "trigger_failed",
@@ -231,13 +244,33 @@ class TriggerService:
                 ).scalars()
             )
             for schedule in schedules:
-                catch_up = bool(schedule.config.get("catch_up", False))
+                catch_up = self._catch_up(session, schedule)
                 if schedule.next_run_at is None:
                     schedule.next_run_at = next_cron_fire(
                         schedule.cron, schedule.timezone or "UTC", now
                     )
                     continue
                 if schedule.next_run_at > now:
+                    continue
+                grace = int(
+                    schedule.config.get("misfire_grace_seconds", DEFAULT_MISFIRE_GRACE_SECONDS)
+                )
+                lateness = (now - schedule.next_run_at).total_seconds()
+                if not catch_up and lateness > grace:
+                    self.audit.write(
+                        session,
+                        actor="scheduler",
+                        action="schedule.missed",
+                        resource_type="schedule",
+                        resource_id=schedule.id,
+                        after={
+                            "scheduled_for": schedule.next_run_at.isoformat(),
+                            "late_seconds": int(lateness),
+                        },
+                    )
+                    schedule.next_run_at = next_cron_fire(
+                        schedule.cron, schedule.timezone or "UTC", now
+                    )
                     continue
                 actions.append(
                     TriggerAction(
@@ -262,6 +295,21 @@ class TriggerService:
                         schedule.cron, schedule.timezone or "UTC", now
                     )
         return actions
+
+    @staticmethod
+    def _catch_up(session: Session, schedule: Schedule) -> bool:
+        """Schedule config wins; otherwise the workflow's latest ``settings.catch_up``."""
+        if "catch_up" in schedule.config:
+            return bool(schedule.config["catch_up"])
+        version = session.execute(
+            select(WorkflowVersion)
+            .where(WorkflowVersion.workflow_id == schedule.workflow_id)
+            .order_by(WorkflowVersion.version.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if version is None:
+            return False
+        return bool((version.definition.get("settings") or {}).get("catch_up", False))
 
     def _file_actions(self) -> list[TriggerAction]:
         actions: list[TriggerAction] = []
@@ -375,6 +423,17 @@ class TriggerService:
                         )
                     )
         return actions
+
+    def _forget_file(self, action: TriggerAction) -> None:
+        with self.database.session() as session:
+            for row in session.execute(
+                select(ProcessedFile).where(
+                    ProcessedFile.schedule_id == action.schedule_id,
+                    ProcessedFile.path == str(action.detail.get("file", ""))[:1000],
+                    ProcessedFile.sha256 == str(action.detail.get("sha256", "")),
+                )
+            ).scalars():
+                session.delete(row)
 
     def fire_webhook(self, token: str, payload: dict[str, Any]) -> Run:
         with self.database.session() as session:

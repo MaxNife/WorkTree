@@ -160,7 +160,7 @@ def _stringify(value: JsonValue) -> str:
         return ""
     if isinstance(value, bool):
         return "true" if value else "false"
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         import json
 
         return json.dumps(value, default=str)

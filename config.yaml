@@ -52,7 +52,7 @@ secrets:
   adapter: "local"        # local | vault
   file: "./runtime/secrets.json"
   vault_url: ""
-  vault_token: ""
+  vault_token_env: VAULT_TOKEN
   vault_mount: "secret"
 
 activities:

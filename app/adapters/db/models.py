@@ -233,6 +233,7 @@ class RunStep(Base):
     child_run_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     foreach_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    bus_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class StepAttempt(Base):
@@ -359,6 +360,19 @@ class AuditLog(Base):
         Index("ix_audit_ts", "ts"),
         Index("ix_audit_resource", "resource_type", "resource_id"),
     )
+
+
+class AuditHead(Base):
+    """One lock row. Every audit append updates it first, inside the caller's transaction.
+
+    That write takes the database write lock (SQLite) or a row lock (Oracle) *before* the
+    chain tail is read, so two concurrent transactions can never chain onto the same row.
+    """
+
+    __tablename__ = "audit_head"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    appends: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
 
 class Notification(Base):

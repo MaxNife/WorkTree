@@ -90,9 +90,11 @@ clock, log, secrets)`.
 | 6.3 | Sub-workflow steps are engine-level: a child run is created and the parent waits; the child's terminal outputs are copied to the parent step | prevents re-entrant worker calls; keeps version pinning in the run snapshot. |
 | 6.4 | Branching is by outcome routing only (`on_done`/`on_failed`); no separate condition node | Elsa's named-outcome flowchart, and the simplest expression that satisfies the spec. |
 | 6.5 | Retries use `count`, `delay_seconds`, `backoff` (multiplier applied per attempt) and are persisted per attempt | every attempt must be visible in run detail. |
-| 6.6 | Crash recovery: on startup any run in `running`/`dispatching` is re-queued at its current step. A step that was in flight re-runs unless it declares `resume: skip`; `resume: restart` always re-runs | steps are assumed idempotent by default, per the spec's wording. |
+| 6.6 | Crash recovery (revised in the CP-01 review): on startup, jobs claimed by worker processes on this host that are no longer alive go back on the bus, so a `resume: restart` step re-runs as a redelivery of the **same** job; a step whose job is gone is re-dispatched; a `resume: skip` step is marked done and its job cancelled. Each job carries the step's `attempt`, and results from another attempt are ignored | re-dispatching on recovery left the original job on the bus, so the step ran twice; tying results to the attempt makes redelivery safe. |
 | 6.7 | Duplicate guard key is a dotted path into the trigger payload/inputs (or the literal `workflow`); modes `reject`, `queue`, `allow` | covers "same workflow or a configured key within it". |
-| 6.8 | The default bus is a DB-backed queue (`bus_jobs`) with visibility timeout, attempts and dead-letter; the worker pool runs in the serve process, each activity in a child OS process | meets durability and process isolation without a broker. A separate worker process can drain the same table. |
+| 6.8 | The default bus is a DB-backed queue (`bus_jobs`) with a per-job lease, attempts and dead-letter; the worker pool runs in the serve process, each activity in a child OS process. A worker extends a job's lease to the activity timeout + 60 s on claim; worker ids are `host:pid:name` | meets durability and process isolation without a broker; a fixed 300 s visibility timeout let a second worker pick up a still-running long activity. |
+| 6.9 | Every dispatched step stores its `bus_job_id`. Each tick reconciles a dispatched step with its job: a result the worker acked but whose callback never applied is applied; a dead-lettered or cancelled job fails the step; a step past its timeout + 120 s has its job cancelled before it is retried | the worker acks before the engine callback runs, so a crash between them must not strand the run. |
+| 6.10 | Engine mutations (`start_run`, `tick`, `on_result`, `recover`, cancel, retry) are serialised by an in-process lock | the scheduler thread and the worker threads otherwise raced on the same run rows. |
 
 ## 7. Frontend
 
@@ -110,3 +112,16 @@ clock, log, secrets)`.
 | 8.1 | Local git only, no remote, no history rewrite; checkpoint commits plus `wip()` commits | `docs/AGENT_START_PROMPT.md` §6. |
 | 8.2 | Fixtures are real local servers started by pytest; large generated data is written under `tests/generated/` (git-ignored) | deterministic and no production systems. |
 | 8.3 | The `.pptx` named in the tracker is absent from the working tree. The baseline commit contains every file that exists. | cannot commit a file that is not present; logged in `KNOWN_GAPS.md`. |
+
+## 9. CP-01 code review (2026-10-22)
+
+| # | Decision | Why |
+|---|---|---|
+| 9.1 | The audit writer updates a single `audit_head` row before reading the chain tail | that write takes the SQLite write lock (Oracle: row lock) for the rest of the caller's transaction, so concurrent transactions can no longer chain onto the same tail and fork the hash chain. Portable, and needs no global `BEGIN IMMEDIATE` (which would deadlock FastAPI's split dependency/route threads). |
+| 9.2 | Activities flagged `requires_admin_author` (`run_python`, `legacy_robot_wrapper`, `ai_extract`) can only be saved in a workflow by an Admin | the flag existed but was not enforced, letting an Author run arbitrary code on the server. |
+| 9.3 | Prod runs only a version that has its own approved prod promotion; prod promotion needs that exact version approved in test | previously any older version, or any version below a test-approved one, passed. |
+| 9.4 | Cron: the next fire is strictly after the previous one; without `catch_up` a fire more than `misfire_grace_seconds` (default 60) late is skipped and audited as `schedule.missed`; `catch_up` comes from the schedule config, else the workflow's `settings.catch_up` | `catch_up` re-fired the same slot forever, and missed runs were never skipped. |
+| 9.5 | Secrets shorter than 4 characters are not masked | masking every "a" corrupts all outputs and JSON keys; such a secret protects nothing. |
+| 9.6 | The Vault token is read from the environment variable named by `secrets.vault_token_env` | config holds no secret values. |
+| 9.7 | ruff runs in pre-commit from the uv-locked environment, not a pinned hook repo | the pinned v0.8.6 hook and the locked ruff disagreed on rules. |
+| 9.8 | `app.main` has no module-level `app`; use `uvicorn app.main:get_application --factory` or `uaf serve` | importing the module built a container and opened the default database. |

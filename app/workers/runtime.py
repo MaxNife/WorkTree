@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.adapters.secrets.base import SecretStore
 from app.bus.base import MessageBus
+from app.bus.db_bus import worker_identity
 from app.domain.clock import Clock
 from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.logging_setup import get_logger
@@ -15,6 +16,7 @@ from app.security.masking import get_masker
 from app.workers.process import ProcessOutcome, run_activity_process
 
 ResultCallback = Callable[[JobEnvelope, ResultEnvelope], None]
+LEASE_GRACE_SECONDS = 60
 
 
 class WorkerRuntime:
@@ -56,6 +58,9 @@ class WorkerRuntime:
             self.log.error("invalid_job_payload", job_id=job.id, error=str(exc))
             self.bus.nack(job.id, f"invalid job payload: {exc}")
             return True
+        # Hold the job for as long as the activity may legitimately run, so the lease never
+        # expires (and the job is never redelivered) while the child process still works.
+        self.bus.extend(job.id, envelope.timeout_seconds + LEASE_GRACE_SECONDS)
 
         masker = get_masker()
         secrets: dict[str, str] = {}
@@ -68,12 +73,8 @@ class WorkerRuntime:
                 secrets[name] = value
                 masker.register(value)
         if missing:
-            result = ResultEnvelope(
-                run_id=envelope.run_id,
-                step_id=envelope.step_id,
-                correlation_id=envelope.correlation_id,
-                outcome="failed",
-                message=f"secret(s) not found: {', '.join(sorted(missing))}",
+            result = ResultEnvelope.failure(
+                envelope, f"secret(s) not found: {', '.join(sorted(missing))}"
             )
             self._finish(job.id, envelope, result)
             return True
@@ -87,13 +88,7 @@ class WorkerRuntime:
                 ai_endpoint=self.ai_endpoint,
             )
         except Exception as exc:  # defensive: worker must not die on a launcher bug
-            result = ResultEnvelope(
-                run_id=envelope.run_id,
-                step_id=envelope.step_id,
-                correlation_id=envelope.correlation_id,
-                outcome="failed",
-                message=f"worker error: {type(exc).__name__}",
-            )
+            result = ResultEnvelope.failure(envelope, f"worker error: {type(exc).__name__}")
             self._finish(job.id, envelope, result)
             return True
         self._log_outcome(envelope, outcome)
@@ -116,7 +111,7 @@ class WorkerRuntime:
         try:
             self.on_result(envelope, result)
         except Exception as exc:
-            # The bus result remains available; the engine watchdog/reconcile path retries.
+            # The result stays on the acked bus job; the engine reconciles it on its next tick.
             self.log.error(
                 "result_callback_failed",
                 run_id=envelope.run_id,
@@ -151,7 +146,7 @@ class WorkerPool:
         self.poll_seconds = poll_seconds
         self.workers = [
             WorkerRuntime(
-                worker_id=f"worker-{index + 1}",
+                worker_id=worker_identity(f"worker-{index + 1}"),
                 bus=bus,
                 secret_store=secret_store,
                 clock=clock,

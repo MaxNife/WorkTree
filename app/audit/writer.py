@@ -6,10 +6,10 @@ import threading
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.adapters.db.models import AuditLog
+from app.adapters.db.models import AuditHead, AuditLog
 from app.audit.chain import GENESIS_HASH, AuditCheck, compute_hash, verify_rows
 from app.domain.clock import Clock
 
@@ -17,9 +17,11 @@ from app.domain.clock import Clock
 class AuditWriter:
     """Writes one hash-chained row per action.
 
-    A process-wide lock serialises writes so two request threads cannot read the same tail
-    hash. The row is appended in the caller's session/transaction, so an audited change and
-    its audit row commit together.
+    The row is appended in the caller's session/transaction, so an audited change and its
+    audit row commit together. Before reading the chain tail, the writer updates the single
+    ``audit_head`` row: that takes the database write lock (or row lock) for the rest of the
+    caller's transaction, so no other transaction can append in between and fork the chain.
+    The in-process lock only avoids pointless lock contention between local threads.
     """
 
     _lock = threading.Lock()
@@ -69,6 +71,13 @@ class AuditWriter:
         correlation_id: str,
         ts: datetime,
     ) -> AuditLog:
+        session.flush()
+        locked = session.execute(
+            update(AuditHead).where(AuditHead.id == 1).values(appends=AuditHead.appends + 1)
+        )
+        if getattr(locked, "rowcount", 1) == 0:
+            session.add(AuditHead(id=1, appends=1))
+            session.flush()
         previous = session.execute(
             select(AuditLog.hash).order_by(AuditLog.id.desc()).limit(1)
         ).scalar_one_or_none()
@@ -106,6 +115,4 @@ class AuditWriter:
         return verify_rows(rows)
 
     def count(self, session: Session) -> int:
-        return int(
-            session.execute(select(AuditLog.id).order_by(AuditLog.id)).scalars().all().__len__()
-        )
+        return int(session.execute(select(func.count(AuditLog.id))).scalar_one())

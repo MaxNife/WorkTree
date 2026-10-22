@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
+import socket
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, text, update
+import psutil
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.adapters.db.database import Database
@@ -18,6 +21,23 @@ PENDING = "pending"
 CLAIMED = "claimed"
 DONE = "done"
 DEAD = "dead"
+CANCELLED = "cancelled"
+
+
+def worker_identity(name: str, *, pid: int | None = None) -> str:
+    """``host:pid:name``. The host and pid let a restart recognise jobs held by dead workers."""
+    return f"{socket.gethostname()}:{pid if pid is not None else os.getpid()}:{name}"
+
+
+def _claim_is_orphaned(claimed_by: str | None) -> bool:
+    """True when the job was claimed by a worker process on this host that no longer runs."""
+    if not claimed_by:
+        return False
+    host, _, rest = claimed_by.partition(":")
+    pid_text, _, _ = rest.partition(":")
+    if host != socket.gethostname() or not pid_text.isdigit():
+        return False
+    return not psutil.pid_exists(int(pid_text))
 
 
 def _sqlite_time(value: datetime) -> str:
@@ -168,7 +188,7 @@ class DbMessageBus:
         with self.database.session() as session:
             session.execute(
                 update(BusJobRow)
-                .where(BusJobRow.id == job_id)
+                .where(BusJobRow.id == job_id, BusJobRow.state != CANCELLED)
                 .values(
                     state=DONE,
                     result=result,
@@ -182,7 +202,7 @@ class DbMessageBus:
         now = self.clock.now()
         with self.database.session() as session:
             row = session.get(BusJobRow, job_id)
-            if row is None:
+            if row is None or row.state == CANCELLED:
                 return
             row.last_error = error[:2000]
             row.claimed_by = None
@@ -199,44 +219,91 @@ class DbMessageBus:
                 )
                 row.visible_at = now + timedelta(seconds=delay)
 
+    def extend(self, job_id: int, seconds: float) -> None:
+        """Extend a claimed job's lease (the worker calls this with the activity timeout)."""
+        with self.database.session() as session:
+            session.execute(
+                update(BusJobRow)
+                .where(BusJobRow.id == job_id, BusJobRow.state == CLAIMED)
+                .values(visible_at=self.clock.now() + timedelta(seconds=seconds))
+            )
+
     def release_stale(self) -> int:
-        """Return jobs whose visibility timeout elapsed to the queue (or dead-letter them)."""
+        """Return claimed jobs whose lease expired to the queue (or dead-letter them)."""
         now = self.clock.now()
-        cutoff = now - timedelta(seconds=self.visibility_timeout_seconds)
         with self.database.session() as session:
             rows = list(
                 session.execute(
                     select(BusJobRow).where(
                         BusJobRow.state == CLAIMED,
-                        BusJobRow.claimed_at < cutoff,
+                        BusJobRow.visible_at < now,
                     )
                 ).scalars()
             )
             for row in rows:
-                row.claimed_by = None
-                row.claimed_at = None
-                if row.attempts >= row.max_attempts:
-                    row.state = DEAD
-                    row.finished_at = now
-                else:
-                    row.state = PENDING
-                    row.visible_at = now
+                self._requeue_or_bury(row, now, "lease expired")
             return len(rows)
+
+    def release_orphans(self) -> int:
+        """Requeue jobs claimed by worker processes on this host that are no longer alive.
+
+        Called at startup so a crashed service redelivers its in-flight jobs immediately
+        instead of waiting for their (activity-timeout-long) lease to expire.
+        """
+        now = self.clock.now()
+        with self.database.session() as session:
+            rows = [
+                row
+                for row in session.execute(
+                    select(BusJobRow).where(BusJobRow.state == CLAIMED)
+                ).scalars()
+                if _claim_is_orphaned(row.claimed_by)
+            ]
+            for row in rows:
+                self._requeue_or_bury(row, now, "worker process died")
+            return len(rows)
+
+    @staticmethod
+    def _requeue_or_bury(row: BusJobRow, now: datetime, reason: str) -> None:
+        row.claimed_by = None
+        row.claimed_at = None
+        row.last_error = reason
+        if row.attempts >= row.max_attempts:
+            row.state = DEAD
+            row.finished_at = now
+        else:
+            row.state = PENDING
+            row.visible_at = now
+
+    def get_in(self, session: Session, job_id: int) -> BusJobRow | None:
+        return session.get(BusJobRow, job_id)
+
+    def cancel_in(self, session: Session, job_id: int, reason: str) -> bool:
+        """Cancel a job that has not finished, in the caller's transaction."""
+        row = session.get(BusJobRow, job_id)
+        if row is None or row.state not in {PENDING, CLAIMED}:
+            return False
+        row.state = CANCELLED
+        row.last_error = reason[:2000]
+        row.finished_at = self.clock.now()
+        return True
 
     def pending_count(self, queue: str = "default") -> int:
         with self.database.session() as session:
-            return len(
+            return int(
                 session.execute(
-                    select(BusJobRow.id).where(BusJobRow.queue == queue, BusJobRow.state == PENDING)
-                )
-                .scalars()
-                .all()
+                    select(func.count(BusJobRow.id)).where(
+                        BusJobRow.queue == queue, BusJobRow.state == PENDING
+                    )
+                ).scalar_one()
             )
 
     def dead_count(self) -> int:
         with self.database.session() as session:
-            return len(
-                session.execute(select(BusJobRow.id).where(BusJobRow.state == DEAD)).scalars().all()
+            return int(
+                session.execute(
+                    select(func.count(BusJobRow.id)).where(BusJobRow.state == DEAD)
+                ).scalar_one()
             )
 
     def get(self, job_id: int) -> BusJob | None:

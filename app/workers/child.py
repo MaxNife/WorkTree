@@ -1,7 +1,7 @@
 """Child process entry point: run one activity and print the result envelope.
 
-The parent passes the job on stdin and the resolved secrets in ``UAF_CHILD_SECRETS``.
-Secrets are never written to the workspace or to the result.
+The parent writes one JSON request to stdin: the job envelope plus the secrets resolved for
+this call only. Secrets never touch the environment, the workspace or the result.
 """
 
 from __future__ import annotations
@@ -73,12 +73,8 @@ def main() -> int:
         registry = ActivityRegistry(Path(extra) if extra else None).discover()
         activity = registry.get(envelope.activity)
         if activity is None:
-            result_payload = ResultEnvelope(
-                run_id=envelope.run_id,
-                step_id=envelope.step_id,
-                correlation_id=envelope.correlation_id,
-                outcome="failed",
-                message=f"unknown activity: {envelope.activity}",
+            result_payload = ResultEnvelope.failure(
+                envelope, f"unknown activity: {envelope.activity}"
             ).model_dump(mode="json")
         else:
             resolved_inputs = substitute_secrets(envelope.inputs, secrets)
@@ -96,12 +92,8 @@ def main() -> int:
                 artifacts=result.artifacts,
             ).model_dump(mode="json")
     except Exception as exc:  # last-resort guard: the child must always answer
-        result_payload = ResultEnvelope(
-            run_id=envelope.run_id,
-            step_id=envelope.step_id,
-            correlation_id=envelope.correlation_id,
-            outcome="failed",
-            message=masker.mask(f"{type(exc).__name__}: {exc}"),
+        result_payload = ResultEnvelope.failure(
+            envelope, masker.mask(f"{type(exc).__name__}: {exc}")
         ).model_dump(mode="json")
     print(MARKER + json.dumps(result_payload, default=str))
     return 0

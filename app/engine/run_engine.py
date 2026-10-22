@@ -7,6 +7,7 @@ are written in the same transaction, so a crash leaves a resumable state.
 from __future__ import annotations
 
 import json
+import threading
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -28,7 +29,7 @@ from app.adapters.db.models import (
     WorkflowVersion,
 )
 from app.audit.writer import AuditWriter
-from app.bus.db_bus import DbMessageBus
+from app.bus.db_bus import CANCELLED, DEAD, DONE, DbMessageBus
 from app.domain.activity_registry import ActivityRegistry
 from app.domain.clock import Clock
 from app.domain.enums import (
@@ -38,6 +39,7 @@ from app.domain.enums import (
     PromotionStatus,
     RunStatus,
     StepState,
+    TaskStatus,
 )
 from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.domain.workflow import (
@@ -80,6 +82,9 @@ class RunEngine:
         self.max_persisted_output_bytes = max_persisted_output_bytes
         self.event_sink = event_sink
         self.log = get_logger(__name__)
+        # Serialises engine mutations inside this process (scheduler tick, worker results,
+        # run starts). Cross-process safety comes from the database transaction itself.
+        self._lock = threading.RLock()
 
     def _emit(self, event: dict[str, Any]) -> None:
         if self.event_sink is None:
@@ -103,7 +108,7 @@ class RunEngine:
         parent_run_id: str | None = None,
         version_number: int | None = None,
     ) -> Run:
-        with self.database.session() as session:
+        with self._lock, self.database.session() as session:
             workflow = session.get(Workflow, workflow_id)
             if workflow is None:
                 raise NotFound(f"workflow {workflow_id} not found")
@@ -198,23 +203,20 @@ class RunEngine:
         require_promoted: bool,
     ) -> WorkflowVersion:
         if environment == Environment.PROD.value and require_promoted:
+            promoted = select(Promotion).where(
+                Promotion.workflow_id == workflow.id,
+                Promotion.to_environment == Environment.PROD.value,
+                Promotion.status == PromotionStatus.APPROVED.value,
+            )
+            if version_number is not None:
+                promoted = promoted.where(Promotion.version == version_number)
             promotion = session.execute(
-                select(Promotion)
-                .where(
-                    Promotion.workflow_id == workflow.id,
-                    Promotion.to_environment == Environment.PROD.value,
-                    Promotion.status == PromotionStatus.APPROVED.value,
-                )
-                .order_by(Promotion.decided_at.desc(), Promotion.version.desc())
-                .limit(1)
+                promoted.order_by(Promotion.decided_at.desc(), Promotion.version.desc()).limit(1)
             ).scalar_one_or_none()
             if promotion is None:
+                if version_number is not None:
+                    raise Forbidden(f"version {version_number} is not promoted to prod")
                 raise Forbidden(f"workflow {workflow.name!r} has no promoted version for prod")
-            if version_number is not None and promotion.version < version_number:
-                raise Forbidden(
-                    f"version {version_number} is not promoted to prod "
-                    f"(approved: {promotion.version})"
-                )
             version_number = promotion.version
         query = select(WorkflowVersion).where(WorkflowVersion.workflow_id == workflow.id)
         if version_number is not None:
@@ -259,7 +261,7 @@ class RunEngine:
     def tick(self) -> int:
         """Advance every active run. Returns the number of runs examined."""
         advanced = 0
-        with self.database.session() as session:
+        with self._lock, self.database.session() as session:
             runs = list(
                 session.execute(
                     select(Run)
@@ -347,7 +349,7 @@ class RunEngine:
             return
         latest = rows[-1]
         if latest.state == StepState.DISPATCHED.value:
-            self._check_watchdog(session, run, definition, step, latest)
+            self._check_dispatched(session, run, definition, step, latest)
             return
         if latest.state == StepState.WAITING.value:
             self._resume_waiting(session, run, definition, step, latest)
@@ -458,6 +460,7 @@ class RunEngine:
             run_id=run.id,
             step_id=step.id,
             iteration=row.iteration,
+            attempt=row.attempt,
             activity=step.activity or "",
             inputs=inputs,
             secret_refs=secret_refs(inputs),
@@ -465,7 +468,7 @@ class RunEngine:
             correlation_id=run.correlation_id,
             timeout_seconds=step.timeout_seconds or self.default_timeout_seconds,
         )
-        self.bus.enqueue_in(
+        row.bus_job_id = self.bus.enqueue_in(
             session,
             envelope.model_dump(mode="json"),
             max_attempts=step.retries.count + 2,
@@ -681,7 +684,7 @@ class RunEngine:
 
     # ------------------------------------------------------------- completion
     def on_result(self, envelope: JobEnvelope, result: ResultEnvelope) -> None:
-        with self.database.session() as session:
+        with self._lock, self.database.session() as session:
             run = session.get(Run, envelope.run_id)
             if run is None or run.status in TERMINAL_RUN_STATUSES:
                 return
@@ -692,30 +695,20 @@ class RunEngine:
                     RunStep.iteration == envelope.iteration,
                 )
             ).scalar_one_or_none()
-            if row is None or row.state != StepState.DISPATCHED.value:
+            if not self._accepts(row, envelope):
                 self.log.info(
                     "stale_result_ignored",
                     run_id=envelope.run_id,
                     step_id=envelope.step_id,
+                    attempt=envelope.attempt,
                 )
                 return
+            assert row is not None
             definition = self._definition(session, run)
             step = definition.step_map.get(envelope.step_id)
             if step is None:
                 return
-            outcome = Outcome(result.outcome)
-            self._complete_step(
-                session,
-                run,
-                definition,
-                step,
-                row,
-                outcome,
-                result.outputs,
-                result.message,
-                [artifact.model_dump() for artifact in result.artifacts],
-                allow_retry=outcome is Outcome.FAILED,
-            )
+            self._apply_result(session, run, definition, step, row, result)
             self._advance(session, run, definition)
             self._emit(
                 {
@@ -726,6 +719,36 @@ class RunEngine:
                     "message": get_masker().mask(result.message),
                 }
             )
+
+    @staticmethod
+    def _accepts(row: RunStep | None, envelope: JobEnvelope) -> bool:
+        """A result applies only to a dispatched step of the same attempt."""
+        if row is None or row.state != StepState.DISPATCHED.value:
+            return False
+        return envelope.attempt in (0, row.attempt)
+
+    def _apply_result(
+        self,
+        session: Session,
+        run: Run,
+        definition: WorkflowDefinition,
+        step: Step,
+        row: RunStep,
+        result: ResultEnvelope,
+    ) -> None:
+        outcome = Outcome(result.outcome)
+        self._complete_step(
+            session,
+            run,
+            definition,
+            step,
+            row,
+            outcome,
+            result.outputs,
+            result.message,
+            [artifact.model_dump() for artifact in result.artifacts],
+            allow_retry=outcome is Outcome.FAILED,
+        )
 
     def _complete_step(
         self,
@@ -928,17 +951,21 @@ class RunEngine:
             raise NotFound("run or task not found")
         if run.status != RunStatus.SUSPENDED.value:
             return
-        token = session.execute(
-            select(ResumeToken)
-            .where(
-                ResumeToken.run_id == run_id,
-                ResumeToken.consumed_at.is_(None),
-            )
-            .order_by(ResumeToken.created_at.desc())
-            .limit(1)
-        ).scalar_one_or_none()
+        token = next(
+            (
+                candidate
+                for candidate in session.execute(
+                    select(ResumeToken).where(
+                        ResumeToken.run_id == run_id,
+                        ResumeToken.consumed_at.is_(None),
+                    )
+                ).scalars()
+                if candidate.payload.get("task_id") == task_id
+            ),
+            None,
+        )
         if token is None:
-            raise Conflict("run has no open resume token")
+            raise Conflict("run has no open resume token for this task")
         definition = self._definition(session, run)
         step = definition.step_map.get(token.step_id)
         if step is None:
@@ -1047,7 +1074,7 @@ class RunEngine:
             return {"_omitted": f"{len(serialized)} bytes of outputs not persisted"}
         return dict(masked) if isinstance(masked, dict) else {"value": masked}
 
-    def _check_watchdog(
+    def _check_dispatched(
         self,
         session: Session,
         run: Run,
@@ -1055,6 +1082,40 @@ class RunEngine:
         step: Step,
         row: RunStep,
     ) -> None:
+        """Reconcile a dispatched step with its bus job.
+
+        - The worker acked a result but the callback never applied it (crash between the
+          two): apply the stored result now.
+        - The job was dead-lettered or cancelled: fail the step (it may retry).
+        - The step outlived its timeout plus a grace period: cancel the job so it can never
+          run again, then fail the step (it may retry).
+        """
+        job = self.bus.get_in(session, row.bus_job_id) if row.bus_job_id else None
+        if job is not None and job.state == DONE and job.result:
+            try:
+                result = ResultEnvelope.model_validate(job.result)
+            except Exception:
+                result = None
+            if result is not None:
+                self.log.info("result_reconciled", run_id=run.id, step_id=step.id)
+                self._apply_result(session, run, definition, step, row, result)
+                self._advance(session, run, definition)
+                return
+        if job is not None and job.state in {DEAD, CANCELLED}:
+            self._complete_step(
+                session,
+                run,
+                definition,
+                step,
+                row,
+                Outcome.FAILED,
+                {},
+                f"step {step.id} job was {job.state}: {job.last_error or 'no detail'}",
+                [],
+                allow_retry=True,
+            )
+            self._advance(session, run, definition)
+            return
         if row.started_at is None:
             return
         deadline = row.started_at + timedelta(
@@ -1062,6 +1123,8 @@ class RunEngine:
         )
         if self.clock.now() < deadline:
             return
+        if row.bus_job_id:
+            self.bus.cancel_in(session, row.bus_job_id, "step exceeded its timeout")
         self._complete_step(
             session,
             run,
@@ -1076,11 +1139,134 @@ class RunEngine:
         )
         self._advance(session, run, definition)
 
+    # --------------------------------------------------------- operator actions
+    def cancel_run(
+        self,
+        session: Session,
+        run_id: str,
+        *,
+        actor: str,
+        source_ip: str = "",
+        correlation_id: str = "",
+    ) -> Run:
+        """Cancel an active run, its queued jobs, its open tasks and its child runs."""
+        with self._lock:
+            run = session.get(Run, run_id)
+            if run is None:
+                raise NotFound(f"run {run_id} not found")
+            if run.status in TERMINAL_RUN_STATUSES:
+                raise Conflict("run is already finished")
+            now = self.clock.now()
+            for row in session.execute(
+                select(RunStep).where(
+                    RunStep.run_id == run.id,
+                    RunStep.state.in_([StepState.DISPATCHED.value, StepState.WAITING.value]),
+                )
+            ).scalars():
+                if row.bus_job_id:
+                    self.bus.cancel_in(session, row.bus_job_id, "run cancelled")
+                if row.child_run_id:
+                    child = session.get(Run, row.child_run_id)
+                    if child is not None and child.status not in TERMINAL_RUN_STATUSES:
+                        self.cancel_run(
+                            session,
+                            child.id,
+                            actor=actor,
+                            source_ip=source_ip,
+                            correlation_id=correlation_id,
+                        )
+            for task in session.execute(
+                select(Task).where(
+                    Task.run_id == run.id,
+                    Task.status.in_([TaskStatus.OPEN.value, TaskStatus.CLAIMED.value]),
+                )
+            ).scalars():
+                task.status = TaskStatus.CANCELLED.value
+            run.status = RunStatus.CANCELLED.value
+            run.finished_at = now
+            run.updated_at = now
+            self.audit.write(
+                session,
+                actor=actor,
+                action="run.cancel",
+                resource_type="run",
+                resource_id=run.id,
+                source_ip=source_ip,
+                correlation_id=correlation_id,
+            )
+            self._emit({"type": "run.finished", "run_id": run.id, "status": run.status})
+            return run
+
+    def retry_from_failed_step(
+        self,
+        session: Session,
+        run_id: str,
+        *,
+        actor: str,
+        source_ip: str = "",
+        correlation_id: str = "",
+    ) -> Run:
+        """Re-open the most recently failed step of a finished run (Operator action)."""
+        with self._lock:
+            run = session.get(Run, run_id)
+            if run is None:
+                raise NotFound(f"run {run_id} not found")
+            if run.status not in {RunStatus.FAILED.value, RunStatus.CANCELLED.value}:
+                raise Conflict("only a failed or cancelled run can be retried")
+            # The step that ended the run is run.current_step (routing never moves off the
+            # final step); fall back to the most recently finished failure.
+            failed_rows = select(RunStep).where(
+                RunStep.run_id == run_id, RunStep.state == StepState.FAILED.value
+            )
+            failed = (
+                session.execute(
+                    failed_rows.where(RunStep.step_id == run.current_step)
+                    .order_by(RunStep.iteration.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                or session.execute(
+                    failed_rows.order_by(
+                        RunStep.finished_at.desc(), RunStep.iteration.desc()
+                    ).limit(1)
+                ).scalar_one_or_none()
+            )
+            if failed is None:
+                raise Conflict("run has no failed step to retry")
+            failed.state = StepState.PENDING.value
+            failed.next_attempt_at = None
+            failed.finished_at = None
+            failed.message = ""
+            run.status = RunStatus.RUNNING.value
+            run.current_step = failed.step_id
+            run.finished_at = None
+            run.error = ""
+            run.updated_at = self.clock.now()
+            self.audit.write(
+                session,
+                actor=actor,
+                action="run.retry",
+                resource_type="run",
+                resource_id=run.id,
+                source_ip=source_ip,
+                after={"step": failed.step_id, "iteration": failed.iteration},
+                correlation_id=correlation_id,
+            )
+            return run
+
     # --------------------------------------------------------------- recovery
     def recover(self) -> int:
-        """Requeue in-flight steps after a restart. Returns the number of runs touched."""
+        """Resume in-flight steps after a restart. Returns the number of steps touched.
+
+        Jobs claimed by worker processes that died with the service go back on the bus, so a
+        ``resume: restart`` step re-runs as a redelivery of the *same* job (never a duplicate).
+        A step whose job is gone is re-dispatched; a ``resume: skip`` step is marked done and
+        its job cancelled.
+        """
+        released = self.bus.release_orphans()
+        if released:
+            self.log.info("orphaned_jobs_released", jobs=released)
         recovered = 0
-        with self.database.session() as session:
+        with self._lock, self.database.session() as session:
             runs = list(
                 session.execute(
                     select(Run).where(
@@ -1100,14 +1286,21 @@ class RunEngine:
                 definition = self._definition(session, run)
                 for row in rows:
                     step = definition.step_map.get(row.step_id)
+                    job = self.bus.get_in(session, row.bus_job_id) if row.bus_job_id else None
                     if step is not None and step.resume.value == "skip" and row.attempt > 0:
+                        if row.bus_job_id:
+                            self.bus.cancel_in(session, row.bus_job_id, "skipped on resume")
                         row.state = StepState.DONE.value
                         row.outcome = Outcome.DONE.value
                         row.message = "skipped on resume"
                         row.finished_at = self.clock.now()
-                    else:
+                    elif job is None or job.state in {DEAD, CANCELLED}:
                         row.state = StepState.PENDING.value
                         row.next_attempt_at = None
+                    else:
+                        # pending/claimed jobs are redelivered by the bus; a done job's result
+                        # is reconciled by the next tick.
+                        continue
                     recovered += 1
                     self.audit.write(
                         session,

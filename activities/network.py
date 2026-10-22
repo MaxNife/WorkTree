@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
 import mimetypes
 import shutil
 import smtplib
@@ -57,13 +58,14 @@ class HttpRequestActivity(Activity[HttpInputs]):
                 content=inputs.body,
             ) as response,
         ):
-            content = b""
+            buffer = bytearray()
             for chunk in response.iter_bytes():
-                content += chunk
-                if len(content) > inputs.max_response_bytes:
+                buffer.extend(chunk)
+                if len(buffer) > inputs.max_response_bytes:
                     return ActivityResult.failed(
                         f"response exceeded {inputs.max_response_bytes} bytes"
                     )
+            content = bytes(buffer)
             status = response.status_code
             response_headers = dict(response.headers)
         if status not in inputs.expected_status:
@@ -73,8 +75,9 @@ class HttpRequestActivity(Activity[HttpInputs]):
             )
         text = content.decode("utf-8", errors="replace")
         outputs: dict[str, Any] = {"status": status, "headers": response_headers, "text": text}
-        with contextlib.suppress(Exception):
-            outputs["json"] = response.json()
+        # The body was streamed, so parse the collected bytes (response.json() would raise).
+        with contextlib.suppress(ValueError):
+            outputs["json"] = json.loads(text)
         if inputs.output_path:
             path = safe_path(ctx, inputs.output_path)
             path.write_bytes(content)

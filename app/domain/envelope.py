@@ -25,6 +25,9 @@ class JobEnvelope(BaseModel):
     run_id: str
     step_id: str
     iteration: int = 0
+    # The engine's attempt counter for this step. A result is only applied when it matches
+    # the step's current attempt, so a stale redelivery can never overwrite a newer one.
+    attempt: int = 0
     activity: str
     inputs: dict[str, Any] = Field(default_factory=dict)
     secret_refs: list[str] = Field(default_factory=list)
@@ -49,6 +52,18 @@ class ResultEnvelope(BaseModel):
     @property
     def succeeded(self) -> bool:
         return self.outcome == "done"
+
+    @classmethod
+    def failure(cls, job: JobEnvelope, message: str) -> ResultEnvelope:
+        """A failed result that keeps the job's identity (run, step and foreach iteration)."""
+        return cls(
+            run_id=job.run_id,
+            step_id=job.step_id,
+            iteration=job.iteration,
+            correlation_id=job.correlation_id,
+            outcome="failed",
+            message=message,
+        )
 
 
 def envelope_schema() -> dict[str, Any]:

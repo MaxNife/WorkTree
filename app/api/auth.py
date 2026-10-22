@@ -17,6 +17,7 @@ from app.api.deps import (
 )
 from app.api.schemas import LoginRequest
 from app.api.serializers import user as serialize_user
+from app.errors import Unauthorized
 from app.security.rbac import permissions_for
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -30,14 +31,19 @@ def login(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     container = get_container(request)
-    user, roles, cookie, csrf = container.auth.authenticate(
-        session,
-        username=body.username,
-        password=body.password,
-        source_ip=client_ip(request),
-        user_agent=request.headers.get("user-agent", ""),
-        correlation_id=correlation_id(request),
-    )
+    try:
+        user, roles, cookie, csrf = container.auth.authenticate(
+            session,
+            username=body.username,
+            password=body.password,
+            source_ip=client_ip(request),
+            user_agent=request.headers.get("user-agent", ""),
+            correlation_id=correlation_id(request),
+        )
+    except Unauthorized:
+        # Keep the failed-login audit row: the request session would otherwise roll back.
+        session.commit()
+        raise
     settings = container.settings.security
     response.set_cookie(
         settings.cookie_name,

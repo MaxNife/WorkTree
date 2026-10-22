@@ -107,12 +107,8 @@ def run_activity_process(
         exit_code = -9
     masked_stderr = masker.mask(stderr or "")[-4000:]
     if timed_out:
-        result = ResultEnvelope(
-            run_id=envelope.run_id,
-            step_id=envelope.step_id,
-            correlation_id=envelope.correlation_id,
-            outcome="failed",
-            message=f"activity {envelope.activity} timed out after {timeout}s and was killed",
+        result = ResultEnvelope.failure(
+            envelope, f"activity {envelope.activity} timed out after {timeout}s and was killed"
         )
         return ProcessOutcome(result, stdout or "", masked_stderr, exit_code, timed_out=True)
 
@@ -124,12 +120,9 @@ def run_activity_process(
             exit_code=exit_code,
             stderr=masked_stderr,
         )
-        result = ResultEnvelope(
-            run_id=envelope.run_id,
-            step_id=envelope.step_id,
-            correlation_id=envelope.correlation_id,
-            outcome="failed",
-            message=masker.mask(
+        result = ResultEnvelope.failure(
+            envelope,
+            masker.mask(
                 f"worker returned no result envelope (exit {exit_code}): {masked_stderr[-500:]}"
             ),
         )
@@ -137,13 +130,7 @@ def run_activity_process(
     try:
         envelope_result = ResultEnvelope.model_validate(parsed)
     except Exception as exc:
-        result = ResultEnvelope(
-            run_id=envelope.run_id,
-            step_id=envelope.step_id,
-            correlation_id=envelope.correlation_id,
-            outcome="failed",
-            message=f"invalid result envelope: {exc}",
-        )
+        result = ResultEnvelope.failure(envelope, masker.mask(f"invalid result envelope: {exc}"))
         return ProcessOutcome(result, stdout or "", masked_stderr, exit_code)
     envelope_result.message = masker.mask(envelope_result.message)
     envelope_result.outputs = masker.mask_obj(envelope_result.outputs)

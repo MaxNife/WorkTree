@@ -14,7 +14,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.adapters.db.models import Base
+from app.adapters.db.models import AuditHead, Base
 
 
 def _sqlite_path(url: str) -> Path | None:
@@ -73,7 +73,11 @@ class Database:
             session.close()
 
     def create_all(self) -> None:
+        """Create the schema without Alembic (tests and first-run CLI) and seed lock rows."""
         Base.metadata.create_all(self.engine)
+        with self.session() as session:
+            if session.get(AuditHead, 1) is None:
+                session.add(AuditHead(id=1, appends=0))
 
     def drop_all(self) -> None:
         Base.metadata.drop_all(self.engine)

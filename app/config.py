@@ -80,7 +80,9 @@ class SecretSettings(BaseModel):
     adapter: Literal["local", "vault"] = "local"
     file: Path = Path("./runtime/secrets.json")
     vault_url: str = ""
-    vault_token: str = ""
+    # Name of the environment variable that holds the Vault token. The token itself never
+    # lives in config.yaml.
+    vault_token_env: str = "VAULT_TOKEN"
     vault_mount: str = "secret"
 
     @model_validator(mode="after")
