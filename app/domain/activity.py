@@ -108,7 +108,9 @@ def file_artifact(ctx: ActivityContext, path: Path, name: str | None = None) -> 
     )
 
 
-OptionProvider = Callable[[dict[str, Any]], list[dict[str, str]]]
+# Dependent-field options (Elsa's RefreshOnChange): given the current form values and, when
+# available, a run workspace holding pinned upstream files, return [{"value", "label"}].
+OptionProvider = Callable[[dict[str, Any], Path | None], list[dict[str, str]]]
 
 
 class Activity[InputT: BaseModel](ABC):
@@ -120,6 +122,9 @@ class Activity[InputT: BaseModel](ABC):
     sensitive_fields: ClassVar[tuple[str, ...]] = ()
     output_fields: ClassVar[tuple[str, ...]] = ()
     option_providers: ClassVar[dict[str, OptionProvider]] = {}
+    # Resource/Operation forms: the input fields shown for each value of ``operation``
+    # (fields not listed for any operation are always shown).
+    operation_fields: ClassVar[dict[str, tuple[str, ...]]] = {}
     requires_admin_author: ClassVar[bool] = False
 
     @abstractmethod
@@ -157,11 +162,17 @@ class Activity[InputT: BaseModel](ABC):
         result.message = get_masker().mask(result.message)[:2000]
         return result
 
-    def option_values(self, field: str, values: dict[str, Any]) -> list[dict[str, str]]:
+    def option_values(
+        self, field: str, values: dict[str, Any], workspace: Path | None = None
+    ) -> list[dict[str, str]]:
+        """Options for a dependent field. Never raises: a provider error yields no options."""
         provider = self.option_providers.get(field)
         if provider is None:
             return []
-        return provider(values)
+        try:
+            return provider(values, workspace)
+        except Exception:
+            return []
 
 
 class DummyActivity(Activity[EmptyInputs]):

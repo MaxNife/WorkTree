@@ -85,6 +85,12 @@ class SavedViewRequest(StrictModel):
     query: dict[str, Any] = Field(default_factory=dict)
 
 
+class ActivityOptionsRequest(StrictModel):
+    values: dict[str, Any] = Field(default_factory=dict)
+    # Resolve file inputs against this run's workspace (the Studio's pinned upstream data).
+    run_id: str | None = None
+
+
 class ActivityTestRequest(StrictModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     timeout_seconds: int = Field(default=120, ge=1, le=900)

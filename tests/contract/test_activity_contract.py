@@ -53,6 +53,14 @@ def test_metadata_and_input_schema(activity: Activity[Any]) -> None:
         assert field in properties, f"sensitive field {field!r} is not an input"
     for field in activity.option_providers:
         assert field in properties, f"option provider for unknown field {field!r}"
+    if activity.operation_fields:
+        operation = properties.get("operation", {})
+        allowed = set(operation.get("enum", [])) or {
+            item.get("const") for item in operation.get("anyOf", [])
+        }
+        assert set(activity.operation_fields) == allowed, "one entry per operation"
+        for fields in activity.operation_fields.values():
+            assert set(fields) <= set(properties), f"unknown fields in {fields}"
     spec = REGISTRY.spec(activity)
     json.dumps(spec)
 

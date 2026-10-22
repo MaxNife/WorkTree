@@ -40,6 +40,11 @@ class CsvActivity(Activity[CsvInputs]):
     category = "Platform / Files"
     description = "Stream or chunk CSV files; tables leave as Parquet references."
     input_model = CsvInputs
+    operation_fields = {
+        "read": ("path", "encoding", "delimiter", "output_path", "output_format", "max_rows"),
+        "write": ("path", "encoding", "rows", "source_path"),
+        "append": ("path", "encoding", "rows", "source_path"),
+    }
 
     def run(self, ctx: ActivityContext, inputs: CsvInputs) -> ActivityResult:
         path = safe_path(ctx, inputs.path)
@@ -103,11 +108,32 @@ class ExcelInputs(BaseModel):
     max_rows: int = Field(default=100_000, ge=1, le=1_000_000)
 
 
+def _sheet_options(values: dict[str, Any], workspace: Path | None) -> list[dict[str, str]]:
+    """Sheet names of the workbook named in ``path`` (resolved in the pinned run workspace)."""
+    if workspace is None or not values.get("path"):
+        return []
+    root = workspace.resolve()
+    book_path = (root / str(values["path"])).resolve()
+    if root not in book_path.parents or not book_path.is_file():
+        return []
+    from python_calamine import CalamineWorkbook
+
+    names = CalamineWorkbook.from_path(str(book_path)).sheet_names
+    return [{"value": name, "label": name} for name in names]
+
+
 class ExcelActivity(Activity[ExcelInputs]):
     name = "excel"
     category = "Platform / Excel"
     description = "Read with calamine, edit with openpyxl, write with XlsxWriter."
     input_model = ExcelInputs
+    option_providers = {"sheet": _sheet_options}
+    operation_fields = {
+        "read": ("path", "sheet", "output_path", "output_format", "max_rows"),
+        "write": ("path", "sheet", "rows", "source_path"),
+        "set_cells": ("path", "sheet", "cells"),
+        "sheets": ("path",),
+    }
 
     def run(self, ctx: ActivityContext, inputs: ExcelInputs) -> ActivityResult:
         path = safe_path(ctx, inputs.path)
@@ -194,6 +220,11 @@ class ZipActivity(Activity[ZipInputs]):
     description = "AES ZIP create/extract with zip-slip and size protections."
     input_model = ZipInputs
     sensitive_fields = ("password",)
+    operation_fields = {
+        "extract": ("path", "output_dir", "password", "max_total_bytes"),
+        "list": ("path", "password"),
+        "create": ("path", "files", "password"),
+    }
 
     def run(self, ctx: ActivityContext, inputs: ZipInputs) -> ActivityResult:
         path = safe_path(ctx, inputs.path)
@@ -264,6 +295,11 @@ class TxtLogActivity(Activity[TxtLogInputs]):
     category = "Platform / Files"
     description = "Append or read a plain-text log with a line cap."
     input_model = TxtLogInputs
+    operation_fields = {
+        "read": ("path", "max_lines"),
+        "append": ("path", "text", "lines"),
+        "write": ("path", "text", "lines"),
+    }
 
     def run(self, ctx: ActivityContext, inputs: TxtLogInputs) -> ActivityResult:
         path = safe_path(ctx, inputs.path)

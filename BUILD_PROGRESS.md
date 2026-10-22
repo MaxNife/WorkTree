@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-11
+- **Current checkpoint:** CP-12
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-11: drop-in via list-activities CLI, option-provider API, generated activity docs, WRITING_AN_ACTIVITY.md.
+- **Next action:** CP-12: close bus checkpoint (tests exist); make `bus.adapter: rabbitmq` fail loudly instead of silently using the DB bus.
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -79,7 +79,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-08 | Workflow definition schema and validator | done | (cp-08 tag) | `tests/unit/test_workflow_validator.py` 8 passed: Hypothesis properties (valid chains round-trip through YAML; back edges -> cycle; unknown activity on exactly that step; missing-step references; disconnected step unreachable; validator never crashes on 150 random routing graphs); `docs/schemas/workflow-v1.json` current (`scripts/gen_schemas.py --check`), Draft 2020-12 valid; `validate` CLI exit 0/1/2 |
 | CP-09 | Version registry, environments, promotion and SoD | done | (cp-09 tag) | `tests/integration/test_promotion_api.py` 3 passed (separate client per user): saves create immutable versions + step diff; prod refuses unpromoted (API + engine); dev->prod blocked without exact test approval; requester and version author cannot decide; operator/author lack approve; double decision 409; prod pinned to promoted v1 when v2 exists; all audited. Plus review regressions R12 |
 | CP-10 | Job/result envelope contract | done | (cp-10 tag) | `tests/contract/test_activity_contract.py` 59 passed: metadata/schema/sensitive-field/option checks and never-raises over every discovered activity + dummy + template; exception masking; output size cap; sample envelopes validate against `docs/schemas/envelope-v1.json` (found and fixed nested `$defs` that made the published schema unusable); child process answers with schema-valid envelopes keeping `iteration`. `docs/ENVELOPE.md` written |
-| CP-11 | Activity framework, registry and discovery | in-progress* | | contract/registry/drop-in discovery tests pass |
+| CP-11 | Activity framework, registry and discovery | done | (cp-11 tag) | `tests/integration/test_activity_framework.py` 5 passed: drop-in file listed by `list-activities` (broken drop-in tolerated) and runs in a workflow with no engine change; dependent options (`excel.sheet`) via `POST /api/activities/{name}/options/{field}` against a pinned run workspace, traversal refused; `docs/ACTIVITIES.md` current (`scripts/gen_activity_docs.py --check`); template < 30 lines and passes the contract suite. `docs/WRITING_AN_ACTIVITY.md` written; `operation_fields` added for Resource/Operation forms |
 | CP-12 | Message bus interface and adapters | in-progress* | | `tests/integration/test_bus.py` 8 passed (enqueue/claim/ack/retry/dead-letter/redelivery/no double processing); formal gate pending |
 | CP-13 | Worker runtime | in-progress* | | exercised through engine tests; direct timeout/secret tests todo |
 | CP-14 | Run engine | in-progress* | | multi-step/branch/retry/foreach/sub-workflow tests pass |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-11: list-activities drop-in test, options API, docs.
+- [ ] CP-12: rabbitmq config handling + gap.
 
 ## Blockers and workarounds
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
@@ -16,7 +17,7 @@ from app.api.deps import (
     get_session,
     require,
 )
-from app.api.schemas import ActivityTestRequest, SavedViewRequest
+from app.api.schemas import ActivityOptionsRequest, ActivityTestRequest, SavedViewRequest
 from app.api.serializers import notification as serialize_notification
 from app.api.serializers import saved_view as serialize_saved_view
 from app.domain.enums import Role, TaskStatus
@@ -112,6 +113,27 @@ def list_activities(
     _user: Annotated[Any, require(Permission.VIEW)],
 ) -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], request.app.state.container.registry.specs())
+
+
+@router.post("/activities/{name}/options/{field}")
+def activity_options(
+    name: str,
+    field: str,
+    body: ActivityOptionsRequest,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    _csrf: Annotated[Any, Depends(csrf_guard)],
+    _permission: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
+) -> dict[str, Any]:
+    """Options for a dependent field, recomputed when the fields it depends on change."""
+    activity = request.app.state.container.registry.require(name)
+    workspace = None
+    if body.run_id:
+        run = session.get(Run, body.run_id)
+        if run is None:
+            raise NotFound(f"run {body.run_id} not found")
+        workspace = Path(run.workspace)
+    return {"field": field, "options": activity.option_values(field, body.values, workspace)}
 
 
 @router.post("/activities/{name}/test")
