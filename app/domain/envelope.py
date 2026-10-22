@@ -67,12 +67,20 @@ class ResultEnvelope(BaseModel):
 
 
 def envelope_schema() -> dict[str, Any]:
-    return {
+    """One document for both envelopes. Shared ``$defs`` are hoisted to the root, because
+    pydantic's ``#/$defs/...`` references resolve against the document root."""
+    defs: dict[str, Any] = {}
+    branches = []
+    for model in (JobEnvelope, ResultEnvelope):
+        schema = model.model_json_schema()
+        defs.update(schema.pop("$defs", {}))
+        branches.append(schema)
+    document: dict[str, Any] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://uaf.local/schemas/envelope-v1.json",
-        "title": "UAF job/result envelope v1",
-        "oneOf": [
-            JobEnvelope.model_json_schema(),
-            ResultEnvelope.model_json_schema(),
-        ],
+        "$id": f"https://uaf.local/schemas/envelope-v{ENVELOPE_SCHEMA_VERSION}.json",
+        "title": f"UAF job/result envelope v{ENVELOPE_SCHEMA_VERSION}",
+        "oneOf": branches,
     }
+    if defs:
+        document["$defs"] = defs
+    return document

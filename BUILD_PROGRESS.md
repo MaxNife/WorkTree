@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-10
+- **Current checkpoint:** CP-11
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-10: docs/ENVELOPE.md and the reusable activity contract suite (tests/contract).
+- **Next action:** CP-11: drop-in via list-activities CLI, option-provider API, generated activity docs, WRITING_AN_ACTIVITY.md.
 - **Last commit:** see `git log -1` (`cp-03: ...`, tags `cp-02` and `cp-03` on the same commit: the two share one test module).
 - **Last updated:** 2026-10-22
 
@@ -78,7 +78,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-07 | Authentication, sessions and RBAC | done | (cp-07 tag) | `tests/integration/test_auth_rbac.py` 13 passed: 5 roles x 15 endpoints allowed/denied; every mutating /api route (OpenAPI-enumerated) rejects a missing CSRF token (found `/workflows/validate` unguarded, fixed); `serve` exits 2 with no admin; 5 weak/default passwords refused via API; login, user create and role change audited with before/after; single-step run isolated + Admin-only for code (DECISIONS 9.10). Plus `tests/test_auth_api.py` (rate limit, expiry, cookie, CSRF) |
 | CP-08 | Workflow definition schema and validator | done | (cp-08 tag) | `tests/unit/test_workflow_validator.py` 8 passed: Hypothesis properties (valid chains round-trip through YAML; back edges -> cycle; unknown activity on exactly that step; missing-step references; disconnected step unreachable; validator never crashes on 150 random routing graphs); `docs/schemas/workflow-v1.json` current (`scripts/gen_schemas.py --check`), Draft 2020-12 valid; `validate` CLI exit 0/1/2 |
 | CP-09 | Version registry, environments, promotion and SoD | done | (cp-09 tag) | `tests/integration/test_promotion_api.py` 3 passed (separate client per user): saves create immutable versions + step diff; prod refuses unpromoted (API + engine); dev->prod blocked without exact test approval; requester and version author cannot decide; operator/author lack approve; double decision 409; prod pinned to promoted v1 when v2 exists; all audited. Plus review regressions R12 |
-| CP-10 | Job/result envelope contract | in-progress* | | round-trip test passes |
+| CP-10 | Job/result envelope contract | done | (cp-10 tag) | `tests/contract/test_activity_contract.py` 59 passed: metadata/schema/sensitive-field/option checks and never-raises over every discovered activity + dummy + template; exception masking; output size cap; sample envelopes validate against `docs/schemas/envelope-v1.json` (found and fixed nested `$defs` that made the published schema unusable); child process answers with schema-valid envelopes keeping `iteration`. `docs/ENVELOPE.md` written |
 | CP-11 | Activity framework, registry and discovery | in-progress* | | contract/registry/drop-in discovery tests pass |
 | CP-12 | Message bus interface and adapters | in-progress* | | `tests/integration/test_bus.py` 8 passed (enqueue/claim/ack/retry/dead-letter/redelivery/no double processing); formal gate pending |
 | CP-13 | Worker runtime | in-progress* | | exercised through engine tests; direct timeout/secret tests todo |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-10: ENVELOPE.md + contract suite over all activities.
+- [ ] CP-11: list-activities drop-in test, options API, docs.
 
 ## Blockers and workarounds
 
