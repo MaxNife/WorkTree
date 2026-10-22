@@ -1,0 +1,47 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+web/.vite/
+web/coverage/
+web/playwright-report/
+web/test-results/
+
+# Runtime data (workspaces, logs, session state, databases)
+runtime/
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+config.local.yaml
+!.env.example
+
+# Playwright session state and browsers
+.playwright/
+playwright/.auth/
+
+# Generated large fixtures (produced at test time)
+fixtures/generated/
+tests/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
