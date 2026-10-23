@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-14
+- **Current checkpoint:** CP-15
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-14: run engine gate; incidents, persistence and audit tests added.
+- **Next action:** CP-15: crash-recovery test (kill mid-run, restart, resume; `resume: restart|skip`).
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -82,7 +82,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-11 | Activity framework, registry and discovery | done | (cp-11 tag) | `tests/integration/test_activity_framework.py` 5 passed: drop-in file listed by `list-activities` (broken drop-in tolerated) and runs in a workflow with no engine change; dependent options (`excel.sheet`) via `POST /api/activities/{name}/options/{field}` against a pinned run workspace, traversal refused; `docs/ACTIVITIES.md` current (`scripts/gen_activity_docs.py --check`); template < 30 lines and passes the contract suite. `docs/WRITING_AN_ACTIVITY.md` written; `operation_fields` added for Resource/Operation forms |
 | CP-12 | Message bus interface and adapters | done | (cp-12 tag) | `tests/integration/test_bus.py` 9 passed: enqueue/claim/ack/retry/dead-letter/lease redelivery (incl. extended lease)/orphan release/cancel/concurrent claimers/no double processing; `bus.adapter: rabbitmq` refused at startup (DECISIONS 9.12, gap G7) |
 | CP-13 | Worker runtime | done | (cp-13 tag) | `tests/integration/test_worker.py` 7 passed: timeout kills the activity and its grandchild, crashed child becomes a failed result, two workers overlap jobs with no double processing, secrets arrive by stdin only and are masked in results/bus/workspace/env, missing secret fails without dispatch, built-ins run under the worker. `.venv` process-tree kill via psutil |
-| CP-14 | Run engine | in-progress* | | engine tests written; gate run pending |
+| CP-14 | Run engine | done | (cp-14 tag) | `tests/test_engine.py` 8 passed: multi-step reference/outputs, failure routing + retry attempts, foreach aggregation, pinned sub-workflow, human-task suspend/resume, duplicate guard, bad-reference incident faults the run, persistence `none` keeps inputs/outputs out of run records and step/run audit trail present |
 | CP-15 | Durable resume, suspension and crash recovery | in-progress* | | human-task suspend/resume test passes; crash-recovery test todo |
 | CP-16 | Triggers, scheduler and duplicate-run guard | in-progress* | | duplicate guard test passes; cron/webhook/file/dependency tests todo |
 | CP-17 | Human tasks, SLA and alerting | in-progress* | | task completion/resume test passes; SLA/overdue tests todo |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-13: direct worker-runtime tests (timeout + grandchild kill, crash, parallel, secrets).
+- [ ] CP-15: crash-recovery and resume-mode tests.
 
 ## Blockers and workarounds
 
@@ -134,3 +134,5 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-22 | build-3 | CP-04, CP-05, CP-06, CP-07 | Verified DB/migrations, audit chain + CLI, secret store and auth/RBAC/CSRF gates; added the tests recorded in the table. | cp-07 |
 | 2026-10-22 | build-3 | CP-08, CP-09, CP-10, CP-11 | Verified schema/validator, promotion/SoD, envelope contract and activity discovery gates; wrote ENVELOPE/ACTIVITIES/WRITING_AN_ACTIVITY docs. | cp-11 |
 | 2026-10-23 | build-4 | CP-12 | Closed the bus checkpoint: 9 integration tests pass; `bus.adapter: rabbitmq` now refused at startup (DECISIONS 9.12) and G7 reworded around an outbox relay. | cp-12 |
+| 2026-10-23 | build-4 | CP-13 | Direct worker-runtime tests: grandchild process-tree kill on timeout, crash envelope, two-worker overlap without double processing, stdin-only secrets absent from env/workspace/bus, missing-secret failure. | cp-13 |
+| 2026-10-23 | build-4 | CP-14 | Engine gate closed with incident, persistence and audit assertions added to the routing/retry/foreach/sub-workflow suite. | cp-14 |

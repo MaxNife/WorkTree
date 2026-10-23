@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select
 
-from app.adapters.db.models import Run, RunStep, StepAttempt, Task
+from app.adapters.db.models import AuditLog, Incident, Run, RunStep, StepAttempt, Task
 from app.domain.enums import Role, RunStatus, StepState
 from app.domain.workflow import WorkflowDefinition
 from app.errors import DuplicateRun
@@ -197,3 +197,60 @@ def test_duplicate_guard_rejects_second_active_run(container) -> None:
     with pytest.raises(DuplicateRun):
         container.engine.start_run(workflow_id=workflow_id, requested_by="admin")
     run_to_completion(container, first.id)
+
+
+def test_unresolvable_reference_faults_the_run_with_an_incident(container) -> None:
+    workflow_id = save(
+        container,
+        {
+            "name": "bad reference",
+            "steps": [
+                {
+                    "id": "first",
+                    "activity": "echo",
+                    "inputs": {"message": "hello"},
+                    "on_done": "s",
+                },
+                {
+                    "id": "s",
+                    "activity": "echo",
+                    "inputs": {"message": "{{ steps.first.nope }}"},
+                },
+            ],
+        },
+    )
+    run = container.engine.start_run(workflow_id=workflow_id, requested_by="admin")
+    final = run_to_completion(container, run.id)
+    assert final.status == RunStatus.FAILED.value
+    assert final.error
+    with container.database.session() as session:
+        incidents = list(
+            session.execute(select(Incident).where(Incident.run_id == run.id)).scalars()
+        )
+    assert [incident.kind for incident in incidents] == ["bad_reference"]
+    assert incidents[0].step_id == "s"
+    assert "missing" in incidents[0].message
+
+
+def test_persistence_settings_keep_bulk_data_out_of_the_run_records(container) -> None:
+    workflow_id = save(
+        container,
+        {
+            "name": "no persistence",
+            "settings": {"persistence": "none"},
+            "steps": [{"id": "s", "activity": "echo", "inputs": {"message": "secret-free"}}],
+        },
+    )
+    run = container.engine.start_run(workflow_id=workflow_id, requested_by="admin")
+    final = run_to_completion(container, run.id)
+    assert final.status == RunStatus.DONE.value
+    with container.database.session() as session:
+        step = session.execute(select(RunStep).where(RunStep.run_id == run.id)).scalar_one()
+        assert step.inputs == {} and step.outputs == {}
+        actions = {
+            row.action
+            for row in session.execute(
+                select(AuditLog).where(AuditLog.correlation_id == run.correlation_id)
+            ).scalars()
+        }
+    assert {"run.trigger", "run.step.done", "run.finish"} <= actions
