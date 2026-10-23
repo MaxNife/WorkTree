@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-21 (complete)
-- **Status:** done — backend checkpoints CP-01 to CP-21 are closed; frontend/activity checkpoints remain.
-- **Next action:** CP-22: `email` (Graph sendMail and SMTP fallback) and `graph_read_mail` against the fake Graph and local SMTP sink, with the real-tenant gap logged.
+- **Current checkpoint:** CP-22 (complete)
+- **Status:** done — backend checkpoints CP-01 to CP-22 are closed; frontend/activity checkpoints remain.
+- **Next action:** CP-23: file tools (CSV/Excel/ZIP/text) with streaming, zip-slip and zip-bomb rejection, and the measured 1M-row memory gate.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,7 +13,7 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **254 passed** (CP-21 full run) |
+| Tests | `uv run pytest -q` | **262 passed** (CP-22 full run) |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (154 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
@@ -21,7 +21,7 @@ The resume point for the build agent. **Read this file first on every start or r
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; activity-library tests CP-22 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+**Not yet verified:** coverage percentage; activity-library tests CP-23 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
 
 ## Code review (2026-10-23, build-5): activity library
 
@@ -111,7 +111,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-19 | Local fixtures | done | (cp-19 tag) | `tests/integration/test_fixtures.py` 7 passed from pytest fixtures: fake portal (form login, email OTP, session cookie file download, API-token mode), fake Graph (token, `$filter`/`$orderby`/`$top`/`$select`, sendMail, drive upload), fake LLM completion, paramiko SFTP (put/get/list/mkdir/rename, root confinement, clean stop), SMTP sink delivery, deterministic SQLite GL, and data generators (1M-row CSV in an AES-256 ZIP, 500-row Excel, fixed-width and log samples); generated files are git-ignored. Real hosts remain gaps G3/G4/G5/G11 |
 | CP-20 | Activities: GL and Oracle | done | (cp-20 tag) | `tests/integration/test_sql_activities.py` 10 passed: aggregate join to Parquet, named binds + `max_rows`, positional placeholders refused, UPDATE and batched executemany with `chunk_size`, multi-statement script, 2,000-row fixture invoices staged then MERGE-upserted without duplicates, per-row errors reported with row indexes, direct load, identifier/URL refusal; contract suite passes; G2 narrowed to real Oracle |
 | CP-21 | Activities: HTTP, download, SFTP, UNC archive | done | (cp-21 tag) | `tests/integration/test_network_activities.py` 10 passed: JSON POST + body file, custom/rejected status, response cap, unsafe URLs refused; streamed download with uppercase SHA-256, artifact, mismatch/size-cap cleaning up and HTTP 404; SFTP put/get/list against the paramiko fixture, bad credentials and missing local path; UNC copy/move with checksum, mismatch -> failed with source intact and no destination, overwrite guard |
-| CP-22 | Activities: email and Graph mail | in-progress* | | code + mypy only; fake endpoint exists but is not exercised |
+| CP-22 | Activities: email and Graph mail | done | (cp-22 tag) | `tests/integration/test_mail_activities.py` 8 passed: SMTP body/HTML/attachment delivered to the sink, credentials refused without STARTTLS, connection failure; Graph sendMail with client-secret token and base64 attachment, bad token/endpoint; `graph_read_mail` newest OTP with server-side sender+timestamp filters and the small `$select`, old sender, no-code, bad timestamp/token. G3/G11 updated; DECISIONS 10.3 |
 | CP-23 | Activities: file tools | in-progress* | | code + mypy only; no fixture test yet |
 | CP-24 | Activities: Playwright robot and script | in-progress* | | code + mypy only; browser install/runtime not tested |
 | CP-25 | Activities: legacy wrapper and run_python | in-progress* | | code + mypy only; no process test yet |
@@ -135,7 +135,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-21 closed. CP-22 not started.
+- None: CP-22 closed. CP-23 not started.
 
 ## Blockers and workarounds
 
@@ -165,3 +165,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-5 | review (CP-20 to CP-26 code) | Re-verified every gate from scratch (all matched the tracker). Reviewed `activities/`: 12 defects fixed (R22-R33), incl. secret leak via logged command line, data loss in `unc_archive` move and `matching`, CSV column shift/NaN. 11 regression tests; 234 pass. CP-20 to CP-26 remain open. | uncommitted |
 | 2026-10-23 | build-6 | CP-20 | Added the `Database`/SQLite/Oracle interface (`activities/database.py`), converted the SQL activities to it, implemented staged chunked loads + SQLite upsert/Oracle MERGE + append and per-row errors, used `chunk_size` for batched executes and multi-statement/PLSQL scripts, and refused positional binds. 10 SQLite tests incl. 2,000 fixture invoices. G2 narrowed. 244 pass. | cp-20 |
 | 2026-10-23 | build-6 | CP-21 | Fixture tests for HTTP (JSON/caps/status/URL refusal), streamed download (checksum, size cap, 404), SFTP put/get/list + bad credentials against the paramiko fake, and UNC copy/move incl. checksum mismatch -> failed with no data loss and the overwrite guard. G5 updated. 254 pass. | cp-21 |
+| 2026-10-23 | build-6 | CP-22 | SMTP fallback (body/HTML/attachment, STARTTLS required for credentials, connection failure) against the sink; Graph sendMail via client-secret token with attachments; `graph_read_mail` filtered server-side by timestamp and sender, `$select` keeps the page small, OTP regex, failure paths. G3/G11 updated; DECISIONS 10.3. 262 pass. | cp-22 |

@@ -7,7 +7,9 @@ import json
 import mimetypes
 import shutil
 import smtplib
+import ssl
 import stat
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
@@ -272,10 +274,24 @@ class EmailActivity(Activity[EmailInputs]):
                 filename=path.name,
             )
         with smtplib.SMTP(inputs.smtp_host, inputs.smtp_port, timeout=30) as smtp:
+            smtp.ehlo()
+            encrypted = False
+            if smtp.has_extn("starttls"):
+                smtp.starttls(context=ssl.create_default_context())
+                smtp.ehlo()
+                encrypted = True
             if inputs.smtp_user and inputs.smtp_password:
+                if not encrypted:
+                    # A fallback relay that does not offer STARTTLS would receive the
+                    # password in clear text; refuse rather than leak it.
+                    return ActivityResult.failed(
+                        "refusing to send SMTP credentials without STARTTLS"
+                    )
                 smtp.login(inputs.smtp_user, inputs.smtp_password)
             smtp.send_message(message)
-        return ActivityResult.done({"provider": "smtp", "to": inputs.to}, "mail sent")
+        return ActivityResult.done(
+            {"provider": "smtp", "to": inputs.to, "starttls": encrypted}, "mail sent"
+        )
 
     def _graph(self, ctx: ActivityContext, inputs: EmailInputs) -> ActivityResult:
         token = _graph_token(inputs)
@@ -343,8 +359,15 @@ class GraphReadMailActivity(Activity[GraphReadMailInputs]):
             "$orderby": "receivedDateTime desc",
             "$select": "id,subject,bodyPreview,receivedDateTime,from",
         }
+        filters: list[str] = []
         if inputs.since:
-            params["$filter"] = f"receivedDateTime ge {inputs.since}"
+            filters.append(f"receivedDateTime ge {_graph_timestamp(inputs.since)}")
+        if inputs.sender:
+            # Filter on the server: the newest message from this sender after the timestamp
+            # must be in the page, even when other senders wrote more recently.
+            filters.append(f"from/emailAddress/address eq '{_odata_literal(inputs.sender)}'")
+        if filters:
+            params["$filter"] = " and ".join(filters)
         with httpx.Client(timeout=30) as client:
             response = client.get(
                 f"{inputs.graph_base_url.rstrip('/')}/users/{quote(inputs.mailbox, safe='@')}/messages",
@@ -408,6 +431,19 @@ class UncArchiveActivity(Activity[UncArchiveInputs]):
             {"path": str(destination), "sha256": digest, "bytes": destination.stat().st_size},
             "file archived",
         )
+
+
+def _graph_timestamp(value: str) -> str:
+    """Normalise a caller-supplied ISO timestamp for an OData filter (no raw interpolation)."""
+    moment = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _odata_literal(value: str) -> str:
+    """Escape a string for an OData filter literal (single quotes are doubled)."""
+    return value.replace("'", "''")
 
 
 def _graph_token(inputs: EmailInputs | GraphReadMailInputs) -> str | None:
