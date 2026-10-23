@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-17
+- **Current checkpoint:** CP-18
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-17: human task types, claim/complete, SLA breach with injected clock and alerts.
+- **Next action:** CP-18: finish API/WebSocket/OpenAPI gate, then CP-19 local fixtures.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -85,7 +85,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-14 | Run engine | done | (cp-14 tag) | `tests/test_engine.py` 8 passed: multi-step reference/outputs, failure routing + retry attempts, foreach aggregation, pinned sub-workflow, human-task suspend/resume, duplicate guard, bad-reference incident faults the run, persistence `none` keeps inputs/outputs out of run records and step/run audit trail present |
 | CP-15 | Durable resume, suspension and crash recovery | done | (cp-15 tag) | `tests/integration/test_recovery.py` 5 passed: a real child service process crashes mid-run and the restarted container resumes from the last completed step; `resume: restart` re-runs the in-flight step (marker written twice) while `resume: skip` marks it done (written once) and advances; a suspended human-task resume token survives a restart; `retry_from_failed_step` reopens the failed step and writes `run.retry` audit |
 | CP-16 | Triggers, scheduler and duplicate-run guard | done | (cp-16 tag) | `tests/integration/test_triggers.py` 10 passed: strict-after cron + single fire per slot, missed slot skipped and audited, catch-up drains one missed slot per tick, webhook token fires/merges payload and disable/unknown token 404, file arrival once per path+sha256 and again on new content, duplicate-guard rejection deletes the processed marker and retries after the active run, dependency trigger passes upstream run/output and fires once, `Idempotency-Key` replays the run / 409 on a different body, invalid cron and manual schedules refused |
-| CP-17 | Human tasks, SLA and alerting | in-progress* | | task completion/resume test passes; SLA/overdue tests todo |
+| CP-17 | Human tasks, SLA and alerting | done | (cp-17 tag) | `tests/integration/test_tasks.py` 9 passed: all four task types claim (role-gated, 409 on double claim), validate decisions (reject needs a reason) and resume the run; manual-match pairs stored; reject routes through `on_failed`; task SLA breach notifies the assignee role once, is audited and drives the overdue view/RBAC; active-run workflow SLA breach; webhook + SMTP delivery with masking; a broken channel never loses the notification |
 | CP-18 | REST API completion, live events, health and metrics | in-progress* | | auth/workflow/admin API tests pass; full resource/WebSocket tests todo |
 | CP-19 | Local fixtures | in-progress* | | fake HTTP/portal/Graph/LLM, SMTP sink and GL seed exist; SFTP fake and tests todo |
 | CP-20 | Activities: GL and Oracle | in-progress* | | code + mypy only; no activity test yet |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-17: task types + SLA tests.
+- [ ] CP-18: REST resources, WebSocket event stream, metrics, OpenAPI export.
 
 ## Blockers and workarounds
 
@@ -138,3 +138,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-4 | CP-14 | Engine gate closed with incident, persistence and audit assertions added to the routing/retry/foreach/sub-workflow suite. | cp-14 |
 | 2026-10-23 | build-4 | CP-15 | Crash-recovery suite: real killed child process, restart/skip modes, suspended token survives restart, audited retry. Fixed `run_activity_process` to stringify a Path extra folder before putting it in the child env. | cp-15 |
 | 2026-10-23 | build-4 | CP-16 | Trigger gate: cron/misfire/catch-up, webhook token lifecycle, file arrival/hash dedupe + guard retry, dependency outcome, idempotency-key replay. | cp-16 |
+| 2026-10-23 | build-4 | CP-17 | Human-task gate: four task types, claim/complete and resume, rejection reason + on_failed, task and workflow SLA breach (idempotent, audited, role-visible), webhook/SMTP delivery with masking and non-fatal channel failure. | cp-17 |
