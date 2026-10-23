@@ -40,7 +40,7 @@ Citation format: `path:line` or `path:start-end`. Line numbers refer to the file
 
 ## 1. Purpose & Scope
 
-The repository is the **planning and specification set for the WorkTree (UAF)**. UAF is an on-premise automation platform. It is meant to replace hand-written Python automations triggered by Windows Task Scheduler and to scale to hundreds of automations over time (`docs/BUILD_PROMPT_python_mvp.md:11`). The platform has three audiences. Engineers compose workflows from reusable activities, process owners trigger, monitor and action runs, and governance covers every run through audit, vaulted secrets and segregation of duties. The repository currently holds:
+The repository is the **planning and specification set for WorkTree**. WorkTree is an on-premise automation platform. It is meant to replace hand-written Python automations triggered by Windows Task Scheduler and to scale to hundreds of automations over time (`docs/BUILD_PROMPT_python_mvp.md:11`). The platform has three audiences. Engineers compose workflows from reusable activities, process owners trigger, monitor and action runs, and governance covers every run through audit, vaulted secrets and segregation of duties. The repository currently holds:
 
 - 23 research notes (Elsa capabilities, libraries, language verdicts, measurements),
 - a handoff summary for the Elsa track (now reference material only, see §0.4),
