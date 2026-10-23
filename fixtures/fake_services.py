@@ -85,6 +85,7 @@ class FixtureState:
     download_bytes: bytes = b"fixture,payload\n1,alpha\n2,beta\n"
     otp_code: str = "654321"
     api_token: str = "fixture-api-token"
+    otp_failures: int = 0
 
 
 def _parse_graph_time(value: str) -> datetime:
@@ -176,15 +177,27 @@ def build_fake_app(state: FixtureState | None = None) -> FastAPI:
             response.status_code = 401
             return "<html><body>expired session</body></html>"
         if code != state.otp_code:
+            # Like real portals, show the form again with the error so a fresh code can be
+            # entered in the same session.
+            state.otp_failures += 1
             response.status_code = 401
-            return "<html><body>invalid code</body></html>"
+            return """
+            <html><body><p class="error">invalid code</p>
+            <form method="post" action="/portal/otp">
+              <input name="code" id="otp" autocomplete="one-time-code" />
+              <button type="submit" id="verify">Verify</button>
+            </form></body></html>
+            """
         return '<html><body><div id="verified">verified</div></body></html>'
 
     @app.get("/portal/report.csv")
     def portal_report(request: Request) -> PlainTextResponse:
         if request.cookies.get("fixture_session") not in state.portal_sessions:
             raise HTTPException(status_code=401, detail="expired session")
-        return PlainTextResponse("account,amount\n1000,42.50\n")
+        return PlainTextResponse(
+            "account,amount\n1000,42.50\n",
+            headers={"Content-Disposition": 'attachment; filename="report.csv"'},
+        )
 
     @app.get("/portal/api/report")
     def portal_api_report(x_api_token: str = Header(default="")) -> dict[str, Any]:

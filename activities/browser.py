@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
+import psutil
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,7 +36,7 @@ from activities._common import artifact_for, safe_path, validate_url
 from activities.network import GraphReadMailActivity
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 
-_FAILURE_WORDS = ("denied", "invalid", "expired", "not authorised", "not authorized")
+_FAILURE_WORDS = ["denied", "invalid", "expired", "not authorised", "not authorized"]
 
 
 class StepSpec(BaseModel):
@@ -75,6 +76,10 @@ class RobotInputs(BaseModel):
     otp_selector: str = "input[name=otp], input[name=code], #otp, input[autocomplete=one-time-code]"
     otp_submit_selector: str = "button[type=submit], #verify"
     otp_resend_selector: str = ""
+    # Text that means the portal refused the login or OTP, matched case-insensitively in
+    # ``login_failure_selector`` (default: the whole page body).
+    login_failure_markers: list[str] = Field(default_factory=lambda: list(_FAILURE_WORDS))
+    login_failure_selector: str = "body"
 
     # Reuse a saved session only when this URL still answers (otherwise log in again).
     session_check_url: str = ""
@@ -120,6 +125,8 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
             "username_selector",
             "password_selector",
             "submit_selector",
+            "login_failure_markers",
+            "login_failure_selector",
         ),
         "form_otp": (
             "login_url",
@@ -131,6 +138,8 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
             "otp_selector",
             "otp_submit_selector",
             "otp_resend_selector",
+            "login_failure_markers",
+            "login_failure_selector",
             "otp_graph_base_url",
             "otp_login_base_url",
             "otp_tenant_id",
@@ -169,6 +178,9 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
             browser = _launch(playwright, inputs.browser, inputs.headless)
             context: BrowserContext | None = None
             try:
+                # The lock covers only loading, checking, creating and saving the portal
+                # session: two robots must not log in to one portal at once (a new session
+                # or OTP can invalidate the other), but their steps run in parallel.
                 with _portal_lock(state_root, lock_key):
                     storage = state_path if state_path.is_file() else None
                     context = browser.new_context(
@@ -195,22 +207,23 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
                                 context.storage_state(path=str(state_path))
                                 state_path.chmod(0o600)
                             logs.append("session state saved")
-                    if start:
-                        page.goto(start, wait_until="domcontentloaded")
-                        logs.append(f"goto {start}")
-                    if inputs.operation == "none" and inputs.username:
-                        self._maybe_autofill_credentials(page, inputs)
-                    for index, step in enumerate(inputs.steps, start=1):
-                        try:
-                            value = self._execute(ctx, page, step, inputs.base_url)
-                        except Exception:
-                            if inputs.screenshot_on_failure:
+                if start:
+                    page.goto(start, wait_until="domcontentloaded")
+                    logs.append(f"goto {start}")
+                if inputs.operation == "none" and inputs.username:
+                    self._maybe_autofill_credentials(page, inputs)
+                for index, step in enumerate(inputs.steps, start=1):
+                    try:
+                        value = self._execute(ctx, page, step, inputs.base_url)
+                    except Exception:
+                        if inputs.screenshot_on_failure:
+                            with contextlib.suppress(Exception):
                                 failure = safe_path(ctx, f"failure-{index}.png")
                                 page.screenshot(path=str(failure), full_page=True)
-                            raise
-                        if value is not None:
-                            extracted[f"{step.action}_{index}"] = value
-                        logs.append(f"{index}. {step.action}")
+                        raise
+                    if value is not None:
+                        extracted[f"{step.action}_{index}"] = value
+                    logs.append(f"{index}. {step.action}")
                 screenshot = safe_path(ctx, inputs.screenshot_path)
                 page.screenshot(path=str(screenshot), full_page=True)
                 return ActivityResult.done(
@@ -255,7 +268,7 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
             _fill_first(page, inputs.username_selector, inputs.username)
             _fill_first(page, inputs.password_selector, inputs.password)
             _click_first(page, inputs.submit_selector)
-            _raise_for_login_failure(page)
+            _raise_for_login_failure(page, inputs)
             if inputs.operation == "form_otp":
                 self._complete_otp(ctx, page, inputs, since, logs)
             logs.append(f"{inputs.operation} login completed")
@@ -275,7 +288,7 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
         for attempt in range(1, inputs.otp_attempts + 1):
             _fill_first(page, inputs.otp_selector, code)
             _click_first(page, inputs.otp_submit_selector)
-            if not _page_has_failure(page):
+            if not _page_has_failure(page, inputs):
                 logs.append("email OTP verified")
                 return
             used.add(code)
@@ -487,7 +500,8 @@ def _launch(playwright: Playwright, browser: str, headless: bool) -> Browser:
 
 
 def _absolute(base_url: str, value: str) -> str:
-    if value.startswith(("http://", "https://")):
+    # Anything with a scheme is absolute; validate_url then refuses file:, javascript:, etc.
+    if urlsplit(value).scheme:
         return value
     if not base_url:
         raise ValueError(f"a base_url is required for relative URL: {value}")
@@ -521,15 +535,23 @@ def _click_first(page: Page, selector: str) -> None:
     if locator.count() == 0:
         raise ValueError(f"login control not found: {selector}")
     locator.first.click()
+    # A submit usually navigates; read the result page, not the one being left.
+    page.wait_for_load_state("domcontentloaded")
 
 
-def _page_has_failure(page: Page) -> bool:
-    body = page.locator("body").inner_text().lower()
-    return any(word in body for word in _FAILURE_WORDS)
+def _page_has_failure(page: Page, inputs: RobotInputs) -> bool:
+    markers = [marker.lower() for marker in inputs.login_failure_markers if marker.strip()]
+    if not markers:
+        return False
+    target = page.locator(inputs.login_failure_selector or "body")
+    if target.count() == 0:
+        return False
+    text = " ".join(target.all_inner_texts()).lower()
+    return any(marker in text for marker in markers)
 
 
-def _raise_for_login_failure(page: Page) -> None:
-    if _page_has_failure(page):
+def _raise_for_login_failure(page: Page, inputs: RobotInputs) -> None:
+    if _page_has_failure(page, inputs):
         raise ValueError("portal rejected the login form")
 
 
@@ -545,7 +567,8 @@ def _session_is_valid(context: BrowserContext, inputs: RobotInputs) -> bool:
 def _state_root(ctx: ActivityContext) -> Path:
     settings = getattr(ctx, "settings", None)
     data = getattr(settings, "data", None)
-    root = getattr(data, "playwright_state", None)
+    # In a worker child the folder arrives as UAF_CHILD_PLAYWRIGHT_STATE (data.playwright_state).
+    root = getattr(data, "playwright_state", None) or os.environ.get("UAF_CHILD_PLAYWRIGHT_STATE")
     path = Path(root) if root else Path(tempfile.gettempdir()) / "uaf-playwright-state"
     path.mkdir(parents=True, exist_ok=True)
     with contextlib.suppress(OSError):
@@ -567,8 +590,9 @@ def _state_name(inputs: RobotInputs) -> str:
 def _portal_lock(root: Path, key: str) -> Iterator[None]:
     """Serialise logins for one portal across threads and worker processes.
 
-    The registry lives in the state folder as an atomically created lock file. A lock older
-    than five minutes is considered abandoned, so a killed worker cannot block the portal.
+    The registry lives in the state folder as an atomically created lock file holding the
+    owner's pid. A lock whose owner process is gone is abandoned and removed, so a killed
+    worker cannot block the portal; a live owner keeps it however long its OTP wait takes.
     """
     lock = root / f".{key}.lock"
     deadline = time.monotonic() + 60
@@ -577,11 +601,8 @@ def _portal_lock(root: Path, key: str) -> Iterator[None]:
         try:
             handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
-            try:
-                if time.time() - lock.stat().st_mtime > 300:
-                    lock.unlink(missing_ok=True)
-                    continue
-            except FileNotFoundError:
+            if _lock_is_abandoned(lock):
+                lock.unlink(missing_ok=True)
                 continue
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"timed out waiting for the portal login lock: {key}") from None
@@ -594,4 +615,16 @@ def _portal_lock(root: Path, key: str) -> Iterator[None]:
         lock.unlink(missing_ok=True)
 
 
-__all__ = ["Path", "PlaywrightRobotActivity", "PlaywrightScriptActivity"]
+def _lock_is_abandoned(lock: Path) -> bool:
+    try:
+        owner = lock.read_text(encoding="utf-8").split()[0]
+        age = time.time() - lock.stat().st_mtime
+    except (OSError, IndexError):
+        # Missing, or created but not written yet: give the writer a moment.
+        return False
+    if not owner.isdigit():
+        return age > 5
+    return not psutil.pid_exists(int(owner))
+
+
+__all__ = ["PlaywrightRobotActivity", "PlaywrightScriptActivity"]
