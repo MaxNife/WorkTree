@@ -29,6 +29,7 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | [`run_python`](#run-python) | Platform / Automation | 1.0 | Run a Python script in its own process with the run workspace as its folder (process isolation, not a sandbox; Admin-only). |
 | [`sftp`](#sftp) | Platform / Integration | 1.0 | SFTP get/put/list using paramiko. |
 | [`sleep`](#sleep) | Platform / Core | 1.0 | Wait for a number of seconds (testing and pacing). |
+| [`spreadsheet`](#spreadsheet) | Platform / Excel | 1.0 | Calculate workbooks with the GridCraft engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check. |
 | [`txt_log`](#txt-log) | Platform / Files | 1.0 | Append or read a plain-text log with a line cap. |
 | [`unc_archive`](#unc-archive) | Platform / Files | 1.0 | Copy or move a file to a UNC/network path and verify its SHA-256. |
 | [`zip`](#zip) | Platform / Files | 1.0 | AES ZIP create/extract with zip-slip and size protections. |
@@ -473,6 +474,35 @@ Wait for a number of seconds (testing and pacing).
 | Input | Type | Default | Notes |
 |---|---|---|---|
 | `seconds` | number | `1` |  |
+
+## spreadsheet
+
+Calculate workbooks with the GridCraft engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check.
+
+| Input | Type | Default | Notes |
+|---|---|---|---|
+| `operation` | `recalculate` \| `calculate` \| `read_range` \| `evaluate` \| `convert` \| `check` | `'recalculate'` |  |
+| `path` | string | `'book.xlsx'` |  |
+| `sheet` | string |  |  |
+| `output_path` | string |  |  |
+| `values` | object |  |  |
+| `formulas` | object |  |  |
+| `read` | array |  |  |
+| `range` | string | `'used'` |  |
+| `header` | boolean | `True` |  |
+| `formula` | string |  |  |
+| `tolerance` | number | `1e-09` |  |
+| `fail_on_mismatch` | boolean | `True` |  |
+| `timeout_seconds` | integer | `300` |  |
+
+Fields by operation:
+
+- `recalculate`: `path`, `output_path`
+- `calculate`: `path`, `sheet`, `values`, `formulas`, `read`, `output_path`
+- `read_range`: `path`, `sheet`, `range`, `header`, `output_path`
+- `evaluate`: `path`, `sheet`, `formula`
+- `convert`: `path`, `sheet`, `output_path`
+- `check`: `path`, `tolerance`, `fail_on_mismatch`
 
 ## txt_log
 

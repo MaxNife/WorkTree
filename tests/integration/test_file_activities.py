@@ -289,6 +289,7 @@ def test_excel_recalculate_fails_clearly_when_libreoffice_is_absent(
     )
     assert result.outcome == Outcome.FAILED
     assert "G9" in result.message and "LibreOffice" in result.message
+    assert "gridcraft-cli" in result.message
 
 
 # ----------------------------------------------------------------------------- ZIP
