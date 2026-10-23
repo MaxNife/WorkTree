@@ -2063,6 +2063,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-jsonschema"
+version = "4.26.0.20261006"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "referencing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/29/d2/1f742605f5a6d39f993134885b8de41c98af606871d3ebddaf3e776bd1eb/types_jsonschema-4.26.0.20261006.tar.gz", hash = "sha256:3eb7db61b6819d40addfdaac7173e749071a7d4a9a4394f0c844598ec84b2500", size = 16843, upload-time = "2026-10-06T08:16:07.318Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/a0/4f2e3c0dc3d5cad958006f2e0307065cc8fe4fbf0393ff0b69d55ee9bbe5/types_jsonschema-4.26.0.20261006-py3-none-any.whl", hash = "sha256:29301f4e65e3928540cdf5e23ad716e38bb0c0b416a48dada213edd3d70206ec", size = 16113, upload-time = "2026-10-06T08:16:06.355Z" },
+]
+
+[[package]]
 name = "types-psutil"
 version = "7.2.2.20260906"
 source = { registry = "https://pypi.org/simple" }
@@ -2146,6 +2158,7 @@ dependencies = [
     { name = "httpx" },
     { name = "itsdangerous" },
     { name = "jinja2" },
+    { name = "jsonschema" },
     { name = "openpyxl" },
     { name = "oracledb" },
     { name = "pandas" },
@@ -2182,7 +2195,6 @@ vault = [
 dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
-    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pre-commit" },
@@ -2190,6 +2202,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "types-jsonschema" },
     { name = "types-psutil" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
@@ -2206,6 +2219,7 @@ requires-dist = [
     { name = "hvac", marker = "extra == 'vault'", specifier = ">=2.3" },
     { name = "itsdangerous", specifier = ">=2.2" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "jsonschema", specifier = ">=4.23" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "opentelemetry-api", marker = "extra == 'otel'", specifier = ">=1.28" },
     { name = "opentelemetry-sdk", marker = "extra == 'otel'", specifier = ">=1.28" },
@@ -2233,7 +2247,6 @@ provides-extras = ["vault", "rabbitmq", "otel"]
 dev = [
     { name = "hypothesis", specifier = ">=6.118" },
     { name = "import-linter", specifier = ">=2.1" },
-    { name = "jsonschema", specifier = ">=4.23" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pre-commit", specifier = ">=4.0" },
@@ -2241,6 +2254,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "types-jsonschema", specifier = ">=4.23" },
     { name = "types-psutil", specifier = ">=6.0" },
     { name = "types-pyyaml", specifier = ">=6.0" },
     { name = "types-requests", specifier = ">=2.32" },

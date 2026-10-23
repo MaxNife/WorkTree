@@ -10,8 +10,9 @@ from pathlib import Path
 import openpyxl
 import paramiko
 
-from activities.automation import MatchingActivity, RunPythonActivity
+from activities.automation import RunPythonActivity
 from activities.files import CsvActivity, ExcelActivity
+from activities.matching import MatchingActivity
 from activities.network import DownloadFileActivity, SftpActivity, UncArchiveActivity
 from app.domain.activity import ActivityContext
 from app.domain.clock import FakeClock
@@ -75,11 +76,11 @@ def test_matching_reports_duplicate_right_keys_instead_of_dropping_them(tmp_path
     )
     assert result.outcome == Outcome.DONE, result.message
     pairs = json.loads((ctx.workspace / "matches.json").read_text(encoding="utf-8"))
-    unmatched = json.loads((ctx.workspace / "matches-unmatched.json").read_text(encoding="utf-8"))
+    unmatched = json.loads((ctx.workspace / "matches-unmatched-b.json").read_text(encoding="utf-8"))
     # Every input row is accounted for exactly once: 1 pair + 2 unmatched right rows.
     assert [p["right_n"] for p in pairs] == [1]
-    assert sorted(u["right_n"] for u in unmatched) == [2, 3]
-    assert result.outputs["matched"] == 1 and result.outputs["unmatched"] == 2
+    assert sorted(u["n"] for u in unmatched) == [2, 3]
+    assert result.outputs["matched"] == 1 and result.outputs["unmatched_right"] == 2
 
 
 # ----------------------------------------------------------------------------- files

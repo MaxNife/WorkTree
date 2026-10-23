@@ -18,6 +18,7 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | itsdangerous | BSD-3-Clause | signed session cookies |
 | APScheduler | MIT | cron scheduling |
 | httpx | BSD-3-Clause | HTTP activities and fixtures |
+| jsonschema | MIT | `ai_extract` result validation, published schema checks |
 | PyYAML | MIT | workflow YAML |
 | Jinja2 | BSD-3-Clause | fixture pages |
 | python-multipart | Apache-2.0 | form uploads |
@@ -58,11 +59,11 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | Package | Licence |
 |---|---|
 | pytest, pytest-cov, pytest-asyncio | MIT |
-| jsonschema (schema file tests) | MIT |
 | Hypothesis | MPL-2.0 |
 | mypy | MIT |
 | ruff | MIT |
 | import-linter | BSD-2-Clause |
+| typeshed stubs (types-psutil, types-PyYAML, types-requests, types-jsonschema) | Apache-2.0 |
 | pre-commit | MIT |
 | pip-audit | Apache-2.0 |
 
@@ -72,3 +73,7 @@ where noted. If a dependency is added or replaced, update this file in the same 
   reference only.
 - No Elsa source was copied or adapted; Elsa (MIT) is a semantic reference only.
 - The AI endpoint is internal and off by default; no external SaaS is called by the platform.
+- PdfCraft (`pdfcraft-cli`) and WordCraft (`wordcraft-cli`), both MIT OR Apache-2.0 from
+  CraftApps, are optional external engines for the `pdf` and `document` activities. They run
+  as separate processes; no CraftApps source is copied into this repository and the binaries
+  are not committed (KNOWN_GAPS G16).

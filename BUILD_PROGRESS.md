@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-24 (in progress, paused)
-- **Status:** browser robot and fixture changes are written and import/type-check, but CP-24 has **no tests or checkpoint commit yet**. CP-23 is the last closed checkpoint.
-- **Next action:** write `tests/integration/test_browser_activities.py` (API-token, form, form+OTP, session reuse/expiry, stale OTP, `playwright_script`), fix what it finds, then run all CP-24 gates, update docs/gaps and commit `cp-24: Playwright activities` + tag `cp-24`. CP-25 and CP-26 remain.
+- **Current checkpoint:** CP-27 (next)
+- **Status:** backend and activity checkpoints CP-01 to CP-26 are closed, plus the `pdf` and `document` activities on the CraftApps PdfCraft/WordCraft engines (DECISIONS 11.12, 11.13; G16). The frontend (CP-27 onward) has not started.
+- **Next action:** CP-27: scaffold `web/` (Vite, Vue 3 + TS strict, router, Pinia, vue-query, Vue Flow, Fluent web components wrapped), design tokens/themes, shared components, OpenAPI client + freshness check, `docs/design-language.md`, bundle served by FastAPI.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,15 +13,35 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **278 passed** (CP-23 full run, incl. the 1M-row gate) |
+| Tests | `uv run pytest -q` (with `UAF_TEST_PDFCRAFT_CLI` set) | **337 passed**, 0 failed (build-7 full run); then 115 passed on contract/framework/platform/worker/pdf/document suites after the `document` activity was added |
 | Lint | `uv run ruff check .` | passed |
-| Format | `uv run ruff format --check .` | passed (154 files) |
-| Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
+| Format | `uv run ruff format --check .` | passed (169 files) |
+| Types | `uv run mypy --strict app activities fixtures` | passed (88 source files) |
 | Layering | `uv run lint-imports` | passed (1 contract kept) |
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; activity-library tests CP-24 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+**Not yet verified:** coverage percentage; the whole frontend; acceptance items A1-A10; PdfCraft OCR tools; Firefox/WebKit robots.
+
+## Code review (2026-10-23, build-7): platform and CP-24 draft
+
+Second full review: engine, auth, API boundary, worker launcher, and the paused CP-24 browser code. Each item is fixed with a regression test in `tests/integration/test_platform_review.py` (engine/auth/webhook/env) or `tests/integration/test_browser_activities.py` (R44-R46).
+
+| # | Defect | Fix |
+|---|---|---|
+| R34 | **Correctness:** `duplicate_guard: queue` never queued: the duplicate was flagged but advanced at once, running in parallel with the run it should wait for | not advanced until the run ahead finishes (DECISIONS 11.3) |
+| R35 | Two queued runs with the same `created_at` each saw the other as earlier and waited forever | strict (`created_at`, `id`) order |
+| R36 | `recover()` turned queued (pending) duplicates into running | queued runs stay pending |
+| R37 | The tick advanced all runs in one session: a run failing half-way still committed its partial changes | one transaction per run, incident in a fresh one (DECISIONS 11.1) |
+| R38 | Human-task completion bypassed the engine lock (R6), racing the tick; taking it late could deadlock against SQLite | lock taken before the first write (DECISIONS 11.2) |
+| R39 | `human_task` inputs were not validated: an unknown type/role created a task nobody could complete; a bad `due_minutes` crashed the tick | validated by the activity model, `bad_inputs` incident (DECISIONS 11.4) |
+| R40 | **Security:** activity child processes inherited the server environment, including `UAF_SECRET_*` (e.g. the session signing key) and the Vault token | stripped; child settings via `UAF_CHILD_*` (DECISIONS 11.5) |
+| R41 | **Security:** the unauthenticated webhook returned the full run record (inputs, workspace path, correlation id) and accepted unbounded bodies | id/status/trigger only, 1 MiB cap, object-only (DECISIONS 11.6) |
+| R42 | The last Admin could demote or deactivate themselves (no one left to administer); role change for an unknown user was a 500 | 409 guard, 404 (DECISIONS 11.7) |
+| R43 | Login timing revealed whether a username exists (no argon2 work for unknown users) | equal-cost dummy verification |
+| R44 | CP-24 draft: the portal lock wrapped the whole robot (robots on one portal serialised end to end) and was broken as "stale" after 5 min while a live login waited up to 900 s for an OTP | lock only the session phase; abandoned only when the owner pid is gone (DECISIONS 11.8) |
+| R45 | CP-24 draft: login failure detected by fixed words anywhere on the page ("Invalid invoices: 3" = failed login) and read before the post-submit page loaded | configurable markers + selector; wait for load after submit |
+| R46 | CP-24 draft: Playwright state folder setting was ignored in workers (fell back to the OS temp dir); a `file:` URL got a misleading "base_url required" error | `UAF_CHILD_PLAYWRIGHT_STATE`; any URL with a scheme goes to `validate_url` |
 
 ## Code review (2026-10-23, build-5): activity library
 
@@ -113,9 +133,9 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-21 | Activities: HTTP, download, SFTP, UNC archive | done | (cp-21 tag) | `tests/integration/test_network_activities.py` 10 passed: JSON POST + body file, custom/rejected status, response cap, unsafe URLs refused; streamed download with uppercase SHA-256, artifact, mismatch/size-cap cleaning up and HTTP 404; SFTP put/get/list against the paramiko fixture, bad credentials and missing local path; UNC copy/move with checksum, mismatch -> failed with source intact and no destination, overwrite guard |
 | CP-22 | Activities: email and Graph mail | done | (cp-22 tag) | `tests/integration/test_mail_activities.py` 8 passed: SMTP body/HTML/attachment delivered to the sink, credentials refused without STARTTLS, connection failure; Graph sendMail with client-secret token and base64 attachment, bad token/endpoint; `graph_read_mail` newest OTP with server-side sender+timestamp filters and the small `$select`, old sender, no-code, bad timestamp/token. G3/G11 updated; DECISIONS 10.3 |
 | CP-23 | Activities: file tools | done | (cp-23 tag) | `tests/integration/test_file_activities.py` 16 passed: CSV read streams all three output formats (7/3/50-row chunks), declared encoding/delimiter, `read_fwf(dtype=str)` on 500 fixture rows, write/append/source_path, empty file; Excel sheets/read 500 fixture rows/write with bold header/set_cells/recalculate G9; ZIP AES create/list/extract, zip-slip and size/entry bombs rejected with no partial files, 500-row workbook round trip; text log write/append/tail + 500 fixture log lines; 1M-row CSV measured at **55.8 MB traced peak** (< 500 MB). DECISIONS 10.4 |
-| CP-24 | Activities: Playwright robot and script | in-progress* | | code + mypy only; browser install/runtime not tested |
-| CP-25 | Activities: legacy wrapper and run_python | in-progress* | | code + mypy only; no process test yet |
-| CP-26 | Activities: matching, human_task, ai_extract | in-progress* | | code + mypy only; human_task engine path tested, activities not |
+| CP-24 | Activities: Playwright robot and script | done | (cp-24 tag) | `tests/integration/test_browser_activities.py` 14 passed against the fake portal + fake Graph (headless Chromium): API-token login sends the header and a wrong token fails; form login downloads the report and saves state (lock released); wrong password; saved session reused, then expired by the portal and renewed; form+OTP reads the fresh code from Graph; OTP mail older than T0 never used; rejected OTP retried with the next fresh code; all OTPs rejected fails after `otp_attempts`; portal lock exclusive and recovers from a dead owner; `playwright_script` result + screenshot, script error -> failed; unsafe URL refused. Review fixes R44-R46. G8 narrowed |
+| CP-25 | Activities: legacy wrapper and run_python | done | (cp-25 tag) | `tests/integration/test_process_activities.py` 10 passed: sample legacy robot collects named output files as artifacts; secrets masked in args/env/stdout/stderr/log; exit codes map to outcomes with messages (`success_codes`); missing outputs fail unless optional; output globs confined to the workspace; `UAF_*`/malformed env names refused; timeout kills the robot and its grandchild; `run_python` timeout keeps partial output and JSON result file returned; legacy robot runs under the worker envelope with `{{ secret:... }}` substitution and masking. `run_python` documented as process isolation, not a sandbox (DECISIONS 11.9) |
+| CP-26 | Activities: matching, human_task, ai_extract | done | (cp-26 tag) | `tests/integration/test_matching_ai_tasks.py` 15 passed: Hypothesis (300 examples each) - every row accounted for exactly once, no right row reused, pairs respect key/score/amount/date rules, 1:N groups sum within tolerance, deterministic, self-match complete; bank vs ledger 1:1 and 1:N to three Parquet tables; fuzzy only above threshold; human_task suspends and resumes for all four task types; ai_extract refused when disabled, sends the JSON schema to the fake LLM and validates the answer, schema mismatch and invalid schema fail (DECISIONS 11.10, 11.11) |
 | CP-27 | Frontend foundation and design language | todo | | not started |
 | CP-28 | App shell, navigation and command palette | todo | | not started |
 | CP-29 | Operations Console | todo | | not started |
@@ -135,17 +155,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-**CP-24 work saved in the working tree (not yet a checkpoint):**
-
-- `activities/browser.py` rewritten around an `operation` field (`none`, `api_token`, `form`, `form_otp`) so the contract's Resource/Operation form is satisfied.
-  - API-token login validates the token with `context.request` and sends the configured header on page requests.
-  - Form login uses configurable username/password/submit selectors; form+OTP records T0 before submitting credentials, polls `graph_read_mail` for a code received at/after T0 with the configured regex, and retries with a fresh code after a rejected OTP (optional resend selector).
-  - Per-portal storage state lives in `settings.data.playwright_state` (fallback: OS temp), with a `0700` folder, `0600` state file and an atomic cross-process lock file per portal.
-  - `session_check_url` decides reuse vs. `saved session expired or rejected`; a successful login saves state.
-  - Step language and `playwright_script` are unchanged; `playwright_script` still writes its JSON result and screenshot.
-- `fixtures/fake_services.py` gained `/portal/login/otp` (hidden `otp_required` field) and re-adds `fixture_session` on every successful login; the existing `/portal/login` response used by CP-19 is unchanged.
-- Verified manually: Chromium launches headless and renders a test page with the installed `chromium-1248`; `activities.browser` imports, `ruff check` is clean after the `B904` fix, and `mypy --strict activities/browser.py` passes.
-- **Not done yet:** tests for all three login styles, session reuse and forced expiry, stale OTP, wrong token/code, and `playwright_script`; full pytest/ruff/format/mypy/lint-imports/pre-commit; `docs/ACTIVITIES.md` regeneration; G8 update; CP-24 commit and tag.
+- None: CP-26 closed. CP-27 has not started.
 
 ## Blockers and workarounds
 
@@ -178,3 +188,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-6 | CP-22 | SMTP fallback (body/HTML/attachment, STARTTLS required for credentials, connection failure) against the sink; Graph sendMail via client-secret token with attachments; `graph_read_mail` filtered server-side by timestamp and sender, `$select` keeps the page small, OTP regex, failure paths. G3/G11 updated; DECISIONS 10.3. 262 pass. | cp-22 |
 | 2026-10-23 | build-6 | CP-23 | Streamed CSV/FWF reads (chunked to Parquet/CSV/JSON), declared encodings, Excel read/write/set_cells with XlsxWriter constant memory and opt-in LibreOffice recalculation, AES ZIP create/list/extract with zip-slip plus declared/actual size and entry caps, bounded text-log tail. 16 tests incl. 1M rows at 55.8 MB traced peak. G9/DECISIONS 10.4. 278 pass. | cp-23 |
 | 2026-10-23 | build-6 | CP-24 (paused) | Wrote the three login styles, per-portal locked session state/reuse, Graph OTP polling with T0/regex/fresh-code retry, and fake-portal OTP login support. Imports, ruff and mypy pass; no CP-24 tests or gates yet. Paused on request; resume at the browser test suite. | wip(cp-24) |
+| 2026-10-23 | build-7 | review, CP-24, CP-25, CP-26, pdf | Second full review: 13 defects fixed (R34-R46) incl. duplicate-guard queue never queuing, per-run tick transactions, lock order, platform credentials leaking into activity children, webhook disclosure, last-admin lockout. Closed CP-24 (browser tests, lock/markers/state fixes), CP-25 (env, exit-code mapping, output files, tree kill), CP-26 (new reconciliation matcher with Hypothesis properties, schema-validated ai_extract). Added the `pdf` activity on PdfCraft (MCP over stdio) and the `document` activity on WordCraft (convert/text/info/mail merge), both from CraftApps, built from source; 8 + 6 engine tests pass. | cp-26 |
