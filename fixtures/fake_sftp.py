@@ -182,7 +182,8 @@ def start_sftp_server(root: Path, *, host: str = "127.0.0.1") -> FakeSftpServer:
                 return
             while transport.is_active() and not stop.is_set():
                 time.sleep(0.05)
-        except (OSError, paramiko.SSHException):
+        except (OSError, EOFError, paramiko.SSHException):
+            # EOFError: the client hung up mid-handshake (e.g. it only fetched the host key).
             pass
         finally:
             transport.close()

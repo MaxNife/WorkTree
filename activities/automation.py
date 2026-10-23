@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
@@ -43,35 +44,43 @@ class MatchingActivity(Activity[MatchingInputs]):
         )
         from difflib import SequenceMatcher
 
-        right_index = {
-            _normalise(str(row.get(inputs.right_key, ""))): row
-            for row in right
-            if str(row.get(inputs.right_key, "")).strip()
-        }
+        # Right rows grouped by normalised key, in file order. Each right row pairs with at
+        # most one left row, so duplicate keys are matched or reported, never dropped.
+        right_index: dict[str, list[dict[str, Any]]] = {}
+        unkeyed_right: list[dict[str, Any]] = []
+        for row in right:
+            raw = str(row.get(inputs.right_key, ""))
+            if raw.strip():
+                right_index.setdefault(_normalise(raw), []).append(row)
+            else:
+                unkeyed_right.append(row)
         pairs: list[dict[str, Any]] = []
         unmatched: list[dict[str, Any]] = []
-        used: set[str] = set()
         for left_row in left:
             key = _normalise(str(left_row.get(inputs.left_key, "")))
-            best: tuple[float, str, dict[str, Any]] | None = None
-            for candidate, right_row in right_index.items():
-                score = SequenceMatcher(None, key, candidate).ratio()
-                if best is None or score > best[0]:
-                    best = (score, candidate, right_row)
+            best: tuple[float, str] | None = None
+            if right_index.get(key):
+                best = (1.0, key)
+            else:
+                for candidate, rows in right_index.items():
+                    if not rows:
+                        continue
+                    score = SequenceMatcher(None, key, candidate).ratio()
+                    if best is None or score > best[0]:
+                        best = (score, candidate)
             if best is not None and best[0] >= inputs.threshold:
-                used.add(best[1])
+                right_row = right_index[best[1]].pop(0)
                 pairs.append(
                     {
                         **{f"left_{k}": v for k, v in left_row.items()},
-                        **{f"right_{k}": v for k, v in best[2].items()},
+                        **{f"right_{k}": v for k, v in right_row.items()},
                         "score": round(best[0], 4),
                     }
                 )
             else:
                 unmatched.append(left_row)
-        for candidate, right_row in right_index.items():
-            if candidate not in used:
-                unmatched.append({f"right_{k}": v for k, v in right_row.items()})
+        for rows in [*right_index.values(), unkeyed_right]:
+            unmatched.extend({f"right_{k}": v for k, v in row.items()} for row in rows)
         output = safe_path(ctx, inputs.output_path)
         write_rows(ctx, pairs, output, fmt=output.suffix.lstrip(".").lower() or "parquet")
         unmatched_path = output.with_name(f"{output.stem}-unmatched{output.suffix}")
@@ -117,21 +126,24 @@ class RunPythonActivity(Activity[RunPythonInputs]):
         if not script_path.is_file():
             return ActivityResult.failed("script not found")
         command = [sys.executable, str(script_path), *inputs.args]
-        completed = subprocess.run(  # noqa: S603 - admin-authored command, no shell
-            command,
-            cwd=workspace,
-            capture_output=True,
-            text=True,
-            timeout=inputs.timeout_seconds,
-            env=_safe_env(ctx),
-            check=False,
-        )
+        try:
+            # The child is forced to UTF-8 (PYTHONIOENCODING), so decode as UTF-8 rather than
+            # the Windows ANSI code page.
+            completed = subprocess.run(  # noqa: S603 - admin-authored command, no shell
+                command,
+                cwd=workspace,
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=inputs.timeout_seconds,
+                env=_safe_env(ctx),
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return ActivityResult.failed(f"script exceeded {inputs.timeout_seconds}s")
         completed = _masked(completed)
         log_path = safe_path(ctx, inputs.output_path)
-        log_path.write_text(
-            f"$ {' '.join(command)}\n--- stdout ---\n{completed.stdout}\n--- stderr ---\n{completed.stderr}",
-            encoding="utf-8",
-        )
+        _write_log(log_path, command, completed)
         result_path = safe_path(ctx, inputs.result_path)
         result: Any = None
         if result_path.is_file():
@@ -182,6 +194,7 @@ class LegacyRobotWrapperActivity(Activity[LegacyWrapperInputs]):
                 cwd=working,
                 capture_output=True,
                 text=True,
+                errors="replace",
                 timeout=inputs.timeout_seconds,
                 env=_safe_env(ctx),
                 input=inputs.input_text or None,
@@ -191,11 +204,7 @@ class LegacyRobotWrapperActivity(Activity[LegacyWrapperInputs]):
             return ActivityResult.failed(f"legacy robot exceeded {inputs.timeout_seconds}s")
         completed = _masked(completed)
         log = safe_path(ctx, inputs.output_path)
-        log.write_text(
-            f"$ {' '.join([executable, *inputs.args])}\n--- stdout ---\n{completed.stdout}\n"
-            f"--- stderr ---\n{completed.stderr}",
-            encoding="utf-8",
-        )
+        _write_log(log, [executable, *inputs.args], completed)
         outputs = {
             "returncode": completed.returncode,
             "stdout": completed.stdout[-4000:],
@@ -304,6 +313,15 @@ def _masked(completed: subprocess.CompletedProcess[str]) -> subprocess.Completed
         masker.mask(completed.stdout or ""),
         masker.mask(completed.stderr or ""),
     )
+
+
+def _write_log(path: Path, command: list[str], completed: subprocess.CompletedProcess[str]) -> None:
+    """Write the run log. The command line is masked too: args may carry resolved secrets."""
+    text = (
+        f"$ {' '.join(command)}\n--- stdout ---\n{completed.stdout}\n"
+        f"--- stderr ---\n{completed.stderr}"
+    )
+    path.write_text(get_masker().mask(text), encoding="utf-8")
 
 
 def _normalise(value: str) -> str:

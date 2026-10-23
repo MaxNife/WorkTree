@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import mimetypes
 import shutil
 import smtplib
+import stat
 from email.message import EmailMessage
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -130,7 +131,8 @@ class DownloadFileActivity(Activity[DownloadInputs]):
                         return ActivityResult.failed("download exceeds the size cap")
                     handle.write(chunk)
         digest = sha256_file(path)
-        if inputs.expected_sha256 and digest != inputs.expected_sha256:
+        if inputs.expected_sha256 and digest != inputs.expected_sha256.strip().lower():
+            path.unlink(missing_ok=True)
             return ActivityResult.failed("downloaded file checksum does not match")
         return ActivityResult.done(
             {"path": str(path.relative_to(ctx.workspace)), "bytes": total, "sha256": digest},
@@ -171,8 +173,9 @@ class SftpActivity(Activity[SftpInputs]):
         try:
             key = None
             if inputs.private_key_path:
-                key = paramiko.RSAKey.from_private_key_file(
-                    str(safe_path(ctx, inputs.private_key_path, must_exist=True))
+                # Any key type (RSA, ECDSA, Ed25519), not only RSA.
+                key = paramiko.PKey.from_path(
+                    safe_path(ctx, inputs.private_key_path, must_exist=True)
                 )
             client.connect(
                 inputs.host,
@@ -187,7 +190,11 @@ class SftpActivity(Activity[SftpInputs]):
             with client.open_sftp() as sftp:
                 if inputs.operation == "list":
                     entries = [
-                        {"name": item.filename, "bytes": item.st_size, "directory": item.st_mode}
+                        {
+                            "name": item.filename,
+                            "bytes": item.st_size,
+                            "directory": stat.S_ISDIR(item.st_mode or 0),
+                        }
                         for item in sftp.listdir_attr(inputs.remote_path)
                     ]
                     return ActivityResult.done({"files": entries, "count": len(entries)})
@@ -296,7 +303,7 @@ class EmailActivity(Activity[EmailInputs]):
             message["attachments"] = attachments
         with httpx.Client(timeout=30) as client:
             response = client.post(
-                f"{inputs.graph_base_url.rstrip('/')}/users/{sender}/sendMail",
+                f"{inputs.graph_base_url.rstrip('/')}/users/{quote(sender, safe='@')}/sendMail",
                 headers={"Authorization": f"Bearer {token}"},
                 json={"message": message, "saveToSentItems": True},
             )
@@ -340,7 +347,7 @@ class GraphReadMailActivity(Activity[GraphReadMailInputs]):
             params["$filter"] = f"receivedDateTime ge {inputs.since}"
         with httpx.Client(timeout=30) as client:
             response = client.get(
-                f"{inputs.graph_base_url.rstrip('/')}/users/{inputs.mailbox}/messages",
+                f"{inputs.graph_base_url.rstrip('/')}/users/{quote(inputs.mailbox, safe='@')}/messages",
                 headers={"Authorization": f"Bearer {token}"},
                 params=params,
             )
@@ -387,13 +394,16 @@ class UncArchiveActivity(Activity[UncArchiveInputs]):
         destination = destination_dir / (inputs.filename or source.name)
         if destination.exists() and not inputs.overwrite:
             return ActivityResult.failed(f"destination already exists: {destination}")
-        if inputs.operation == "move":
-            shutil.move(str(source), destination)
-        else:
-            shutil.copy2(source, destination)
+        # A move is copy, verify, then delete: the source is only removed once the archived
+        # copy is known to be good, and a bad copy is never left behind.
+        shutil.copy2(source, destination)
         digest = sha256_file(destination)
-        if inputs.expected_sha256 and digest != inputs.expected_sha256:
+        expected = inputs.expected_sha256.strip().lower() or sha256_file(source)
+        if digest != expected:
+            destination.unlink(missing_ok=True)
             return ActivityResult.failed("archived file checksum does not match")
+        if inputs.operation == "move":
+            source.unlink()
         return ActivityResult.done(
             {"path": str(destination), "sha256": digest, "bytes": destination.stat().st_size},
             "file archived",
@@ -414,7 +424,3 @@ def _graph_token(inputs: EmailInputs | GraphReadMailInputs) -> str | None:
     if response.status_code >= 400:
         return None
     return str(response.json().get("access_token", "")) or None
-
-
-def _checksum(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()

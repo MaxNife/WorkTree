@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import io
 import zipfile
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -12,10 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from activities._common import (
     artifact_for,
-    read_json,
+    csv_records,
     read_table,
     safe_path,
-    write_json,
     write_rows,
 )
 from app.domain.activity import Activity, ActivityContext, ActivityResult
@@ -73,9 +71,14 @@ class CsvActivity(Activity[CsvInputs]):
             if inputs.source_path
             else inputs.rows
         )
+        # Appended rows follow the existing header's column order, not the new rows' key order.
+        header: list[str] = []
+        if path.is_file() and path.stat().st_size > 0:
+            with path.open(encoding=inputs.encoding, newline="") as existing:
+                header = next(csv.reader(existing), [])
         with path.open("a", encoding=inputs.encoding, newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0]) if rows else [])
-            if path.stat().st_size == 0:
+            writer = csv.DictWriter(handle, fieldnames=header or (list(rows[0]) if rows else []))
+            if not header:
                 writer.writeheader()
             writer.writerows(rows)
         return ActivityResult.done({"rows": len(rows)}, "rows appended")
@@ -91,7 +94,7 @@ def _read_csv(path: Path, inputs: CsvInputs) -> list[dict[str, Any]]:
         sep=inputs.delimiter,
         nrows=inputs.max_rows,
     )
-    return cast(list[dict[str, Any]], frame.to_dict(orient="records"))
+    return csv_records(frame)
 
 
 class ExcelInputs(BaseModel):
@@ -164,9 +167,9 @@ class ExcelActivity(Activity[ExcelInputs]):
         import openpyxl
 
         book = openpyxl.load_workbook(path)
-        sheet = (
-            book[inputs.sheet] if inputs.sheet and inputs.sheet in book.sheetnames else book.active
-        )
+        if inputs.sheet and inputs.sheet not in book.sheetnames:
+            raise ValueError(f"sheet not found: {inputs.sheet}")
+        sheet = book[inputs.sheet] if inputs.sheet else book.active
         for address, value in inputs.cells.items():
             sheet[address] = value
         book.save(path)
@@ -317,6 +320,3 @@ class TxtLogActivity(Activity[TxtLogInputs]):
         return ActivityResult.done(
             {"path": str(path.relative_to(ctx.workspace))}, "log written", [artifact_for(ctx, path)]
         )
-
-
-_ = (io, write_json, read_json)

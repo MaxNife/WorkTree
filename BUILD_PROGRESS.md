@@ -13,15 +13,36 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **223 passed** |
+| Tests | `uv run pytest -q` | **234 passed** (3 consecutive full runs green) |
 | Lint | `uv run ruff check .` | passed |
-| Format | `uv run ruff format --check .` | passed (153 files) |
+| Format | `uv run ruff format --check .` | passed (154 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
 | Layering | `uv run lint-imports` | passed (1 contract kept) |
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
 **Not yet verified:** coverage percentage; activity-library tests CP-20 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+
+## Code review (2026-10-23, build-5): activity library
+
+Review of `activities/` (CP-20 to CP-26 code, previously "code + mypy only"). Each item is fixed and has a regression test in `tests/integration/test_activity_review.py` (10 of its 11 tests fail on the pre-fix code; the 11th pins the happy-path move). This does **not** close CP-20 to CP-26: their own gates are still open.
+
+| # | Defect | Fix |
+|---|---|---|
+| R22 | **Security (A6):** `run_python` / `legacy_robot_wrapper` wrote the command line unmasked into the workspace log, so a secret passed in `args` leaked (R16 masked only stdout/stderr) | whole log text masked (`_write_log`) |
+| R23 | `run_python` decoded child output with the Windows ANSI code page while forcing the child to UTF-8: non-ASCII output raised or was garbled | decode UTF-8, `errors="replace"`; legacy wrapper also `errors="replace"` |
+| R24 | `run_python` timeout surfaced as a raw `TimeoutExpired` with the full command line | clean "script exceeded Ns" failure |
+| R25 | `matching` collapsed right rows with duplicate keys into one entry: rows vanished from both matched and unmatched outputs | 1:1 pairing with per-key row lists, exact-key fast path (DECISIONS 10.1) |
+| R26 | `unc_archive` move deleted the source before the checksum check; a mismatch lost the only good copy and left the bad one | copy, verify (expected or source hash), delete; bad copy removed (DECISIONS 10.2) |
+| R27 | `download_file` checksum compare was case-sensitive and a mismatch left the bad file in the workspace | normalised compare; file removed on mismatch |
+| R28 | `csv` append wrote rows in the new rows' key order, not the existing header's (silent column shift) | follows the existing header |
+| R29 | CSV reads (`csv` read, `read_table` used by bulk load/matching) produced `NaN` for empty cells: invalid JSON output and float NaN loaded into DB columns | empty cells become `None` (`csv_records`) |
+| R30 | `excel set_cells` on an unknown sheet silently wrote into the active sheet | fails with "sheet not found" |
+| R31 | `sftp list` returned the raw `st_mode` int as `directory`; private keys were RSA-only | boolean `S_ISDIR`; `PKey.from_path` (any key type) |
+| R32 | Graph `mailbox`/`sender` interpolated unescaped into the URL path | `quote(..., safe="@")` |
+| R33 | Fake SFTP fixture thread crashed (`EOFError`) when a client hung up mid-handshake, an unhandled-thread warning in the suite | `EOFError` handled like other disconnects |
+
+Found but **not** fixed (policy calls or later checkpoints): `unc_archive.destination_dir` and `sql`/`oracle_*` `db_url` accept any location/URL the author writes (no allow-list; CP-39 threat model); `email` SMTP has no STARTTLS, so `smtp_password` goes over plaintext (CP-22); `oracle_execute.chunk_size` is unused (CP-20). The deferred list below still applies.
 
 ## Code review (2026-10-22, build-3)
 
@@ -141,3 +162,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-4 | CP-17 | Human-task gate: four task types, claim/complete and resume, rejection reason + on_failed, task and workflow SLA breach (idempotent, audited, role-visible), webhook/SMTP delivery with masking and non-fatal channel failure. | cp-17 |
 | 2026-10-23 | build-4 | CP-18 | API gate: resource coverage (added `/api/environments` + `/api/admin/roles`, pagination on workflows/tasks), consistent 404/422 envelope (pydantic validation now 422, not 500), WebSocket run events, health/metrics, OpenAPI exporter + checked-in schema. | cp-18 |
 | 2026-10-23 | build-4 | CP-19 | Fixture gate: pytest-owned fake portal/Graph/LLM/SFTP/SMTP/GL, data generators (1M-row AES-256 ZIP, Excel, fixed-width, log), start/stop smoke tests. G5 updated. | cp-19 |
+| 2026-10-23 | build-5 | review (CP-20 to CP-26 code) | Re-verified every gate from scratch (all matched the tracker). Reviewed `activities/`: 12 defects fixed (R22-R33), incl. secret leak via logged command line, data loss in `unc_archive` move and `matching`, CSV column shift/NaN. 11 regression tests; 234 pass. CP-20 to CP-26 remain open. | uncommitted |

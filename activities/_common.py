@@ -118,6 +118,13 @@ def write_rows(
     return path
 
 
+def csv_records(frame: Any) -> list[dict[str, Any]]:
+    """Rows of a CSV frame with empty cells as None (pandas reads them as NaN, which is not
+    valid JSON and must load as NULL, not as a float, into a database)."""
+    cleaned = frame.astype(object).where(frame.notna(), None)
+    return cast(list[dict[str, Any]], cleaned.to_dict(orient="records"))
+
+
 def read_table(path: Path, *, max_rows: int | None = None) -> list[dict[str, Any]]:
     suffix = path.suffix.lower()
     if suffix in {".parquet", ".pq"}:
@@ -129,8 +136,7 @@ def read_table(path: Path, *, max_rows: int | None = None) -> list[dict[str, Any
     if suffix in {".csv", ".txt"}:
         import pandas as pd
 
-        frame = pd.read_csv(path, dtype=str, nrows=max_rows)
-        return cast(list[dict[str, Any]], frame.to_dict(orient="records"))
+        return csv_records(pd.read_csv(path, dtype=str, nrows=max_rows))
     if suffix in {".json"}:
         data = read_json(path)
         if isinstance(data, list):

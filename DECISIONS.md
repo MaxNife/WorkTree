@@ -131,3 +131,10 @@ clock, log, secrets)`.
 | 9.10 | "Run this step" (`POST /api/activities/{name}/test`) runs through the same child-process launcher as a worker (timeout, process-tree kill), resolves secrets with the worker's rules, requires CSRF, and code-running activities are Admin-only | it previously ran activities inside the API process with no timeout, resolved any secret (including the session signing key) in the control plane, had no CSRF guard and let an Author run `run_python`. |
 | 9.12 | No RabbitMQ adapter in the MVP; `bus.adapter: rabbitmq` is refused at startup | the engine writes the run state and the next job in one transaction (an outbox), which a broker cannot join, so a broker adapter needs an outbox relay; the config value used to be accepted and silently ignored. |
 | 9.11 | The auth boundary is the `Authenticator` protocol (`resolve_session`, `check_csrf`) in `app/services/auth.py`; `AuthService` is the local implementation. Empty and well-known default passwords are refused in the service layer, not only in the CLI | SSO can replace the backend without touching routes; the admin API could previously create a user with password `password`. |
+
+## 10. Activity-library review (2026-10-23)
+
+| # | Decision | Why |
+|---|---|---|
+| 10.1 | `matching` pairs 1:1: each right row is used at most once (exact normalised key first, else best fuzzy score among keys with unused rows); every input row ends up either in a pair or in the unmatched file | right rows with duplicate keys were collapsed into one dictionary entry, so they vanished from both outputs, and one right row could be paired with many left rows. 1:N stays a CP-26 item. |
+| 10.2 | `unc_archive` move is copy, verify, then delete; the copy is always checked against `expected_sha256` or else the source hash, and a bad copy is removed | the move deleted the source before checking the checksum, so a mismatch lost the only good copy. |
