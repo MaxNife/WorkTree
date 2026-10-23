@@ -135,3 +135,14 @@ def test_concurrent_claimers_never_process_a_job_twice(bus: DbMessageBus) -> Non
     for job_id in seen:
         stored = bus.get(job_id)
         assert stored is not None and stored.metadata["state"] == DONE
+
+
+def test_unavailable_bus_adapter_is_refused(settings) -> None:
+    from app.container import build_container
+
+    with pytest.raises(ValueError, match="not available"):
+        build_container(
+            settings.model_copy(
+                update={"bus": settings.bus.model_copy(update={"adapter": "rabbitmq"})}
+            )
+        )

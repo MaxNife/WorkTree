@@ -19,8 +19,8 @@ class ExampleInputs(BaseModel):
 
 
 class ExampleActivity(Activity[ExampleInputs]):
-    name = "example"                      # unique; used in workflow YAML
-    category = "Platform / Examples"      # "Group / Subgroup" for the palette
+    name = "example"  # unique; used in workflow YAML
+    category = "Platform / Examples"  # "Group / Subgroup" for the palette
     description = "Echo a message. Replace this with your activity."
     input_model = ExampleInputs
 
