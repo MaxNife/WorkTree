@@ -4,14 +4,14 @@ repos:
     hooks:
       - id: check-yaml
       - id: check-json
-        exclude: ^web/dist/
+        exclude: ^web/(dist/|src/api/schema\.d\.ts$)
       - id: end-of-file-fixer
-        exclude: ^web/dist/
+        exclude: ^web/(dist/|src/api/schema\.d\.ts$)
       - id: trailing-whitespace
-        exclude: ^web/dist/
+        exclude: ^web/(dist/|src/api/schema\.d\.ts$)
       - id: check-added-large-files
         args: ["--maxkb=5120"]
-        exclude: ^web/dist/
+        exclude: ^web/(dist/|src/api/schema\.d\.ts$)
       - id: detect-private-key
 
   # ruff, mypy and import-linter run from the uv-locked environment so the hooks and CI
@@ -40,3 +40,21 @@ repos:
         language: system
         pass_filenames: false
         files: ^app/
+      - id: web-api-fresh
+        name: web API types are fresh (docs/openapi.json)
+        entry: npm --prefix web run api:check
+        language: system
+        pass_filenames: false
+        files: ^(docs/openapi\.json|web/src/api/schema\.d\.ts|web/scripts/generate-api\.mjs)$
+      - id: web-typecheck
+        name: web vue-tsc
+        entry: npm --prefix web run typecheck
+        language: system
+        pass_filenames: false
+        files: ^web/(src|tests|scripts)/|^web/(package\.json|tsconfig\.json|vite\.config\.ts)$
+      - id: web-lint
+        name: web eslint
+        entry: npm --prefix web run lint
+        language: system
+        pass_filenames: false
+        files: ^web/(src|tests|scripts)/|^web/(package\.json|eslint\.config\.js)$
