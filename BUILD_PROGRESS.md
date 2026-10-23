@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-22 (complete)
-- **Status:** done — backend checkpoints CP-01 to CP-22 are closed; frontend/activity checkpoints remain.
-- **Next action:** CP-23: file tools (CSV/Excel/ZIP/text) with streaming, zip-slip and zip-bomb rejection, and the measured 1M-row memory gate.
+- **Current checkpoint:** CP-23 (complete)
+- **Status:** done — backend checkpoints CP-01 to CP-23 are closed; frontend/activity checkpoints remain.
+- **Next action:** CP-24: Playwright robot (API-token, form and form+OTP logins, session reuse/expiry) and `playwright_script` against the fake portal.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,7 +13,7 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **262 passed** (CP-22 full run) |
+| Tests | `uv run pytest -q` | **278 passed** (CP-23 full run, incl. the 1M-row gate) |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (154 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
@@ -21,7 +21,7 @@ The resume point for the build agent. **Read this file first on every start or r
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; activity-library tests CP-23 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+**Not yet verified:** coverage percentage; activity-library tests CP-24 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
 
 ## Code review (2026-10-23, build-5): activity library
 
@@ -72,7 +72,7 @@ Full review of the backend before closing CP-01. Every item below is fixed and h
 | R20 | Migration `7ffcb5d8ab0e` added NOT NULL columns without server defaults (upgrade of a non-empty DB fails) | server defaults added |
 | R21 | pre-commit ruff hook pinned to v0.8.6 disagreed with the locked ruff | hooks run `uv run ruff` (DECISIONS 9.7) |
 
-Deferred to the activity checkpoints (tracked there, not yet fixed): CSV read is not streamed (CP-23 memory gate); ZIP size cap trusts declared sizes and has no entry-count cap (CP-23); `matching` lacks amount/date tolerance and 1:N and is O(n*m) (CP-26); `legacy_robot_wrapper` lacks exit-code mapping and output-file collection (CP-25).
+Deferred to the activity checkpoints (tracked there, not yet fixed): `matching` lacks amount/date tolerance and 1:N and is O(n*m) (CP-26); `legacy_robot_wrapper` lacks exit-code mapping and output-file collection (CP-25).
 
 ## Implementation snapshot (code present, not a completion claim)
 
@@ -112,7 +112,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-20 | Activities: GL and Oracle | done | (cp-20 tag) | `tests/integration/test_sql_activities.py` 10 passed: aggregate join to Parquet, named binds + `max_rows`, positional placeholders refused, UPDATE and batched executemany with `chunk_size`, multi-statement script, 2,000-row fixture invoices staged then MERGE-upserted without duplicates, per-row errors reported with row indexes, direct load, identifier/URL refusal; contract suite passes; G2 narrowed to real Oracle |
 | CP-21 | Activities: HTTP, download, SFTP, UNC archive | done | (cp-21 tag) | `tests/integration/test_network_activities.py` 10 passed: JSON POST + body file, custom/rejected status, response cap, unsafe URLs refused; streamed download with uppercase SHA-256, artifact, mismatch/size-cap cleaning up and HTTP 404; SFTP put/get/list against the paramiko fixture, bad credentials and missing local path; UNC copy/move with checksum, mismatch -> failed with source intact and no destination, overwrite guard |
 | CP-22 | Activities: email and Graph mail | done | (cp-22 tag) | `tests/integration/test_mail_activities.py` 8 passed: SMTP body/HTML/attachment delivered to the sink, credentials refused without STARTTLS, connection failure; Graph sendMail with client-secret token and base64 attachment, bad token/endpoint; `graph_read_mail` newest OTP with server-side sender+timestamp filters and the small `$select`, old sender, no-code, bad timestamp/token. G3/G11 updated; DECISIONS 10.3 |
-| CP-23 | Activities: file tools | in-progress* | | code + mypy only; no fixture test yet |
+| CP-23 | Activities: file tools | done | (cp-23 tag) | `tests/integration/test_file_activities.py` 16 passed: CSV read streams all three output formats (7/3/50-row chunks), declared encoding/delimiter, `read_fwf(dtype=str)` on 500 fixture rows, write/append/source_path, empty file; Excel sheets/read 500 fixture rows/write with bold header/set_cells/recalculate G9; ZIP AES create/list/extract, zip-slip and size/entry bombs rejected with no partial files, 500-row workbook round trip; text log write/append/tail + 500 fixture log lines; 1M-row CSV measured at **55.8 MB traced peak** (< 500 MB). DECISIONS 10.4 |
 | CP-24 | Activities: Playwright robot and script | in-progress* | | code + mypy only; browser install/runtime not tested |
 | CP-25 | Activities: legacy wrapper and run_python | in-progress* | | code + mypy only; no process test yet |
 | CP-26 | Activities: matching, human_task, ai_extract | in-progress* | | code + mypy only; human_task engine path tested, activities not |
@@ -135,7 +135,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-22 closed. CP-23 not started.
+- None: CP-23 closed. CP-24 not started.
 
 ## Blockers and workarounds
 
@@ -166,3 +166,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-6 | CP-20 | Added the `Database`/SQLite/Oracle interface (`activities/database.py`), converted the SQL activities to it, implemented staged chunked loads + SQLite upsert/Oracle MERGE + append and per-row errors, used `chunk_size` for batched executes and multi-statement/PLSQL scripts, and refused positional binds. 10 SQLite tests incl. 2,000 fixture invoices. G2 narrowed. 244 pass. | cp-20 |
 | 2026-10-23 | build-6 | CP-21 | Fixture tests for HTTP (JSON/caps/status/URL refusal), streamed download (checksum, size cap, 404), SFTP put/get/list + bad credentials against the paramiko fake, and UNC copy/move incl. checksum mismatch -> failed with no data loss and the overwrite guard. G5 updated. 254 pass. | cp-21 |
 | 2026-10-23 | build-6 | CP-22 | SMTP fallback (body/HTML/attachment, STARTTLS required for credentials, connection failure) against the sink; Graph sendMail via client-secret token with attachments; `graph_read_mail` filtered server-side by timestamp and sender, `$select` keeps the page small, OTP regex, failure paths. G3/G11 updated; DECISIONS 10.3. 262 pass. | cp-22 |
+| 2026-10-23 | build-6 | CP-23 | Streamed CSV/FWF reads (chunked to Parquet/CSV/JSON), declared encodings, Excel read/write/set_cells with XlsxWriter constant memory and opt-in LibreOffice recalculation, AES ZIP create/list/extract with zip-slip plus declared/actual size and entry caps, bounded text-log tail. 16 tests incl. 1M rows at 55.8 MB traced peak. G9/DECISIONS 10.4. 278 pass. | cp-23 |

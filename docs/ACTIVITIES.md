@@ -7,7 +7,7 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | Activity | Category | Version | Description |
 |---|---|---|---|
 | [`ai_extract`](#ai-extract) | Platform / AI | 1.0 | Optional OpenAI-compatible JSON extraction; disabled unless AI is configured. |
-| [`csv`](#csv) | Platform / Files | 1.0 | Stream or chunk CSV files; tables leave as Parquet references. |
+| [`csv`](#csv) | Platform / Files | 1.0 | Stream or chunk CSV and fixed-width files; tables leave as Parquet references. |
 | [`download_file`](#download-file) | Platform / Integration | 1.0 | Stream a file into the run workspace with size and checksum verification. |
 | [`echo`](#echo) | Platform / Core | 1.0 | Return the supplied inputs unchanged. |
 | [`email`](#email) | Platform / Messaging | 1.0 | Send mail through Microsoft Graph client-secret auth or SMTP fallback. |
@@ -49,23 +49,27 @@ Only an Admin can save a workflow that uses this activity.
 
 ## csv
 
-Stream or chunk CSV files; tables leave as Parquet references.
+Stream or chunk CSV and fixed-width files; tables leave as Parquet references.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
-| `operation` | `read` \| `write` \| `append` | `'read'` |  |
+| `operation` | `read` \| `write` \| `append` \| `read_fwf` | `'read'` |  |
 | `path` | string | `'data.csv'` |  |
 | `source_path` | string or null | `None` |  |
 | `output_path` | string or null | `None` |  |
 | `encoding` | string | `'utf-8'` |  |
 | `delimiter` | string | `','` |  |
+| `widths` | array |  |  |
+| `names` | array |  |  |
 | `output_format` | `parquet` \| `csv` \| `json` | `'parquet'` |  |
 | `max_rows` | integer | `100000` |  |
+| `chunk_size` | integer | `50000` |  |
 | `rows` | array |  |  |
 
 Fields by operation:
 
-- `read`: `path`, `encoding`, `delimiter`, `output_path`, `output_format`, `max_rows`
+- `read`: `path`, `encoding`, `delimiter`, `output_path`, `output_format`, `max_rows`, `chunk_size`
+- `read_fwf`: `path`, `encoding`, `widths`, `names`, `output_path`, `output_format`, `max_rows`, `chunk_size`
 - `write`: `path`, `encoding`, `rows`, `source_path`
 - `append`: `path`, `encoding`, `rows`, `source_path`
 
@@ -130,12 +134,13 @@ Read with calamine, edit with openpyxl, write with XlsxWriter.
 | `cells` | object |  |  |
 | `output_format` | `parquet` \| `csv` \| `json` | `'parquet'` |  |
 | `max_rows` | integer | `100000` |  |
+| `recalculate` | boolean | `False` |  |
 
 Fields by operation:
 
 - `read`: `path`, `sheet`, `output_path`, `output_format`, `max_rows`
-- `write`: `path`, `sheet`, `rows`, `source_path`
-- `set_cells`: `path`, `sheet`, `cells`
+- `write`: `path`, `sheet`, `rows`, `source_path`, `recalculate`
+- `set_cells`: `path`, `sheet`, `cells`, `recalculate`
 - `sheets`: `path`
 
 ## fail
@@ -362,13 +367,14 @@ Append or read a plain-text log with a line cap.
 | `path` | string | `'run.log'` |  |
 | `text` | string |  |  |
 | `lines` | array |  |  |
+| `encoding` | string | `'utf-8'` |  |
 | `max_lines` | integer | `10000` |  |
 
 Fields by operation:
 
-- `read`: `path`, `max_lines`
-- `append`: `path`, `text`, `lines`
-- `write`: `path`, `text`, `lines`
+- `read`: `path`, `encoding`, `max_lines`
+- `append`: `path`, `encoding`, `text`, `lines`
+- `write`: `path`, `encoding`, `text`, `lines`
 
 ## unc_archive
 
@@ -395,9 +401,10 @@ AES ZIP create/extract with zip-slip and size protections.
 | `password` | string |  | sensitive (redacted in run records) |
 | `files` | array |  |  |
 | `max_total_bytes` | integer | `1000000000` |  |
+| `max_entries` | integer | `10000` |  |
 
 Fields by operation:
 
-- `extract`: `path`, `output_dir`, `password`, `max_total_bytes`
+- `extract`: `path`, `output_dir`, `password`, `max_total_bytes`, `max_entries`
 - `list`: `path`, `password`
 - `create`: `path`, `files`, `password`
