@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-15
+- **Current checkpoint:** CP-16
 - **Status:** in-progress (verifying existing code checkpoint by checkpoint)
-- **Next action:** CP-15: crash-recovery test (kill mid-run, restart, resume; `resume: restart|skip`).
+- **Next action:** CP-16: trigger/scheduler/duplicate-guard gate (cron + catch-up, webhook token, file arrival, dependency trigger, idempotency).
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -83,7 +83,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-12 | Message bus interface and adapters | done | (cp-12 tag) | `tests/integration/test_bus.py` 9 passed: enqueue/claim/ack/retry/dead-letter/lease redelivery (incl. extended lease)/orphan release/cancel/concurrent claimers/no double processing; `bus.adapter: rabbitmq` refused at startup (DECISIONS 9.12, gap G7) |
 | CP-13 | Worker runtime | done | (cp-13 tag) | `tests/integration/test_worker.py` 7 passed: timeout kills the activity and its grandchild, crashed child becomes a failed result, two workers overlap jobs with no double processing, secrets arrive by stdin only and are masked in results/bus/workspace/env, missing secret fails without dispatch, built-ins run under the worker. `.venv` process-tree kill via psutil |
 | CP-14 | Run engine | done | (cp-14 tag) | `tests/test_engine.py` 8 passed: multi-step reference/outputs, failure routing + retry attempts, foreach aggregation, pinned sub-workflow, human-task suspend/resume, duplicate guard, bad-reference incident faults the run, persistence `none` keeps inputs/outputs out of run records and step/run audit trail present |
-| CP-15 | Durable resume, suspension and crash recovery | in-progress* | | human-task suspend/resume test passes; crash-recovery test todo |
+| CP-15 | Durable resume, suspension and crash recovery | done | (cp-15 tag) | `tests/integration/test_recovery.py` 5 passed: a real child service process crashes mid-run and the restarted container resumes from the last completed step; `resume: restart` re-runs the in-flight step (marker written twice) while `resume: skip` marks it done (written once) and advances; a suspended human-task resume token survives a restart; `retry_from_failed_step` reopens the failed step and writes `run.retry` audit |
 | CP-16 | Triggers, scheduler and duplicate-run guard | in-progress* | | duplicate guard test passes; cron/webhook/file/dependency tests todo |
 | CP-17 | Human tasks, SLA and alerting | in-progress* | | task completion/resume test passes; SLA/overdue tests todo |
 | CP-18 | REST API completion, live events, health and metrics | in-progress* | | auth/workflow/admin API tests pass; full resource/WebSocket tests todo |
@@ -114,7 +114,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- [ ] CP-15: crash-recovery and resume-mode tests.
+- [ ] CP-16: trigger, scheduler, file-arrival and idempotency tests.
 
 ## Blockers and workarounds
 
@@ -136,3 +136,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-4 | CP-12 | Closed the bus checkpoint: 9 integration tests pass; `bus.adapter: rabbitmq` now refused at startup (DECISIONS 9.12) and G7 reworded around an outbox relay. | cp-12 |
 | 2026-10-23 | build-4 | CP-13 | Direct worker-runtime tests: grandchild process-tree kill on timeout, crash envelope, two-worker overlap without double processing, stdin-only secrets absent from env/workspace/bus, missing-secret failure. | cp-13 |
 | 2026-10-23 | build-4 | CP-14 | Engine gate closed with incident, persistence and audit assertions added to the routing/retry/foreach/sub-workflow suite. | cp-14 |
+| 2026-10-23 | build-4 | CP-15 | Crash-recovery suite: real killed child process, restart/skip modes, suspended token survives restart, audited retry. Fixed `run_activity_process` to stringify a Path extra folder before putting it in the child env. | cp-15 |

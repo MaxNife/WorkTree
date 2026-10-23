@@ -70,7 +70,7 @@ def run_activity_process(
     env["UAF_CHILD_AI_ENABLED"] = "1" if ai_enabled else "0"
     env["UAF_CHILD_AI_ENDPOINT"] = ai_endpoint
     if extra_folder:
-        env["UAF_CHILD_ACTIVITIES_EXTRA"] = extra_folder
+        env["UAF_CHILD_ACTIVITIES_EXTRA"] = str(extra_folder)
     timeout = timeout_seconds or envelope.timeout_seconds
     creationflags = 0
     if os.name == "nt":  # pragma: no cover - platform branch
