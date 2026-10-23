@@ -141,16 +141,18 @@ def test_timeout_kills_the_activity_and_its_grandchild(tmp_path: Path) -> None:
     folder = tmp_path / "extra"
     _drop(folder, "spawn_tree", SPAWN_TREE)
     workspace = tmp_path / "ws"
-    envelope = _job(workspace, "spawn_tree", {"seconds": 120}, timeout_seconds=4)
+    # Long enough for a slow child start (it imports the activity library) to write its pids,
+    # far shorter than the 120 s the activity would sleep.
+    envelope = _job(workspace, "spawn_tree", {"seconds": 120}, timeout_seconds=12)
 
     started = time.time()
-    outcome = run_activity_process(envelope, {}, extra_folder=str(folder), timeout_seconds=4)
+    outcome = run_activity_process(envelope, {}, extra_folder=str(folder), timeout_seconds=12)
     elapsed = time.time() - started
 
     assert outcome.timed_out is True
     assert outcome.result.outcome == "failed"
     assert "timed out" in outcome.result.message
-    assert elapsed < 30, "the child must be killed, not waited for"
+    assert elapsed < 40, "the child must be killed, not waited for"
     pids = json.loads((workspace / "pids.json").read_text(encoding="utf-8"))
     assert _wait_gone(pids["grandchild"]), "the grandchild process must be killed with its parent"
     assert _wait_gone(pids["activity"])

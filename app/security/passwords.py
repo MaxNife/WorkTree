@@ -21,6 +21,15 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
+_DUMMY_HASH = _hasher.hash("uaf-timing-equaliser-not-a-password")
+
+
+def burn_verify(password: str) -> None:
+    """Spend the same time as a real verification (unknown user), so login response time
+    does not reveal which usernames exist."""
+    verify_password(password, _DUMMY_HASH)
+
+
 def needs_rehash(password_hash: str) -> bool:
     try:
         return _hasher.check_needs_rehash(password_hash)

@@ -12,7 +12,8 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from pydantic import ValidationError
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.database import Database
@@ -85,6 +86,12 @@ class RunEngine:
         # Serialises engine mutations inside this process (scheduler tick, worker results,
         # run starts). Cross-process safety comes from the database transaction itself.
         self._lock = threading.RLock()
+
+    @property
+    def lock(self) -> threading.RLock:
+        """The engine mutation lock. Callers that write and then call into the engine take it
+        before their first write, so the lock order is always engine lock, then DB lock."""
+        return self._lock
 
     def _emit(self, event: dict[str, Any]) -> None:
         if self.event_sink is None:
@@ -188,7 +195,9 @@ class RunEngine:
                 },
                 correlation_id=run.correlation_id,
             )
-            self._advance(session, run, definition)
+            # A queued duplicate waits: the tick starts it once the run ahead has finished.
+            if not details.get("queued"):
+                self._advance(session, run, definition)
             session.flush()
             session.expunge(run)
             return run
@@ -261,42 +270,47 @@ class RunEngine:
     def tick(self) -> int:
         """Advance every active run. Returns the number of runs examined."""
         advanced = 0
-        with self._lock, self.database.session() as session:
-            runs = list(
-                session.execute(
-                    select(Run)
-                    .where(Run.status.in_([RunStatus.PENDING.value, RunStatus.RUNNING.value]))
-                    .order_by(Run.created_at)
-                    .limit(200)
-                ).scalars()
-            )
-            for run in runs:
+        active = [RunStatus.PENDING.value, RunStatus.RUNNING.value]
+        with self._lock:
+            with self.database.session() as session:
+                run_ids = list(
+                    session.execute(
+                        select(Run.id)
+                        .where(Run.status.in_(active))
+                        .order_by(Run.created_at, Run.id)
+                        .limit(200)
+                    ).scalars()
+                )
+            # One transaction per run: a failure rolls back only that run's half-applied
+            # changes (never committing them), and cannot undo progress made on other runs.
+            for run_id in run_ids:
                 try:
-                    if self._is_queued(session, run):
-                        continue
-                    definition = self._definition(session, run)
-                    with correlation_scope(run.correlation_id, run_id=run.id):
-                        self._advance(session, run, definition)
+                    with self.database.session() as session:
+                        run = session.get(Run, run_id)
+                        if run is None or run.status not in active:
+                            continue
+                        if self._is_queued(session, run):
+                            continue
+                        definition = self._definition(session, run)
+                        with correlation_scope(run.correlation_id, run_id=run.id):
+                            self._advance(session, run, definition)
                     advanced += 1
                 except Exception as exc:
-                    self.log.error(
-                        "engine_tick_failed",
-                        run_id=run.id,
-                        error=f"{type(exc).__name__}: {exc}",
-                    )
-                    self._record_incident(
-                        session,
-                        run,
-                        None,
-                        "engine_error",
-                        f"{type(exc).__name__}: {exc}",
-                        fault=True,
-                    )
+                    error = f"{type(exc).__name__}: {exc}"
+                    self.log.error("engine_tick_failed", run_id=run_id, error=error)
+                    with self.database.session() as session:
+                        failed_run = session.get(Run, run_id)
+                        if failed_run is not None:
+                            self._record_incident(
+                                session, failed_run, None, "engine_error", error, fault=True
+                            )
         return advanced
 
     def _is_queued(self, session: Session, run: Run) -> bool:
         if not run.trigger_detail.get("queued"):
             return False
+        # Strict (created_at, id) order: with "<=" alone, two queued runs created in the same
+        # instant each saw the other as earlier and waited for each other forever.
         earlier = session.execute(
             select(Run)
             .where(
@@ -304,7 +318,10 @@ class RunEngine:
                 Run.duplicate_key == run.duplicate_key,
                 Run.status.in_(ACTIVE_RUN_STATUSES),
                 Run.id != run.id,
-                Run.created_at <= run.created_at,
+                or_(
+                    Run.created_at < run.created_at,
+                    and_(Run.created_at == run.created_at, Run.id < run.id),
+                ),
             )
             .limit(1)
         ).scalar_one_or_none()
@@ -598,20 +615,30 @@ class RunEngine:
         inputs: dict[str, Any],
     ) -> None:
         masker = get_masker()
-        task_type = str(inputs.get("type", "approval"))
-        title = str(inputs.get("title", f"{run.workflow_name}: {step.id}"))[:255]
-        due_minutes = int(inputs.get("due_minutes", 60) or 60)
+        # Validate with the activity's own input model: an unknown task type or role would
+        # create a task nobody can complete, and a bad number would crash the tick.
+        activity = self.registry.require("human_task")
+        try:
+            spec = activity.input_model.model_validate(inputs)
+        except ValidationError as exc:
+            self._record_incident(
+                session, run, row, "bad_inputs", f"invalid human_task inputs: {exc}", fault=True
+            )
+            return
+        values = spec.model_dump(mode="json")
+        task_type = str(values["type"])
+        title = str(values["title"] or f"{run.workflow_name}: {step.id}")[:255]
         task = Task(
             run_id=run.id,
             step_id=step.id,
             type=task_type,
             title=masker.mask(title),
-            description=masker.mask_obj(str(inputs.get("description", "")))[:4000],
-            assignee_role=str(inputs.get("assignee_role", "operator")),
+            description=masker.mask(str(values["description"]))[:4000],
+            assignee_role=str(values["assignee_role"]),
             status="open",
-            priority=int(inputs.get("priority", 2) or 2),
-            payload=inputs.get("payload", {}) if isinstance(inputs.get("payload"), dict) else {},
-            due_at=self.clock.now() + timedelta(minutes=due_minutes),
+            priority=int(values["priority"]),
+            payload=dict(values["payload"]),
+            due_at=self.clock.now() + timedelta(minutes=int(values["due_minutes"])),
             created_at=self.clock.now(),
         )
         session.add(task)
@@ -940,11 +967,14 @@ class RunEngine:
     def complete_human_task(
         self, run_id: str, task_id: str, *, session: Session | None = None
     ) -> None:
-        if session is not None:
-            self._complete_human_task(session, run_id, task_id)
-            return
-        with self.database.session() as own_session:
-            self._complete_human_task(own_session, run_id, task_id)
+        # Under the engine lock like every other run mutation, so a task decision cannot race
+        # the scheduler tick or a worker result on the same run.
+        with self._lock:
+            if session is not None:
+                self._complete_human_task(session, run_id, task_id)
+                return
+            with self.database.session() as own_session:
+                self._complete_human_task(own_session, run_id, task_id)
 
     def _complete_human_task(self, session: Session, run_id: str, task_id: str) -> None:
         run = session.get(Run, run_id)
@@ -1316,6 +1346,7 @@ class RunEngine:
                         },
                         correlation_id=run.correlation_id,
                     )
-                if run.status == RunStatus.PENDING.value:
+                # A queued duplicate stays pending until the run ahead of it finishes.
+                if run.status == RunStatus.PENDING.value and not run.trigger_detail.get("queued"):
                     run.status = RunStatus.RUNNING.value
             return recovered

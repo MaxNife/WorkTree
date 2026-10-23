@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,9 +19,9 @@ from app.api.deps import (
     require,
 )
 from app.api.schemas import ScheduleCreateRequest, ScheduleToggleRequest
-from app.api.serializers import run as serialize_run
 from app.api.serializers import schedule as serialize_schedule
 from app.domain.enums import Role
+from app.errors import ValidationFailed
 from app.security.rbac import Permission
 from app.services.schedules import next_cron_fire
 
@@ -109,14 +111,46 @@ def delete_schedule(
     return {"ok": True}
 
 
-@hooks.post("/{token}")
-def receive_webhook(
-    token: str,
-    payload: dict[str, Any],
-    request: Request,
-) -> dict[str, Any]:
-    run_row = request.app.state.container.triggers.fire_webhook(token, payload)
-    return {"run": serialize_run(run_row)}
+WEBHOOK_MAX_BYTES = 1024 * 1024
+
+
+@hooks.post(
+    "/{token}",
+    openapi_extra={
+        "requestBody": {
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": True,
+                        "description": "Merged over the schedule's configured inputs (max 1 MiB).",
+                    }
+                }
+            },
+        }
+    },
+)
+async def receive_webhook(token: str, request: Request) -> dict[str, Any]:
+    """Public receiver: the token is the only credential, so the caller gets the run id and
+    status back, never the run record (inputs, workspace path, correlation id)."""
+    # Read the body with a cap (a chunked request has no Content-Length to check up front);
+    # the payload becomes persisted run inputs.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > WEBHOOK_MAX_BYTES:
+            raise ValidationFailed(f"webhook payload exceeds {WEBHOOK_MAX_BYTES} bytes")
+    try:
+        payload = json.loads(body or b"{}")
+    except ValueError as exc:
+        raise ValidationFailed("webhook payload must be JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValidationFailed("webhook payload must be a JSON object")
+    run_row = await run_in_threadpool(
+        request.app.state.container.triggers.fire_webhook, token, payload
+    )
+    return {"run": {"id": run_row.id, "status": run_row.status, "trigger": run_row.trigger}}
 
 
 def schedule_rows(session: Session) -> list[Schedule]:

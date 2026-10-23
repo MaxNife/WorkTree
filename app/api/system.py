@@ -27,7 +27,7 @@ from app.errors import Forbidden, NotFound
 from app.logging_setup import new_correlation_id
 from app.security.masking import get_masker
 from app.security.rbac import Permission
-from app.workers.process import run_activity_process
+from app.workers.process import child_environment, run_activity_process
 from app.workers.runtime import resolve_secrets
 
 router = APIRouter(prefix="/api", tags=["system"])
@@ -188,6 +188,8 @@ def test_activity(
         extra_folder=str(container.settings.activities.extra_folder),
         ai_enabled=container.settings.ai.enabled,
         ai_endpoint=container.settings.ai.endpoint,
+        blocked_env=(container.settings.secrets.vault_token_env,),
+        child_env=child_environment(container.settings),
     )
     result = outcome.result
     return {

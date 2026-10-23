@@ -1351,6 +1351,7 @@
     },
     "/api/hooks/{token}": {
       "post": {
+        "description": "Public receiver: the token is the only credential, so the caller gets the run id and\nstatus back, never the run record (inputs, workspace path, correlation id).",
         "operationId": "receive_webhook_api_hooks__token__post",
         "parameters": [
           {
@@ -1368,12 +1369,12 @@
             "application/json": {
               "schema": {
                 "additionalProperties": true,
-                "title": "Payload",
+                "description": "Merged over the schedule's configured inputs (max 1 MiB).",
                 "type": "object"
               }
             }
           },
-          "required": true
+          "required": false
         },
         "responses": {
           "200": {

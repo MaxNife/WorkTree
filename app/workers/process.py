@@ -12,6 +12,7 @@ from pathlib import Path
 
 import psutil
 
+from app.config import Settings
 from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.logging_setup import get_logger
 from app.security.masking import get_masker
@@ -29,13 +30,44 @@ class ProcessOutcome:
     timed_out: bool = False
 
 
-def _base_env() -> dict[str, str]:
-    env = {key: value for key, value in os.environ.items() if not key.startswith("UAF_CHILD_")}
+def _base_env(blocked: tuple[str, ...] = ()) -> dict[str, str]:
+    """The child's environment: the parent's, minus the platform's own credentials.
+
+    ``UAF_SECRET_*`` values and the Vault token (``blocked``) belong to the control plane;
+    activity code, including drop-ins and admin scripts, must only see the secrets resolved
+    for its job, which arrive on stdin.
+    """
+    denied = {name.upper() for name in (*blocked, "VAULT_TOKEN")}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.upper().startswith(("UAF_CHILD_", "UAF_SECRET_")) and key.upper() not in denied
+    }
     env["PYTHONPATH"] = str(ROOT) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
     env["PYTHONUNBUFFERED"] = "1"
     env["UAF_CHILD_RUN_ID"] = "1"
+    return env
+
+
+ENGINE_SETTINGS = (
+    "pdfcraft_cli",
+    "wordcraft_cli",
+    "gridcraft_cli",
+    "deckcraft_cli",
+    "photocraft_cli",
+)
+
+
+def child_environment(settings: Settings) -> dict[str, str]:
+    """Settings an activity child needs, passed as ``UAF_CHILD_*`` variables (the child does
+    not load config.yaml)."""
+    env = {"UAF_CHILD_PLAYWRIGHT_STATE": str(Path(settings.data.playwright_state).resolve())}
+    for engine in ENGINE_SETTINGS:
+        value = getattr(settings.activities, engine)
+        if value:
+            env[f"UAF_CHILD_{engine.upper()}"] = value
     return env
 
 
@@ -64,9 +96,14 @@ def run_activity_process(
     ai_enabled: bool = False,
     ai_endpoint: str = "",
     timeout_seconds: int | None = None,
+    blocked_env: tuple[str, ...] = (),
+    child_env: dict[str, str] | None = None,
 ) -> ProcessOutcome:
     masker = get_masker()
-    env = _base_env()
+    env = _base_env(blocked_env)
+    env.update(
+        {key: value for key, value in (child_env or {}).items() if key.startswith("UAF_CHILD_")}
+    )
     env["UAF_CHILD_AI_ENABLED"] = "1" if ai_enabled else "0"
     env["UAF_CHILD_AI_ENDPOINT"] = ai_endpoint
     if extra_folder:

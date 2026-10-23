@@ -45,6 +45,8 @@ def chain(ids: list[str], activities: list[str] | None = None) -> dict[str, Any]
 unique_ids = st.lists(step_ids, min_size=1, max_size=12, unique=True)
 
 
+# Generation can be slow on a loaded machine; the property, not the speed, is under test.
+@settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
 @given(unique_ids)
 def test_linear_chains_are_valid_and_round_trip(ids: list[str]) -> None:
     definition = WorkflowDefinition.model_validate(chain(ids))

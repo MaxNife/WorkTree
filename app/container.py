@@ -31,6 +31,7 @@ from app.services.notifications import NotificationService
 from app.services.schedules import ScheduleService, TriggerService
 from app.services.tasks import TaskService
 from app.services.workflows import WorkflowService
+from app.workers.process import child_environment
 from app.workers.runtime import WorkerPool
 
 REFERENCE_ROLES = {
@@ -201,6 +202,8 @@ def build_container(
         ai_enabled=settings.ai.enabled,
         ai_endpoint=settings.ai.endpoint,
         poll_seconds=settings.workers.poll_seconds,
+        blocked_env=(settings.secrets.vault_token_env,),
+        child_env=child_environment(settings),
     )
     container = Container(
         settings=settings,

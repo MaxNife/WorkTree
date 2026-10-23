@@ -51,6 +51,8 @@ class WorkerRuntime:
         ai_enabled: bool = False,
         ai_endpoint: str = "",
         queue: str = "default",
+        blocked_env: tuple[str, ...] = (),
+        child_env: dict[str, str] | None = None,
     ) -> None:
         self.worker_id = worker_id
         self.bus = bus
@@ -61,6 +63,8 @@ class WorkerRuntime:
         self.ai_enabled = ai_enabled
         self.ai_endpoint = ai_endpoint
         self.queue = queue
+        self.blocked_env = blocked_env
+        self.child_env = dict(child_env or {})
         self.log = get_logger(__name__)
         self._stop = threading.Event()
 
@@ -106,6 +110,8 @@ class WorkerRuntime:
                 extra_folder=str(self.extra_folder) if self.extra_folder else None,
                 ai_enabled=self.ai_enabled,
                 ai_endpoint=self.ai_endpoint,
+                blocked_env=self.blocked_env,
+                child_env=self.child_env,
             )
         except Exception as exc:  # defensive: worker must not die on a launcher bug
             result = ResultEnvelope.failure(envelope, f"worker error: {type(exc).__name__}")
@@ -161,6 +167,8 @@ class WorkerPool:
         ai_endpoint: str = "",
         poll_seconds: float = 0.5,
         queue: str = "default",
+        blocked_env: tuple[str, ...] = (),
+        child_env: dict[str, str] | None = None,
     ) -> None:
         self.poll_seconds = poll_seconds
         self.workers = [
@@ -174,6 +182,8 @@ class WorkerPool:
                 ai_enabled=ai_enabled,
                 ai_endpoint=ai_endpoint,
                 queue=queue,
+                blocked_env=blocked_env,
+                child_env=child_env,
             )
             for index in range(count)
         ]

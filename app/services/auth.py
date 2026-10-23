@@ -15,8 +15,8 @@ from app.audit.writer import AuditWriter
 from app.config import is_insecure_password
 from app.domain.clock import Clock
 from app.domain.enums import Role
-from app.errors import Conflict, Forbidden, Unauthorized, ValidationFailed
-from app.security.passwords import hash_password, verify_password
+from app.errors import Conflict, Forbidden, NotFound, Unauthorized, ValidationFailed
+from app.security.passwords import burn_verify, hash_password, verify_password
 from app.security.rate_limit import LoginRateLimiter
 from app.security.rbac import Permission, require_permission
 from app.security.sessions import SessionFactory, csrf_matches, hash_token, is_expired
@@ -66,6 +66,22 @@ def _roles_for(session: Session, user_id: str) -> list[Role]:
         .where(UserRole.user_id == user_id)
     ).scalars()
     return [Role(name) for name in rows]
+
+
+def _guard_last_admin(session: Session, user_id: str) -> None:
+    """Refuse to demote or deactivate the last active Admin: nobody could manage users,
+    secrets or roles afterwards (recovery would need direct database access)."""
+    if Role.ADMIN not in _roles_for(session, user_id):
+        return
+    other_admins = session.execute(
+        select(User.id)
+        .join(UserRole, UserRole.user_id == User.id)
+        .join(RoleRow, RoleRow.id == UserRole.role_id)
+        .where(RoleRow.name == Role.ADMIN.value, User.is_active.is_(True), User.id != user_id)
+        .limit(1)
+    ).first()
+    if other_admins is None:
+        raise Conflict("cannot remove the last active admin")
 
 
 def role_by_name(session: Session, name: str) -> RoleRow:
@@ -157,6 +173,10 @@ class AuthService:
     ) -> list[Role]:
         if not roles:
             raise ValidationFailed("a user needs at least one role")
+        if session.get(User, user_id) is None:
+            raise NotFound("user not found")
+        if Role.ADMIN not in roles:
+            _guard_last_admin(session, user_id)
         before = _roles_for(session, user_id)
         session.execute(delete(UserRole).where(UserRole.user_id == user_id))
         for role in set(roles):
@@ -186,7 +206,8 @@ class AuthService:
     ) -> None:
         user = session.get(User, user_id)
         if user is None:
-            raise ValidationFailed("user not found")
+            raise NotFound("user not found")
+        _guard_last_admin(session, user_id)
         user.is_active = False
         session.execute(delete(SessionRow).where(SessionRow.user_id == user_id))
         self.audit.write(
@@ -216,6 +237,8 @@ class AuthService:
         user = session.execute(
             select(User).where(User.username == username.strip().lower())
         ).scalar_one_or_none()
+        if user is None:
+            burn_verify(password)
         if user is None or not user.is_active or not verify_password(password, user.password_hash):
             self.limiter.record_failure(username, source_ip)
             self.audit.write(

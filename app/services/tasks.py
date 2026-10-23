@@ -123,6 +123,37 @@ class TaskService:
         correlation_id: str = "",
         source_ip: str = "",
     ) -> Task:
+        # Take the engine lock before the first write: the engine holds this lock while it
+        # writes, so locking after our own writes could wait on SQLite while the engine waits
+        # on us (until the busy timeout fails one side).
+        with self.engine.lock:
+            return self._complete(
+                session,
+                task_id=task_id,
+                user_id=user_id,
+                username=username,
+                roles=roles,
+                decision=decision,
+                reason=reason,
+                result=result,
+                correlation_id=correlation_id,
+                source_ip=source_ip,
+            )
+
+    def _complete(
+        self,
+        session: Session,
+        *,
+        task_id: str,
+        user_id: str,
+        username: str,
+        roles: list[Role],
+        decision: str,
+        reason: str,
+        result: dict[str, Any] | None,
+        correlation_id: str,
+        source_ip: str,
+    ) -> Task:
         task = self.get(session, task_id)
         if task.status == TaskStatus.COMPLETED.value:
             raise Conflict("task is already completed")
