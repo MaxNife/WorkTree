@@ -127,16 +127,38 @@ def build_fake_app(state: FixtureState | None = None) -> FastAPI:
         </form></body></html>
         """
 
+    @app.get("/portal/login/otp", response_class=HTMLResponse)
+    def portal_otp_login_page() -> str:
+        return """
+        <html><body><h1>Fixture Portal (OTP)</h1>
+        <form method="post" action="/portal/login">
+          <input type="hidden" name="otp_required" value="1" />
+          <input name="username" id="username" />
+          <input name="password" id="password" type="password" />
+          <button type="submit" id="login">Sign in</button>
+        </form></body></html>
+        """
+
     @app.post("/portal/login", response_class=HTMLResponse)
     def portal_login(
         response: Response,
         username: str = Form(default=""),
         password: str = Form(default=""),
+        otp_required: str = Form(default=""),
     ) -> str:
         if username != "demo" or password != "correct-horse":
             response.status_code = 401
             return "<html><body>denied</body></html>"
         response.set_cookie("fixture_session", "fixture-session", httponly=True)
+        state.portal_sessions.add("fixture-session")
+        if otp_required:
+            return """
+            <html><body><h1>Two-step verification</h1>
+            <form method="post" action="/portal/otp">
+              <input name="code" id="otp" autocomplete="one-time-code" />
+              <button type="submit" id="verify">Verify</button>
+            </form></body></html>
+            """
         return """
         <html><body><h1>Welcome</h1>
         <div id="otp">654321</div>

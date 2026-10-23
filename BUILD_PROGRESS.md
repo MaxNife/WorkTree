@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-23 (complete)
-- **Status:** done — backend checkpoints CP-01 to CP-23 are closed; frontend/activity checkpoints remain.
-- **Next action:** CP-24: Playwright robot (API-token, form and form+OTP logins, session reuse/expiry) and `playwright_script` against the fake portal.
+- **Current checkpoint:** CP-24 (in progress, paused)
+- **Status:** browser robot and fixture changes are written and import/type-check, but CP-24 has **no tests or checkpoint commit yet**. CP-23 is the last closed checkpoint.
+- **Next action:** write `tests/integration/test_browser_activities.py` (API-token, form, form+OTP, session reuse/expiry, stale OTP, `playwright_script`), fix what it finds, then run all CP-24 gates, update docs/gaps and commit `cp-24: Playwright activities` + tag `cp-24`. CP-25 and CP-26 remain.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -135,7 +135,17 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-23 closed. CP-24 not started.
+**CP-24 work saved in the working tree (not yet a checkpoint):**
+
+- `activities/browser.py` rewritten around an `operation` field (`none`, `api_token`, `form`, `form_otp`) so the contract's Resource/Operation form is satisfied.
+  - API-token login validates the token with `context.request` and sends the configured header on page requests.
+  - Form login uses configurable username/password/submit selectors; form+OTP records T0 before submitting credentials, polls `graph_read_mail` for a code received at/after T0 with the configured regex, and retries with a fresh code after a rejected OTP (optional resend selector).
+  - Per-portal storage state lives in `settings.data.playwright_state` (fallback: OS temp), with a `0700` folder, `0600` state file and an atomic cross-process lock file per portal.
+  - `session_check_url` decides reuse vs. `saved session expired or rejected`; a successful login saves state.
+  - Step language and `playwright_script` are unchanged; `playwright_script` still writes its JSON result and screenshot.
+- `fixtures/fake_services.py` gained `/portal/login/otp` (hidden `otp_required` field) and re-adds `fixture_session` on every successful login; the existing `/portal/login` response used by CP-19 is unchanged.
+- Verified manually: Chromium launches headless and renders a test page with the installed `chromium-1248`; `activities.browser` imports, `ruff check` is clean after the `B904` fix, and `mypy --strict activities/browser.py` passes.
+- **Not done yet:** tests for all three login styles, session reuse and forced expiry, stale OTP, wrong token/code, and `playwright_script`; full pytest/ruff/format/mypy/lint-imports/pre-commit; `docs/ACTIVITIES.md` regeneration; G8 update; CP-24 commit and tag.
 
 ## Blockers and workarounds
 
@@ -167,3 +177,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-6 | CP-21 | Fixture tests for HTTP (JSON/caps/status/URL refusal), streamed download (checksum, size cap, 404), SFTP put/get/list + bad credentials against the paramiko fake, and UNC copy/move incl. checksum mismatch -> failed with no data loss and the overwrite guard. G5 updated. 254 pass. | cp-21 |
 | 2026-10-23 | build-6 | CP-22 | SMTP fallback (body/HTML/attachment, STARTTLS required for credentials, connection failure) against the sink; Graph sendMail via client-secret token with attachments; `graph_read_mail` filtered server-side by timestamp and sender, `$select` keeps the page small, OTP regex, failure paths. G3/G11 updated; DECISIONS 10.3. 262 pass. | cp-22 |
 | 2026-10-23 | build-6 | CP-23 | Streamed CSV/FWF reads (chunked to Parquet/CSV/JSON), declared encodings, Excel read/write/set_cells with XlsxWriter constant memory and opt-in LibreOffice recalculation, AES ZIP create/list/extract with zip-slip plus declared/actual size and entry caps, bounded text-log tail. 16 tests incl. 1M rows at 55.8 MB traced peak. G9/DECISIONS 10.4. 278 pass. | cp-23 |
+| 2026-10-23 | build-6 | CP-24 (paused) | Wrote the three login styles, per-portal locked session state/reuse, Graph OTP polling with T0/regex/fresh-code retry, and fake-portal OTP login support. Imports, ruff and mypy pass; no CP-24 tests or gates yet. Paused on request; resume at the browser test suite. | wip(cp-24) |
