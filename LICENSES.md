@@ -27,6 +27,8 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | pandas | BSD-3-Clause | chunked data processing |
 | pyarrow | Apache-2.0 | Parquet |
 | openpyxl | MIT | Excel edit |
+| lxml | BSD-3-Clause | docx / xlsx XML editing |
+| pypdf | BSD-3-Clause | PDF activity |
 | XlsxWriter | BSD-2-Clause | large Excel output |
 | pyzipper | MIT | AES-256 ZIP |
 | python-calamine | MIT | fast Excel read |
@@ -47,11 +49,18 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | @tanstack/vue-query | MIT | server state |
 | @vue-flow/core | MIT | Studio canvas |
 | @fluentui/web-components | MIT | base component set |
+| @microsoft/fast-element, @microsoft/focusgroup-polyfill | MIT | required peers of Fluent |
 | Vite | MIT | bundler |
 | TypeScript | Apache-2.0 | type system |
 | vue-tsc | MIT | type check |
 | ESLint | MIT | lint |
 | Vitest | MIT | unit tests |
+| @vue/test-utils, jsdom | MIT | component tests |
+| @vitejs/plugin-vue | MIT | Vite Vue plugin |
+| typescript-eslint, eslint-plugin-vue, vue-eslint-parser, globals | MIT | ESLint rules |
+| openapi-typescript | MIT | generated API types |
+| @fluentui/svg-icons | MIT | source of the copied icon paths (dev only) |
+| @types/node | MIT | build-script types |
 | @playwright/test | Apache-2.0 | E2E tests |
 
 ## Development only
@@ -73,7 +82,7 @@ where noted. If a dependency is added or replaced, update this file in the same 
   reference only.
 - No Elsa source was copied or adapted; Elsa (MIT) is a semantic reference only.
 - The AI endpoint is internal and off by default; no external SaaS is called by the platform.
-- PdfCraft (`pdfcraft-cli`) and WordCraft (`wordcraft-cli`), both MIT OR Apache-2.0 from
-  CraftApps, are optional external engines for the `pdf` and `document` activities. They run
-  as separate processes; no CraftApps source is copied into this repository and the binaries
-  are not committed (KNOWN_GAPS G16).
+- Ported code: `activities/_formula/*` (the formula engine) is a Python port of GridCraft, and the
+  mail-merge logic in `activities/_docx.py` follows WordCraft, both from CraftApps and both
+  MIT OR Apache-2.0. The notice is kept in each ported module's docstring. No CraftApps binary is
+  used or committed.

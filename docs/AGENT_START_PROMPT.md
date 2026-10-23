@@ -3,7 +3,7 @@
 Paste the block below into a new coding-agent session opened at the repository root (`c:\Users\USER\Code\Workflow-Builder`). The same block works for the first start and for every restart.
 
 ```text
-You are the build agent for the WorkTree (UAF) MVP in this repository.
+You are the build agent for the WorkTree MVP in this repository.
 Follow docs/AGENT_START_PROMPT.md exactly: read it now, then BUILD_PROGRESS.md,
 then continue the build from the current checkpoint. Do not stop at checkpoint
 boundaries and do not ask me questions. Work until every checkpoint in
@@ -64,6 +64,7 @@ On a restart, read items 1-2 in full. Then read only the parts of items 3-5 that
 - If `git config user.name` or `user.email` is empty, set a **repo-local** identity: `git config user.name "UAF Build Agent"` and `git config user.email "uaf-build-agent@localhost"`. Do not change global git config.
 - Make small, frequent commits with clear messages (`cp-NN: ...` for checkpoint commits, `wip(cp-NN): ...` for interim ones). Every commit that changes progress also updates `BUILD_PROGRESS.md`.
 - Never rewrite history: no `--amend` on earlier commits, no rebase, no `reset --hard`, no force operations. Fix problems with a new commit.
+- Commit messages follow `docs/COMMIT_GUIDELINES.md` (Conventional Commits, author Hope, never any AI attribution); it supersedes the `cp-NN:` and `wip(cp-NN):` message formats above.
 - Never skip hooks (`--no-verify`). If a pre-commit hook fails, fix the cause and commit again.
 - Never commit any of these:
   - secrets, `.env` files with values, or Playwright session state;

@@ -3,9 +3,10 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-27 (next)
-- **Status:** backend and activity checkpoints CP-01 to CP-26 are closed, plus the `pdf` and `document` activities on the CraftApps PdfCraft/WordCraft engines (DECISIONS 11.12, 11.13; G16). The frontend (CP-27 onward) has not started.
-- **Next action:** CP-27: scaffold `web/` (Vite, Vue 3 + TS strict, router, Pinia, vue-query, Vue Flow, Fluent web components wrapped), design tokens/themes, shared components, OpenAPI client + freshness check, `docs/design-language.md`, bundle served by FastAPI.
+- **Current checkpoint:** CP-28 (next)
+- **Status:** backend and activity checkpoints CP-01 to CP-26 are closed. The `pdf`, `document` and `spreadsheet` activities, and `excel` recalculation, now run on pypdf, plain docx XML (lxml) and a Python port of the GridCraft formula engine (`activities/_formula`); no CraftApps binary or LibreOffice is used (DECISIONS 11.12-11.14; G9, G16). CP-27 (frontend foundation and design language) is closed; CP-28 onward has not started.
+- **Next action:** CP-28: app shell (collapsible left sidebar, breadcrumbs, Ctrl/Cmd+K palette), login page, message bars and toasts, keyboard access. Read `docs/design-language.md` first.
+- **Owner feedback (2026-10-23): the node cards still need design.** The flat `NodeCard` in `web/src/components/NodeCard.vue` is a stand-in; the owner is not satisfied with it. Do not treat it as final. Agree the node card design with the owner (show options) before building the Studio canvas in CP-31.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,15 +14,15 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` (with `UAF_TEST_PDFCRAFT_CLI` set) | **337 passed**, 0 failed (build-7 full run); then 115 passed on contract/framework/platform/worker/pdf/document suites after the `document` activity was added |
+| Tests | `uv run pytest -q` | **763 passed**, 0 failed, 0 skipped (build-8 full run with the web bundle present, ~25 min); `npm --prefix web test`: **80 passed** |
 | Lint | `uv run ruff check .` | passed |
-| Format | `uv run ruff format --check .` | passed (169 files) |
-| Types | `uv run mypy --strict app activities fixtures` | passed (88 source files) |
+| Format | `uv run ruff format --check .` | passed (186 files) |
+| Types | `uv run mypy --strict app activities fixtures` | passed (98 source files) |
 | Layering | `uv run lint-imports` | passed (1 contract kept) |
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; the whole frontend; acceptance items A1-A10; PdfCraft OCR tools; Firefox/WebKit robots.
+**Not yet verified:** coverage percentage; the whole frontend; acceptance items A1-A10; Firefox/WebKit robots; the formula engine against real Excel.
 
 ## Code review (2026-10-23, build-7): platform and CP-24 draft
 
@@ -136,7 +137,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-24 | Activities: Playwright robot and script | done | (cp-24 tag) | `tests/integration/test_browser_activities.py` 14 passed against the fake portal + fake Graph (headless Chromium): API-token login sends the header and a wrong token fails; form login downloads the report and saves state (lock released); wrong password; saved session reused, then expired by the portal and renewed; form+OTP reads the fresh code from Graph; OTP mail older than T0 never used; rejected OTP retried with the next fresh code; all OTPs rejected fails after `otp_attempts`; portal lock exclusive and recovers from a dead owner; `playwright_script` result + screenshot, script error -> failed; unsafe URL refused. Review fixes R44-R46. G8 narrowed |
 | CP-25 | Activities: legacy wrapper and run_python | done | (cp-25 tag) | `tests/integration/test_process_activities.py` 10 passed: sample legacy robot collects named output files as artifacts; secrets masked in args/env/stdout/stderr/log; exit codes map to outcomes with messages (`success_codes`); missing outputs fail unless optional; output globs confined to the workspace; `UAF_*`/malformed env names refused; timeout kills the robot and its grandchild; `run_python` timeout keeps partial output and JSON result file returned; legacy robot runs under the worker envelope with `{{ secret:... }}` substitution and masking. `run_python` documented as process isolation, not a sandbox (DECISIONS 11.9) |
 | CP-26 | Activities: matching, human_task, ai_extract | done | (cp-26 tag) | `tests/integration/test_matching_ai_tasks.py` 15 passed: Hypothesis (300 examples each) - every row accounted for exactly once, no right row reused, pairs respect key/score/amount/date rules, 1:N groups sum within tolerance, deterministic, self-match complete; bank vs ledger 1:1 and 1:N to three Parquet tables; fuzzy only above threshold; human_task suspends and resumes for all four task types; ai_extract refused when disabled, sends the JSON schema to the fake LLM and validates the answer, schema mismatch and invalid schema fail (DECISIONS 11.10, 11.11) |
-| CP-27 | Frontend foundation and design language | todo | | not started |
+| CP-27 | Frontend foundation and design language | done | | `web/` (Vite, Vue 3 + TS strict, Router, Pinia, vue-query, Fluent wrappers): tokens and 3 themes with AA contrast tests, own icon set with the leaf/branch mark, StatusBadge, PageHeader, PropertyList, EmptyState, RunTimeline, NodeCard, typed API client generated from `docs/openapi.json` with a freshness check, `docs/design-language.md`; `vue-tsc`, ESLint and 80 Vitest tests pass; bundle built into `web/dist` and served by FastAPI (4 tests) (DECISIONS 11.15, 11.16) |
 | CP-28 | App shell, navigation and command palette | todo | | not started |
 | CP-29 | Operations Console | todo | | not started |
 | CP-30 | Task Inbox | todo | | not started |
@@ -189,3 +190,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-6 | CP-23 | Streamed CSV/FWF reads (chunked to Parquet/CSV/JSON), declared encodings, Excel read/write/set_cells with XlsxWriter constant memory and opt-in LibreOffice recalculation, AES ZIP create/list/extract with zip-slip plus declared/actual size and entry caps, bounded text-log tail. 16 tests incl. 1M rows at 55.8 MB traced peak. G9/DECISIONS 10.4. 278 pass. | cp-23 |
 | 2026-10-23 | build-6 | CP-24 (paused) | Wrote the three login styles, per-portal locked session state/reuse, Graph OTP polling with T0/regex/fresh-code retry, and fake-portal OTP login support. Imports, ruff and mypy pass; no CP-24 tests or gates yet. Paused on request; resume at the browser test suite. | wip(cp-24) |
 | 2026-10-23 | build-7 | review, CP-24, CP-25, CP-26, pdf | Second full review: 13 defects fixed (R34-R46) incl. duplicate-guard queue never queuing, per-run tick transactions, lock order, platform credentials leaking into activity children, webhook disclosure, last-admin lockout. Closed CP-24 (browser tests, lock/markers/state fixes), CP-25 (env, exit-code mapping, output files, tree kill), CP-26 (new reconciliation matcher with Hypothesis properties, schema-validated ai_extract). Added the `pdf` activity on PdfCraft (MCP over stdio) and the `document` activity on WordCraft (convert/text/info/mail merge), both from CraftApps, built from source; 8 + 6 engine tests pass. | cp-26 |
+| 2026-10-23 | build-8 | engine port (pdf, document, spreadsheet) | Replaced the CraftApps CLI nodes with pure Python: `activities/_formula` (GridCraft port: parser, evaluator, ~140 functions, workbook load/recalculate, XML write-back that keeps charts), `spreadsheet` and `excel` recalculation on it, `pdf` on pypdf, `document` on docx XML with WordCraft-style mail merge. Removed `activities/_engines.py`, the `*_cli` settings and the child env plumbing. 759 passed; all gates green. Redaction, OCR, docx to PDF and some inputs dropped (G16). | uncommitted |
