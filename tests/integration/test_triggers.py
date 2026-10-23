@@ -111,9 +111,7 @@ def test_missed_cron_slot_is_skipped_and_audited(container) -> None:
 
 def test_catch_up_fires_each_missed_slot_one_tick_at_a_time(container) -> None:
     workflow_id = save(container, simple_workflow("catch-up flow"))
-    cron = schedule(
-        container, workflow_id, "cron", cron="*/5 * * * *", config={"catch_up": True}
-    )
+    cron = schedule(container, workflow_id, "cron", cron="*/5 * * * *", config={"catch_up": True})
     with container.database.session() as session:
         row = session.get(Schedule, cron.id)
         row.next_run_at = datetime(2026, 1, 1, 8, 50, tzinfo=UTC)  # type: ignore[union-attr]

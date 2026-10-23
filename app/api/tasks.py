@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -31,6 +31,8 @@ def list_tasks(
     status: str | None = None,
     mine: bool = False,
     overdue: bool = False,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     rows = request.app.state.container.tasks.list_tasks(
         session,
@@ -40,7 +42,7 @@ def list_tasks(
         overdue_only=overdue,
         mine=mine,
     )
-    return [serialize_task(row) for row in rows]
+    return [serialize_task(row) for row in rows[offset : offset + limit]]
 
 
 @router.get("/overdue")

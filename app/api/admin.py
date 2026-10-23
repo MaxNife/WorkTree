@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.adapters.db.models import AuditLog, SecretMetadata
+from app.adapters.db.models import AuditLog, RoleRow, SecretMetadata
 from app.api.deps import (
     client_ip,
     correlation_id,
@@ -39,6 +39,15 @@ def list_users(
         serialize_user(row, roles)
         for row, roles in request.app.state.container.auth.list_users(session)
     ]
+
+
+@router.get("/roles")
+def list_roles(
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[Any, require(Permission.ADMIN_USERS)],
+) -> list[dict[str, Any]]:
+    rows = list(session.execute(select(RoleRow).order_by(RoleRow.name)).scalars())
+    return [{"name": row.name, "description": row.description} for row in rows]
 
 
 @router.post("/users")

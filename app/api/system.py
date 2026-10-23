@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.adapters.db.models import Run, SavedView, Task, Workflow
+from app.adapters.db.models import Environment, Run, SavedView, Task, Workflow
 from app.api.deps import (
     CurrentUser,
     csrf_guard,
@@ -75,6 +75,15 @@ def dashboard(
             for row in recent
         ],
     }
+
+
+@router.get("/environments")
+def list_environments(
+    session: Annotated[Session, Depends(get_session)],
+    _user: Annotated[Any, require(Permission.VIEW)],
+) -> list[dict[str, Any]]:
+    rows = list(session.execute(select(Environment).order_by(Environment.name)).scalars())
+    return [{"name": row.name, "is_production": row.is_production} for row in rows]
 
 
 @router.get("/notifications")

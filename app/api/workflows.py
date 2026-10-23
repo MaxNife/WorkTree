@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,9 +29,26 @@ from app.domain.workflow import (
     load_workflow_yaml,
     validate_definition,
 )
+from app.errors import ValidationFailed
 from app.security.rbac import Permission
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+
+
+def _parse_definition(body: WorkflowSaveRequest) -> WorkflowDefinition:
+    """Turn pydantic/YAML failures into the stable API error instead of a 500."""
+    if body.definition is not None:
+        try:
+            return WorkflowDefinition.model_validate(body.definition)
+        except ValidationError as exc:
+            details = [
+                {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+                for error in exc.errors(include_url=False)
+            ]
+            raise ValidationFailed("workflow definition is invalid", details=details) from exc
+    if body.yaml is not None:
+        return load_workflow_yaml(body.yaml)
+    raise ValidationFailed("provide either 'definition' or 'yaml'")
 
 
 @router.get("")
@@ -38,11 +56,15 @@ def list_workflows(
     session: Annotated[Session, Depends(get_session)],
     _user: Annotated[Any, require(Permission.VIEW)],
     include_archived: bool = False,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[dict[str, Any]]:
     query = select(Workflow)
     if not include_archived:
         query = query.where(Workflow.archived.is_(False))
-    rows = list(session.execute(query.order_by(Workflow.name)).scalars())
+    rows = list(
+        session.execute(query.order_by(Workflow.name).limit(limit).offset(offset)).scalars()
+    )
     return [serialize_workflow(row) for row in rows]
 
 
@@ -55,14 +77,7 @@ def save_workflow(
     _permission: Annotated[Any, require(Permission.WORKFLOW_SAVE)],
     workflow_id: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    if body.definition is not None:
-        definition = WorkflowDefinition.model_validate(body.definition)
-    elif body.yaml is not None:
-        definition = load_workflow_yaml(body.yaml)
-    else:
-        from app.errors import ValidationFailed
-
-        raise ValidationFailed("provide either 'definition' or 'yaml'")
+    definition = _parse_definition(body)
     container = request.app.state.container
     workflow, version = container.workflows.save(
         session,
@@ -83,11 +98,7 @@ def validate_workflow(
     _csrf: Annotated[Any, Depends(csrf_guard)],
     _user: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
 ) -> dict[str, Any]:
-    definition = (
-        WorkflowDefinition.model_validate(body.definition)
-        if body.definition is not None
-        else load_workflow_yaml(body.yaml or "")
-    )
+    definition = _parse_definition(body)
     container = request.app.state.container
     issues = validate_definition(definition, container.registry.names())
     return {

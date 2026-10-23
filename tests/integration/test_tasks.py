@@ -10,7 +10,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
-from app.adapters.db.models import AuditLog, Notification, Run, Task, TaskEvent
+from app.adapters.db.models import AuditLog, Notification, Run, Task
 from app.adapters.secrets.local import LocalSecretStore
 from app.config import NotificationSettings
 from app.domain.enums import Role, RunStatus, TaskStatus
@@ -85,15 +85,14 @@ def test_each_task_type_claims_completes_and_resumes(
         assert task.status == TaskStatus.OPEN.value
         assert task.due_at == container.clock.now() + timedelta(minutes=60)
 
-    with container.database.session() as session:
-        with pytest.raises(Forbidden):
-            container.tasks.claim(
-                session,
-                task_id=task_id,
-                user_id="viewer-id",
-                username="viewer",
-                roles=[Role.VIEWER],
-            )
+    with container.database.session() as session, pytest.raises(Forbidden):
+        container.tasks.claim(
+            session,
+            task_id=task_id,
+            user_id="viewer-id",
+            username="viewer",
+            roles=[Role.VIEWER],
+        )
     with container.database.session() as session:
         claimed = container.tasks.claim(
             session,
@@ -154,17 +153,16 @@ def test_rejection_needs_a_reason_and_routes_to_on_failed(container) -> None:
     with container.database.session() as session:
         task = session.execute(select(Task).where(Task.run_id == run.id)).scalar_one()
         task_id = task.id
-    with container.database.session() as session:
-        with pytest.raises(ValidationFailed, match="reason"):
-            container.tasks.complete(
-                session,
-                task_id=task_id,
-                user_id="approver-id",
-                username="approver",
-                roles=[Role.APPROVER],
-                decision="reject",
-                reason="   ",
-            )
+    with container.database.session() as session, pytest.raises(ValidationFailed, match="reason"):
+        container.tasks.complete(
+            session,
+            task_id=task_id,
+            user_id="approver-id",
+            username="approver",
+            roles=[Role.APPROVER],
+            decision="reject",
+            reason="   ",
+        )
     with container.database.session() as session:
         container.tasks.complete(
             session,
@@ -234,7 +232,9 @@ def test_workflow_sla_breach_is_detected_for_an_active_run(container) -> None:
     assert "run.sla_breach" in actions
 
 
-def test_notification_is_delivered_to_webhook_and_smtp_and_masks_secrets(container, monkeypatch) -> None:
+def test_notification_is_delivered_to_webhook_and_smtp_and_masks_secrets(
+    container, monkeypatch
+) -> None:
     posted: list[dict[str, Any]] = []
     sent: list[Any] = []
 
@@ -280,7 +280,9 @@ def test_notification_is_delivered_to_webhook_and_smtp_and_masks_secrets(contain
             role="operator",
             link="/runs/x",
         )
-    assert posted == [{"title": "Run failed", "body": "secret *** leaked", "kind": "info", "link": "/runs/x"}]
+    assert posted == [
+        {"title": "Run failed", "body": "secret *** leaked", "kind": "info", "link": "/runs/x"}
+    ]
     assert len(sent) == 1
     assert "secret ***" in sent[0].get_content()
     assert PLANTED not in sent[0].get_content()

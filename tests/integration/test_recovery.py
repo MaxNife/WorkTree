@@ -72,7 +72,7 @@ os._exit(9)
 """
 
 
-def _container(settings: Settings, clock: FakeClock, *, schema: bool) -> Any:
+def _container(settings: Settings, clock: SystemClock, *, schema: bool) -> Any:
     built = build_container(settings, clock=clock, create_schema=schema)
     if schema:
         seed_reference_data(built.database)
@@ -103,8 +103,12 @@ def _crash(
     payload = tmp_path / "crash.json"
     payload.write_text(
         json.dumps(
-            {"settings": settings.model_dump(mode="json"), "run_id": run_id, "mode": mode,
-             "execute": execute},
+            {
+                "settings": settings.model_dump(mode="json"),
+                "run_id": run_id,
+                "mode": mode,
+                "execute": execute,
+            },
             default=str,
         ),
         encoding="utf-8",
@@ -125,9 +129,7 @@ def _rows(container: Any, run_id: str) -> dict[str, RunStep]:
     with container.database.session() as session:
         return {
             row.step_id: row
-            for row in session.execute(
-                select(RunStep).where(RunStep.run_id == run_id)
-            ).scalars()
+            for row in session.execute(select(RunStep).where(RunStep.run_id == run_id)).scalars()
         }
 
 
@@ -302,9 +304,7 @@ def test_human_task_resume_token_survives_a_restart(settings: Settings) -> None:
         with first.database.session() as session:
             saved = session.get(Run, run_id)
             assert saved is not None and saved.status == RunStatus.SUSPENDED.value
-            task_id = session.execute(
-                select(Task).where(Task.run_id == run_id)
-            ).scalar_one().id
+            task_id = session.execute(select(Task).where(Task.run_id == run_id)).scalar_one().id
     finally:
         first.shutdown()
 
