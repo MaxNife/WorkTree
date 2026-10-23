@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-20 (complete)
-- **Status:** done — backend checkpoints CP-01 to CP-20 are closed; frontend/activity checkpoints remain.
-- **Next action:** CP-21: HTTP, streamed download, SFTP get/put/list and UNC archive against the local fixtures, including a checksum mismatch -> failed.
+- **Current checkpoint:** CP-21 (complete)
+- **Status:** done — backend checkpoints CP-01 to CP-21 are closed; frontend/activity checkpoints remain.
+- **Next action:** CP-22: `email` (Graph sendMail and SMTP fallback) and `graph_read_mail` against the fake Graph and local SMTP sink, with the real-tenant gap logged.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,7 +13,7 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **244 passed** (CP-20 full run) |
+| Tests | `uv run pytest -q` | **254 passed** (CP-21 full run) |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (154 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
@@ -21,7 +21,7 @@ The resume point for the build agent. **Read this file first on every start or r
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; activity-library tests CP-21 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+**Not yet verified:** coverage percentage; activity-library tests CP-22 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
 
 ## Code review (2026-10-23, build-5): activity library
 
@@ -110,7 +110,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-18 | REST API completion, live events, health and metrics | done | (cp-18 tag) | `tests/integration/test_api.py` 9 passed: every BP:42 resource (workflows/versions/environments/runs/tasks/schedules/users+roles/audit/secrets metadata/artifacts) plus dashboard, activities, views, notifications; error envelope 404/422 and no traceback (fixed pydantic `ValidationError` -> 422 in save/validate); WebSocket delivers `step.completed`+`run.finished` to a test client and rejects anonymous subscribers; `/health`, Prometheus `/metrics`; `scripts/export_openapi.py --check` keeps the 48-path `docs/openapi.json` current |
 | CP-19 | Local fixtures | done | (cp-19 tag) | `tests/integration/test_fixtures.py` 7 passed from pytest fixtures: fake portal (form login, email OTP, session cookie file download, API-token mode), fake Graph (token, `$filter`/`$orderby`/`$top`/`$select`, sendMail, drive upload), fake LLM completion, paramiko SFTP (put/get/list/mkdir/rename, root confinement, clean stop), SMTP sink delivery, deterministic SQLite GL, and data generators (1M-row CSV in an AES-256 ZIP, 500-row Excel, fixed-width and log samples); generated files are git-ignored. Real hosts remain gaps G3/G4/G5/G11 |
 | CP-20 | Activities: GL and Oracle | done | (cp-20 tag) | `tests/integration/test_sql_activities.py` 10 passed: aggregate join to Parquet, named binds + `max_rows`, positional placeholders refused, UPDATE and batched executemany with `chunk_size`, multi-statement script, 2,000-row fixture invoices staged then MERGE-upserted without duplicates, per-row errors reported with row indexes, direct load, identifier/URL refusal; contract suite passes; G2 narrowed to real Oracle |
-| CP-21 | Activities: HTTP, download, SFTP, UNC archive | in-progress* | | code + mypy only; no fixture test yet |
+| CP-21 | Activities: HTTP, download, SFTP, UNC archive | done | (cp-21 tag) | `tests/integration/test_network_activities.py` 10 passed: JSON POST + body file, custom/rejected status, response cap, unsafe URLs refused; streamed download with uppercase SHA-256, artifact, mismatch/size-cap cleaning up and HTTP 404; SFTP put/get/list against the paramiko fixture, bad credentials and missing local path; UNC copy/move with checksum, mismatch -> failed with source intact and no destination, overwrite guard |
 | CP-22 | Activities: email and Graph mail | in-progress* | | code + mypy only; fake endpoint exists but is not exercised |
 | CP-23 | Activities: file tools | in-progress* | | code + mypy only; no fixture test yet |
 | CP-24 | Activities: Playwright robot and script | in-progress* | | code + mypy only; browser install/runtime not tested |
@@ -135,7 +135,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-20 closed. CP-21 not started.
+- None: CP-21 closed. CP-22 not started.
 
 ## Blockers and workarounds
 
@@ -164,3 +164,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-4 | CP-19 | Fixture gate: pytest-owned fake portal/Graph/LLM/SFTP/SMTP/GL, data generators (1M-row AES-256 ZIP, Excel, fixed-width, log), start/stop smoke tests. G5 updated. | cp-19 |
 | 2026-10-23 | build-5 | review (CP-20 to CP-26 code) | Re-verified every gate from scratch (all matched the tracker). Reviewed `activities/`: 12 defects fixed (R22-R33), incl. secret leak via logged command line, data loss in `unc_archive` move and `matching`, CSV column shift/NaN. 11 regression tests; 234 pass. CP-20 to CP-26 remain open. | uncommitted |
 | 2026-10-23 | build-6 | CP-20 | Added the `Database`/SQLite/Oracle interface (`activities/database.py`), converted the SQL activities to it, implemented staged chunked loads + SQLite upsert/Oracle MERGE + append and per-row errors, used `chunk_size` for batched executes and multi-statement/PLSQL scripts, and refused positional binds. 10 SQLite tests incl. 2,000 fixture invoices. G2 narrowed. 244 pass. | cp-20 |
+| 2026-10-23 | build-6 | CP-21 | Fixture tests for HTTP (JSON/caps/status/URL refusal), streamed download (checksum, size cap, 404), SFTP put/get/list + bad credentials against the paramiko fake, and UNC copy/move incl. checksum mismatch -> failed with no data loss and the overwrite guard. G5 updated. 254 pass. | cp-21 |
