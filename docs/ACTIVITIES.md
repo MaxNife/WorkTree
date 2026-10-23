@@ -6,8 +6,9 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 
 | Activity | Category | Version | Description |
 |---|---|---|---|
-| [`ai_extract`](#ai-extract) | Platform / AI | 1.0 | Optional OpenAI-compatible JSON extraction; disabled unless AI is configured. |
+| [`ai_extract`](#ai-extract) | Platform / AI | 1.0 | Extract a JSON object that must match a JSON schema, via the configured internal OpenAI-compatible endpoint. Off by default; pending AI-framework approval. |
 | [`csv`](#csv) | Platform / Files | 1.0 | Stream or chunk CSV and fixed-width files; tables leave as Parquet references. |
+| [`document`](#document) | Platform / Documents | 1.0 | Word documents: convert (docx, pdf, odt, rtf, html, md, txt), extract text, info, and mail merge from CSV/Excel or rows, optionally to PDF; confined to the run workspace. |
 | [`download_file`](#download-file) | Platform / Integration | 1.0 | Stream a file into the run workspace with size and checksum verification. |
 | [`echo`](#echo) | Platform / Core | 1.0 | Return the supplied inputs unchanged. |
 | [`email`](#email) | Platform / Messaging | 1.0 | Send mail through Microsoft Graph client-secret auth or SMTP fallback. |
@@ -17,14 +18,15 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | [`graph_read_mail`](#graph-read-mail) | Platform / Messaging | 1.0 | Read the newest messages for a mailbox and optionally extract a code. |
 | [`http_request`](#http-request) | Platform / Integration | 1.0 | Call an internal HTTP endpoint with an explicit timeout and response cap. |
 | [`human_task`](#human-task) | Platform / Human | 1.0 | Suspend the run and wait for an approval, exception or manual match decision. |
-| [`legacy_robot_wrapper`](#legacy-robot-wrapper) | Platform / Automation | 1.0 | Run an existing command-line robot without a shell, with timeouts and logs. |
-| [`matching`](#matching) | Data / Matching | 1.0 | Deterministic fuzzy match two tables and write matched and unmatched rows. |
+| [`legacy_robot_wrapper`](#legacy-robot-wrapper) | Platform / Automation | 1.0 | Run an existing command-line robot without a shell: env from inputs, exit-code mapping, masked logs, and named output files collected as artifacts. |
+| [`matching`](#matching) | Data / Matching | 1.0 | Reconcile two tables on a key with optional amount/date tolerance, 1:1 or 1:N; writes matched, unmatched-A and unmatched-B tables. |
 | [`oracle_bulk_load`](#oracle-bulk-load) | Data / Oracle | 1.0 | Chunked executemany into staging, then a MERGE into the target, with per-row errors. |
 | [`oracle_execute`](#oracle-execute) | Data / Oracle | 1.0 | Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block. |
 | [`oracle_query`](#oracle-query) | Data / Oracle | 1.0 | Parameterised Oracle query (python-oracledb thin mode or SQLite in tests). |
-| [`playwright_robot`](#playwright-robot) | Platform / Browser | 1.0 | Run a browser robot from a declarative step list (portal login, download, extract). |
+| [`pdf`](#pdf) | Platform / Documents | 1.0 | PDF info, text, combine, extract pages, split, protect, watermark, redact, form fill, optimize, or a PdfCraft tool script; confined to the run workspace. |
+| [`playwright_robot`](#playwright-robot) | Platform / Browser | 1.0 | Run a browser robot from a declarative step list, with API-token, form or form+email-OTP login and reusable per-portal sessions. |
 | [`playwright_script`](#playwright-script) | Platform / Browser | 1.0 | Run an existing Playwright Python script with page/context injected. |
-| [`run_python`](#run-python) | Platform / Automation | 1.0 | Run a Python script in the isolated activity process with a workspace sandbox. |
+| [`run_python`](#run-python) | Platform / Automation | 1.0 | Run a Python script in its own process with the run workspace as its folder (process isolation, not a sandbox; Admin-only). |
 | [`sftp`](#sftp) | Platform / Integration | 1.0 | SFTP get/put/list using paramiko. |
 | [`sleep`](#sleep) | Platform / Core | 1.0 | Wait for a number of seconds (testing and pacing). |
 | [`txt_log`](#txt-log) | Platform / Files | 1.0 | Append or read a plain-text log with a line cap. |
@@ -33,7 +35,7 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 
 ## ai_extract
 
-Optional OpenAI-compatible JSON extraction; disabled unless AI is configured.
+Extract a JSON object that must match a JSON schema, via the configured internal OpenAI-compatible endpoint. Off by default; pending AI-framework approval.
 
 Only an Admin can save a workflow that uses this activity.
 
@@ -42,10 +44,12 @@ Only an Admin can save a workflow that uses this activity.
 | `text` | string |  |  |
 | `file_path` | string |  |  |
 | `instruction` | string | `'Extract the requested fields as JSON.'` |  |
+| `json_schema` | object |  |  |
 | `fields` | array |  |  |
 | `output_path` | string | `'ai-extract.json'` |  |
 | `max_input_chars` | integer | `200000` |  |
 | `model` | string | `'gpt-4o-mini'` |  |
+| `timeout_seconds` | number | `60` |  |
 
 ## csv
 
@@ -72,6 +76,29 @@ Fields by operation:
 - `read_fwf`: `path`, `encoding`, `widths`, `names`, `output_path`, `output_format`, `max_rows`, `chunk_size`
 - `write`: `path`, `encoding`, `rows`, `source_path`
 - `append`: `path`, `encoding`, `rows`, `source_path`
+
+## document
+
+Word documents: convert (docx, pdf, odt, rtf, html, md, txt), extract text, info, and mail merge from CSV/Excel or rows, optionally to PDF; confined to the run workspace.
+
+| Input | Type | Default | Notes |
+|---|---|---|---|
+| `operation` | `convert` \| `text` \| `info` \| `mail_merge` | `'convert'` |  |
+| `path` | string | `'document.docx'` |  |
+| `output_path` | string |  |  |
+| `markup` | boolean | `False` |  |
+| `data_path` | string |  |  |
+| `rows` | array |  |  |
+| `sheet` | string |  |  |
+| `also_pdf` | boolean | `False` |  |
+| `timeout_seconds` | integer | `300` |  |
+
+Fields by operation:
+
+- `convert`: `path`, `output_path`, `markup`
+- `text`: `path`, `output_path`
+- `info`: `path`
+- `mail_merge`: `path`, `data_path`, `rows`, `sheet`, `output_path`, `also_pdf`
 
 ## download_file
 
@@ -208,14 +235,14 @@ Suspend the run and wait for an approval, exception or manual match decision.
 | `type` | `approval` \| `manual_match` \| `data_entry` \| `exception_disposition` | `'approval'` |  |
 | `title` | string |  |  |
 | `description` | string |  |  |
-| `assignee_role` | string | `'operator'` |  |
+| `assignee_role` | Role | `'operator'` |  |
 | `priority` | integer | `2` |  |
 | `due_minutes` | integer | `60` |  |
 | `payload` | object |  |  |
 
 ## legacy_robot_wrapper
 
-Run an existing command-line robot without a shell, with timeouts and logs.
+Run an existing command-line robot without a shell: env from inputs, exit-code mapping, masked logs, and named output files collected as artifacts.
 
 Only an Admin can save a workflow that uses this activity.
 
@@ -223,23 +250,37 @@ Only an Admin can save a workflow that uses this activity.
 |---|---|---|---|
 | `executable` | string | `'python'` |  |
 | `args` | array |  |  |
+| `env` | object |  |  |
 | `working_dir` | string | `'.'` |  |
 | `timeout_seconds` | integer | `120` |  |
 | `output_path` | string | `'legacy-output.txt'` |  |
 | `input_text` | string |  |  |
+| `encoding` | string | `'utf-8'` |  |
+| `success_codes` | array |  |  |
+| `exit_code_messages` | object |  |  |
+| `output_files` | array |  |  |
+| `require_output_files` | boolean | `True` |  |
 
 ## matching
 
-Deterministic fuzzy match two tables and write matched and unmatched rows.
+Reconcile two tables on a key with optional amount/date tolerance, 1:1 or 1:N; writes matched, unmatched-A and unmatched-B tables.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
-| `left_path` | string |  | required |
-| `right_path` | string |  | required |
 | `left_key` | string |  | required |
 | `right_key` | string |  | required |
-| `threshold` | number | `0.85` |  |
-| `limit` | integer | `100000` |  |
+| `threshold` | number | `1.0` |  |
+| `left_amount` | string |  |  |
+| `right_amount` | string |  |  |
+| `amount_tolerance` | number or string | `'0'` |  |
+| `left_date` | string |  |  |
+| `right_date` | string |  |  |
+| `date_tolerance_days` | integer | `0` |  |
+| `date_format` | string |  |  |
+| `mode` | `one_to_one` \| `one_to_many` | `'one_to_one'` |  |
+| `left_path` | string |  | required |
+| `right_path` | string |  | required |
+| `limit` | integer | `1000000` |  |
 | `output_path` | string | `'matches.parquet'` |  |
 
 ## oracle_bulk_load
@@ -281,9 +322,51 @@ Parameterised Oracle query (python-oracledb thin mode or SQLite in tests).
 | `output_format` | `parquet` \| `csv` \| `json` | `'parquet'` |  |
 | `max_rows` | integer | `100000` |  |
 
+## pdf
+
+PDF info, text, combine, extract pages, split, protect, watermark, redact, form fill, optimize, or a PdfCraft tool script; confined to the run workspace.
+
+| Input | Type | Default | Notes |
+|---|---|---|---|
+| `operation` | `info` \| `text` \| `combine` \| `extract_pages` \| `split` \| `protect` \| `watermark` \| `redact` \| `fill_form` \| `optimize` \| `script` | `'info'` |  |
+| `path` | string | `'input.pdf'` |  |
+| `password` | string |  | sensitive (redacted in run records) |
+| `paths` | array |  |  |
+| `pages` | array |  |  |
+| `output_path` | string |  |  |
+| `output_dir` | string | `'pages'` |  |
+| `every` | integer | `0` |  |
+| `before` | array |  |  |
+| `open_password` | string |  | sensitive (redacted in run records) |
+| `permissions_password` | string |  | sensitive (redacted in run records) |
+| `printing` | `none` \| `low` \| `high` | `'high'` |  |
+| `allow_copy` | boolean | `True` |  |
+| `watermark_text` | string |  |  |
+| `opacity` | number | `0.3` |  |
+| `rotation` | number | `45` |  |
+| `redact_words` | array |  |  |
+| `redact_patterns` | array |  |  |
+| `form_values` | object |  |  |
+| `steps` | array |  |  |
+| `timeout_seconds` | integer | `300` |  |
+
+Fields by operation:
+
+- `info`: `path`, `password`
+- `text`: `path`, `password`, `pages`, `output_path`
+- `combine`: `paths`, `output_path`
+- `extract_pages`: `path`, `password`, `pages`, `output_path`
+- `split`: `path`, `password`, `every`, `before`, `output_dir`
+- `protect`: `path`, `password`, `open_password`, `permissions_password`, `printing`, `allow_copy`, `output_path`
+- `watermark`: `path`, `password`, `watermark_text`, `opacity`, `rotation`, `pages`, `output_path`
+- `redact`: `path`, `password`, `redact_words`, `redact_patterns`, `output_path`
+- `fill_form`: `path`, `password`, `form_values`, `output_path`
+- `optimize`: `path`, `password`, `output_path`
+- `script`: `steps`
+
 ## playwright_robot
 
-Run a browser robot from a declarative step list (portal login, download, extract).
+Run a browser robot from a declarative step list, with API-token, form or form+email-OTP login and reusable per-portal sessions.
 
 Only an Admin can save a workflow that uses this activity.
 
@@ -294,12 +377,46 @@ Only an Admin can save a workflow that uses this activity.
 | `base_url` | string |  |  |
 | `start_url` | string |  |  |
 | `steps` | array |  |  |
+| `operation` | `none` \| `api_token` \| `form` \| `form_otp` | `'none'` |  |
+| `portal` | string |  |  |
+| `login_url` | string |  |  |
 | `username` | string |  |  |
 | `password` | string |  | sensitive (redacted in run records) |
 | `otp` | string |  | sensitive (redacted in run records) |
+| `api_token` | string |  | sensitive (redacted in run records) |
+| `api_token_header` | string | `'X-API-Token'` |  |
+| `username_selector` | string | `'input[name=username], #username, input[type=email]'` |  |
+| `password_selector` | string | `'input[name=password], #password, input[type=password]'` |  |
+| `submit_selector` | string | `'button[type=submit], #login'` |  |
+| `otp_selector` | string | `'input[name=otp], input[name=code], #otp, input[autocomplete=one-time-code]'` |  |
+| `otp_submit_selector` | string | `'button[type=submit], #verify'` |  |
+| `otp_resend_selector` | string |  |  |
+| `login_failure_markers` | array |  |  |
+| `login_failure_selector` | string | `'body'` |  |
+| `session_check_url` | string |  |  |
+| `state_file` | string |  |  |
+| `otp_graph_base_url` | string | `'https://graph.microsoft.com/v1.0'` |  |
+| `otp_login_base_url` | string | `'https://login.microsoftonline.com'` |  |
+| `otp_tenant_id` | string |  |  |
+| `otp_client_id` | string |  |  |
+| `otp_client_secret` | string |  | sensitive (redacted in run records) |
+| `otp_mailbox` | string |  |  |
+| `otp_sender` | string |  |  |
+| `otp_regex` | string | `'\\b(\\d{6})\\b'` |  |
+| `otp_since` | string |  |  |
+| `otp_timeout_seconds` | number | `120` |  |
+| `otp_poll_seconds` | number | `2` |  |
+| `otp_attempts` | integer | `2` |  |
 | `screenshot_path` | string | `'page.png'` |  |
 | `screenshot_on_failure` | boolean | `True` |  |
 | `timeout_ms` | integer | `30000` |  |
+
+Fields by operation:
+
+- `none`: `start_url`, `username`, `password`
+- `api_token`: `start_url`, `api_token`, `api_token_header`, `login_url`
+- `form`: `login_url`, `username`, `password`, `username_selector`, `password_selector`, `submit_selector`, `login_failure_markers`, `login_failure_selector`
+- `form_otp`: `login_url`, `username`, `password`, `username_selector`, `password_selector`, `submit_selector`, `otp_selector`, `otp_submit_selector`, `otp_resend_selector`, `login_failure_markers`, `login_failure_selector`, `otp_graph_base_url`, `otp_login_base_url`, `otp_tenant_id`, `otp_client_id`, `otp_client_secret`, `otp_mailbox`, `otp_sender`, `otp_regex`, `otp_since`, `otp_timeout_seconds`, `otp_poll_seconds`, `otp_attempts`
 
 ## playwright_script
 
@@ -319,7 +436,7 @@ Only an Admin can save a workflow that uses this activity.
 
 ## run_python
 
-Run a Python script in the isolated activity process with a workspace sandbox.
+Run a Python script in its own process with the run workspace as its folder (process isolation, not a sandbox; Admin-only).
 
 Only an Admin can save a workflow that uses this activity.
 
