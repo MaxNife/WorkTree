@@ -18,8 +18,8 @@ import pandas as pd
 import psutil
 import pytest
 import pyzipper
+from python_calamine import CalamineWorkbook
 
-from activities import files as files_module
 from activities.files import CsvActivity, ExcelActivity, TxtLogActivity, ZipActivity
 from app.domain.activity import ActivityContext
 from app.domain.clock import FakeClock
@@ -273,23 +273,40 @@ def test_excel_write_styles_and_set_cells(tmp_path: Path) -> None:
         book.close()
 
 
-def test_excel_recalculate_fails_clearly_when_libreoffice_is_absent(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_excel_recalculate_persists_values_for_non_calculating_readers(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path / "ws")
-    monkeypatch.setattr(files_module.shutil, "which", lambda name: None)
-    result = ExcelActivity().execute(
+    activity = ExcelActivity()
+    written = activity.execute(
         ctx,
         {
             "operation": "write",
             "path": "out.xlsx",
-            "rows": [{"a": "1"}],
+            "rows": [{"a": 2, "b": 3}],
             "recalculate": True,
         },
     )
-    assert result.outcome == Outcome.FAILED
-    assert "G9" in result.message and "LibreOffice" in result.message
-    assert "gridcraft-cli" in result.message
+    assert written.outcome == Outcome.DONE, written.message
+    calculated = activity.execute(
+        ctx,
+        {
+            "operation": "set_cells",
+            "path": "out.xlsx",
+            "cells": {"C2": "=A2*B2", "D2": "=C2+1"},
+            "recalculate": True,
+        },
+    )
+    assert calculated.outcome == Outcome.DONE, calculated.message
+
+    # calamine and pandas read the cached results, not the formulas.
+    rows = CalamineWorkbook.from_path(str(ctx.workspace / "out.xlsx")).get_sheet_by_index(0)
+    assert rows.to_python()[1][2] == 6
+    frame = pd.read_excel(ctx.workspace / "out.xlsx", engine="calamine")
+    assert frame.iloc[0, 2] == 6
+    assert frame.iloc[0, 3] == 7
+
+    # The writer leaves the workbook marked for a full calculation in Excel.
+    with zipfile.ZipFile(ctx.workspace / "out.xlsx") as archive:
+        assert b'fullCalcOnLoad="1"' in archive.read("xl/workbook.xml")
 
 
 # ----------------------------------------------------------------------------- ZIP

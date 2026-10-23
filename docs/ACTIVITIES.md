@@ -8,7 +8,7 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 |---|---|---|---|
 | [`ai_extract`](#ai-extract) | Platform / AI | 1.0 | Extract a JSON object that must match a JSON schema, via the configured internal OpenAI-compatible endpoint. Off by default; pending AI-framework approval. |
 | [`csv`](#csv) | Platform / Files | 1.0 | Stream or chunk CSV and fixed-width files; tables leave as Parquet references. |
-| [`document`](#document) | Platform / Documents | 1.0 | Word documents: convert (docx, pdf, odt, rtf, html, md, txt), extract text, info, and mail merge from CSV/Excel or rows, optionally to PDF; confined to the run workspace. |
+| [`document`](#document) | Platform / Documents | 1.0 | Word documents (.docx): convert to txt, md or html, extract text, info, and mail merge from CSV/Excel or rows; confined to the run workspace. |
 | [`download_file`](#download-file) | Platform / Integration | 1.0 | Stream a file into the run workspace with size and checksum verification. |
 | [`echo`](#echo) | Platform / Core | 1.0 | Return the supplied inputs unchanged. |
 | [`email`](#email) | Platform / Messaging | 1.0 | Send mail through Microsoft Graph client-secret auth or SMTP fallback. |
@@ -23,13 +23,13 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | [`oracle_bulk_load`](#oracle-bulk-load) | Data / Oracle | 1.0 | Chunked executemany into staging, then a MERGE into the target, with per-row errors. |
 | [`oracle_execute`](#oracle-execute) | Data / Oracle | 1.0 | Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block. |
 | [`oracle_query`](#oracle-query) | Data / Oracle | 1.0 | Parameterised Oracle query (python-oracledb thin mode or SQLite in tests). |
-| [`pdf`](#pdf) | Platform / Documents | 1.0 | PDF info, text, combine, extract pages, split, protect, watermark, redact, form fill, optimize, or a PdfCraft tool script; confined to the run workspace. |
+| [`pdf`](#pdf) | Platform / Documents | 1.0 | PDF info, text, combine, extract pages, split, protect (AES-256), watermark, form fill and optimize; confined to the run workspace. |
 | [`playwright_robot`](#playwright-robot) | Platform / Browser | 1.0 | Run a browser robot from a declarative step list, with API-token, form or form+email-OTP login and reusable per-portal sessions. |
 | [`playwright_script`](#playwright-script) | Platform / Browser | 1.0 | Run an existing Playwright Python script with page/context injected. |
 | [`run_python`](#run-python) | Platform / Automation | 1.0 | Run a Python script in its own process with the run workspace as its folder (process isolation, not a sandbox; Admin-only). |
 | [`sftp`](#sftp) | Platform / Integration | 1.0 | SFTP get/put/list using paramiko. |
 | [`sleep`](#sleep) | Platform / Core | 1.0 | Wait for a number of seconds (testing and pacing). |
-| [`spreadsheet`](#spreadsheet) | Platform / Excel | 1.0 | Calculate workbooks with the GridCraft engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check. |
+| [`spreadsheet`](#spreadsheet) | Platform / Excel | 1.0 | Calculate workbooks with the pure-Python formula engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check. |
 | [`txt_log`](#txt-log) | Platform / Files | 1.0 | Append or read a plain-text log with a line cap. |
 | [`unc_archive`](#unc-archive) | Platform / Files | 1.0 | Copy or move a file to a UNC/network path and verify its SHA-256. |
 | [`zip`](#zip) | Platform / Files | 1.0 | AES ZIP create/extract with zip-slip and size protections. |
@@ -80,26 +80,23 @@ Fields by operation:
 
 ## document
 
-Word documents: convert (docx, pdf, odt, rtf, html, md, txt), extract text, info, and mail merge from CSV/Excel or rows, optionally to PDF; confined to the run workspace.
+Word documents (.docx): convert to txt, md or html, extract text, info, and mail merge from CSV/Excel or rows; confined to the run workspace.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
 | `operation` | `convert` \| `text` \| `info` \| `mail_merge` | `'convert'` |  |
 | `path` | string | `'document.docx'` |  |
 | `output_path` | string |  |  |
-| `markup` | boolean | `False` |  |
 | `data_path` | string |  |  |
 | `rows` | array |  |  |
 | `sheet` | string |  |  |
-| `also_pdf` | boolean | `False` |  |
-| `timeout_seconds` | integer | `300` |  |
 
 Fields by operation:
 
-- `convert`: `path`, `output_path`, `markup`
+- `convert`: `path`, `output_path`
 - `text`: `path`, `output_path`
 - `info`: `path`
-- `mail_merge`: `path`, `data_path`, `rows`, `sheet`, `output_path`, `also_pdf`
+- `mail_merge`: `path`, `data_path`, `rows`, `sheet`, `output_path`
 
 ## download_file
 
@@ -325,11 +322,11 @@ Parameterised Oracle query (python-oracledb thin mode or SQLite in tests).
 
 ## pdf
 
-PDF info, text, combine, extract pages, split, protect, watermark, redact, form fill, optimize, or a PdfCraft tool script; confined to the run workspace.
+PDF info, text, combine, extract pages, split, protect (AES-256), watermark, form fill and optimize; confined to the run workspace.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
-| `operation` | `info` \| `text` \| `combine` \| `extract_pages` \| `split` \| `protect` \| `watermark` \| `redact` \| `fill_form` \| `optimize` \| `script` | `'info'` |  |
+| `operation` | `info` \| `text` \| `combine` \| `extract_pages` \| `split` \| `protect` \| `watermark` \| `fill_form` \| `optimize` | `'info'` |  |
 | `path` | string | `'input.pdf'` |  |
 | `password` | string |  | sensitive (redacted in run records) |
 | `paths` | array |  |  |
@@ -345,11 +342,7 @@ PDF info, text, combine, extract pages, split, protect, watermark, redact, form 
 | `watermark_text` | string |  |  |
 | `opacity` | number | `0.3` |  |
 | `rotation` | number | `45` |  |
-| `redact_words` | array |  |  |
-| `redact_patterns` | array |  |  |
 | `form_values` | object |  |  |
-| `steps` | array |  |  |
-| `timeout_seconds` | integer | `300` |  |
 
 Fields by operation:
 
@@ -360,10 +353,8 @@ Fields by operation:
 - `split`: `path`, `password`, `every`, `before`, `output_dir`
 - `protect`: `path`, `password`, `open_password`, `permissions_password`, `printing`, `allow_copy`, `output_path`
 - `watermark`: `path`, `password`, `watermark_text`, `opacity`, `rotation`, `pages`, `output_path`
-- `redact`: `path`, `password`, `redact_words`, `redact_patterns`, `output_path`
 - `fill_form`: `path`, `password`, `form_values`, `output_path`
 - `optimize`: `path`, `password`, `output_path`
-- `script`: `steps`
 
 ## playwright_robot
 
@@ -477,7 +468,7 @@ Wait for a number of seconds (testing and pacing).
 
 ## spreadsheet
 
-Calculate workbooks with the GridCraft engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check.
+Calculate workbooks with the pure-Python formula engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|

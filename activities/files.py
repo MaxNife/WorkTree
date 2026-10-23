@@ -4,10 +4,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
-import shutil
-import subprocess
-import tempfile
 import zipfile
 from collections import deque
 from pathlib import Path
@@ -22,7 +18,7 @@ from activities._common import (
     safe_path,
     write_rows,
 )
-from activities._engines import EngineMissing, find_engine, run_engine
+from activities._formula.workbook import Workbook
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 
 
@@ -360,42 +356,11 @@ class ExcelActivity(Activity[ExcelInputs]):
 
 
 def _recalculate(path: Path) -> None:
-    """Recalculate formulas (opt-in; off by default): with the GridCraft engine when it is
-    installed (the ``spreadsheet`` activity's engine), else headless LibreOffice."""
-    try:
-        engine = find_engine("gridcraft-cli", "gridcraft_cli")
-    except EngineMissing:
-        engine = None
-    if engine is not None:
-        temp = path.with_name(f".{path.stem}.uaf-tmp.xlsx")
-        run_engine(
-            engine,
-            ["convert", path.name, temp.name],
-            workspace=path.parent,
-            timeout=120,
-            name="gridcraft",
-        )
-        os.replace(temp, path)
-        return
-    executable = shutil.which("soffice") or shutil.which("libreoffice")
-    if executable is None:
-        raise RuntimeError(
-            "recalculation was requested but neither gridcraft-cli nor LibreOffice (soffice) "
-            "is installed (KNOWN_GAPS G9)"
-        )
-    with tempfile.TemporaryDirectory() as folder:
-        completed = subprocess.run(  # noqa: S603 - fixed executable, no shell
-            [executable, "--headless", "--convert-to", "xlsx", "--outdir", folder, str(path)],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=120,
-            check=False,
-        )
-        converted = Path(folder) / path.name
-        if completed.returncode != 0 or not converted.is_file():
-            raise RuntimeError(f"LibreOffice recalculation failed: {completed.stderr[-500:]}")
-        shutil.copy2(converted, path)
+    """Recalculate formulas (opt-in; off by default) with the pure-Python formula engine, the
+    same engine as the ``spreadsheet`` activity. The results are written back, so readers that
+    do not calculate (calamine, pandas) see real values, and the writer keeps
+    ``fullCalcOnLoad`` set for Excel."""
+    Workbook.open(path).save()
 
 
 class ZipInputs(BaseModel):

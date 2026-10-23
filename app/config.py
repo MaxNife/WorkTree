@@ -94,14 +94,6 @@ class SecretSettings(BaseModel):
 
 class ActivitySettings(BaseModel):
     extra_folder: Path = Path("./runtime/activities")
-    # CraftApps engines for the pdf, document, spreadsheet, presentation and image activities.
-    # Empty: look for the executable on PATH. Set by an administrator, never by a workflow,
-    # because each names an executable (KNOWN_GAPS G16).
-    pdfcraft_cli: str = ""
-    wordcraft_cli: str = ""
-    gridcraft_cli: str = ""
-    deckcraft_cli: str = ""
-    photocraft_cli: str = ""
 
 
 class SchedulerSettings(BaseModel):

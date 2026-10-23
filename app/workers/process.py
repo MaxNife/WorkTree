@@ -51,23 +51,10 @@ def _base_env(blocked: tuple[str, ...] = ()) -> dict[str, str]:
     return env
 
 
-ENGINE_SETTINGS = (
-    "pdfcraft_cli",
-    "wordcraft_cli",
-    "gridcraft_cli",
-    "deckcraft_cli",
-    "photocraft_cli",
-)
-
-
 def child_environment(settings: Settings) -> dict[str, str]:
     """Settings an activity child needs, passed as ``UAF_CHILD_*`` variables (the child does
     not load config.yaml)."""
     env = {"UAF_CHILD_PLAYWRIGHT_STATE": str(Path(settings.data.playwright_state).resolve())}
-    for engine in ENGINE_SETTINGS:
-        value = getattr(settings.activities, engine)
-        if value:
-            env[f"UAF_CHILD_{engine.upper()}"] = value
     return env
 
 

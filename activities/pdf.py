@@ -1,59 +1,36 @@
-"""PDF activities on the PdfCraft engine (``pdfcraft-cli``, MIT/Apache-2.0, from CraftApps).
+"""PDF activities on pypdf (BSD-3-Clause): no external binary, confined to the run workspace.
 
-The engine runs as a child process speaking MCP (newline-delimited JSON-RPC) over stdio, with
-``--root`` set to the run workspace, so PdfCraft itself refuses any path outside it. Passwords
-travel over stdin only; nothing secret is written to disk. Where the engine binary lives is an
-administrator setting (``activities.pdfcraft_cli``), never a workflow input.
+Every path goes through ``safe_path`` so it must stay inside the workspace. Passwords exist only
+in memory for the duration of the call. Text-level redaction, OCR and scripted tool calls are not
+offered (KNOWN_GAPS): redaction that only hides text is worse than none.
 """
 
 from __future__ import annotations
 
-import contextlib
-import json
-import queue
-import subprocess
-import threading
-import time
+import math
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from activities._common import artifact_for, safe_path
-from activities._engines import EngineMissing, find_engine, kill_tree, strip_root
-from app.domain.activity import Activity, ActivityContext, ActivityResult
-
-PROTOCOL_VERSION = "2025-06-18"
-
-# Tools a workflow script may not call: they reach printers, run document JavaScript, use the
-# OS certificate stores, open links or drive commands outside the document model.
-DENIED_TOOLS = frozenset(
-    {
-        "doc_print",
-        "printers",
-        "printer_options",
-        "print_readiness",
-        "js_run",
-        "js_set_document_script",
-        "js_enabled",
-        "link_open",
-        "action_run",
-        "command_run",
-        "command_batch",
-        "sign_document",
-        "sign_keychain_ids",
-        "sign_windows_ids",
-        "sign_id_create",
-        "sign_trust",
-    }
+from pypdf import PageObject, PdfReader, PdfWriter
+from pypdf.constants import UserAccessPermissions
+from pypdf.generic import (
+    ArrayObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    NumberObject,
+    StreamObject,
 )
 
+from activities._common import artifact_for, safe_path
+from app.domain.activity import Activity, ActivityContext, ActivityResult
 
-class PdfStep(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    tool: str = Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")
-    args: dict[str, Any] = Field(default_factory=dict)
+_PRINT = UserAccessPermissions.PRINT
+_PRINT_HIGH = UserAccessPermissions.PRINT_TO_REPRESENTATION
+_COPY = UserAccessPermissions.EXTRACT | UserAccessPermissions.EXTRACT_TEXT_AND_GRAPHICS
+# Helvetica's average advance is close to 0.55 em; good enough to centre a diagonal stamp.
+_AVERAGE_ADVANCE = 0.55
 
 
 class PdfInputs(BaseModel):
@@ -67,10 +44,8 @@ class PdfInputs(BaseModel):
         "split",
         "protect",
         "watermark",
-        "redact",
         "fill_form",
         "optimize",
-        "script",
     ] = "info"
     path: str = "input.pdf"
     password: str = ""
@@ -87,13 +62,7 @@ class PdfInputs(BaseModel):
     watermark_text: str = ""
     opacity: float = Field(default=0.3, gt=0, le=1)
     rotation: float = 45
-    redact_words: list[str] = Field(default_factory=list)
-    redact_patterns: list[Literal["phone", "email", "credit-card", "ssn", "date"]] = Field(
-        default_factory=list
-    )
     form_values: dict[str, Any] = Field(default_factory=dict)
-    steps: list[PdfStep] = Field(default_factory=list)
-    timeout_seconds: int = Field(default=300, ge=1, le=3600)
 
     @model_validator(mode="after")
     def _operation_needs(self) -> PdfInputs:
@@ -106,12 +75,7 @@ class PdfInputs(BaseModel):
                 "protect needs an open_password or permissions_password",
             ),
             "watermark": (bool(self.watermark_text), "watermark needs watermark_text"),
-            "redact": (
-                bool(self.redact_words or self.redact_patterns),
-                "redact needs redact_words or redact_patterns",
-            ),
             "fill_form": (bool(self.form_values), "fill_form needs form_values"),
-            "script": (bool(self.steps), "script needs steps"),
         }
         ok, message = needs.get(self.operation, (True, ""))
         if not ok:
@@ -119,9 +83,6 @@ class PdfInputs(BaseModel):
         restricted = self.printing != "high" or not self.allow_copy
         if self.operation == "protect" and restricted and not self.permissions_password:
             raise ValueError("printing/copy restrictions need a permissions_password")
-        denied = sorted({step.tool for step in self.steps} & DENIED_TOOLS)
-        if denied:
-            raise ValueError(f"tools not allowed in a workflow: {', '.join(denied)}")
         return self
 
 
@@ -129,8 +90,8 @@ class PdfActivity(Activity[PdfInputs]):
     name = "pdf"
     category = "Platform / Documents"
     description = (
-        "PDF info, text, combine, extract pages, split, protect, watermark, redact, form fill, "
-        "optimize, or a PdfCraft tool script; confined to the run workspace."
+        "PDF info, text, combine, extract pages, split, protect (AES-256), watermark, form fill "
+        "and optimize; confined to the run workspace."
     )
     input_model = PdfInputs
     sensitive_fields = ("password", "open_password", "permissions_password")
@@ -158,320 +119,250 @@ class PdfActivity(Activity[PdfInputs]):
             "pages",
             "output_path",
         ),
-        "redact": ("path", "password", "redact_words", "redact_patterns", "output_path"),
         "fill_form": ("path", "password", "form_values", "output_path"),
         "optimize": ("path", "password", "output_path"),
-        "script": ("steps",),
     }
 
     def run(self, ctx: ActivityContext, inputs: PdfInputs) -> ActivityResult:
-        try:
-            engine = find_engine("pdfcraft-cli", "pdfcraft_cli")
-        except EngineMissing as exc:
-            return ActivityResult.failed(str(exc))
         workspace = ctx.workspace.resolve()
         operation = getattr(self, f"_{inputs.operation}")
-        with PdfCraft(engine, workspace, timeout=inputs.timeout_seconds) as pdf:
-            outputs, written = operation(ctx, pdf, inputs)
+        outputs, written = operation(ctx, inputs)
+        # Outputs are written without the source's encryption (use `protect` to re-apply it).
+        keeps_content = inputs.operation not in ("info", "text", "combine", "protect")
+        if keeps_content and written and PdfReader(safe_path(ctx, inputs.path)).is_encrypted:
+            outputs["source_encrypted_output_unencrypted"] = True
         artifacts = [artifact_for(ctx, path) for path in written if path.is_file()]
-        outputs["files"] = [path.relative_to(workspace).as_posix() for path in written]
+        outputs["files"] = [path.resolve().relative_to(workspace).as_posix() for path in written]
         return ActivityResult.done(outputs, f"pdf {inputs.operation} completed", artifacts)
 
-    # -- operations: each returns (outputs, files written) ----------------------------------
-    def _open(self, pdf: PdfCraft, inputs: PdfInputs) -> dict[str, Any]:
-        args: dict[str, Any] = {"path": inputs.path}
-        if inputs.password:
-            args["password"] = inputs.password
-        opened = pdf.call("doc_open", args)
-        if not isinstance(opened, dict) or not isinstance(opened.get("doc"), int):
-            raise ValueError("pdfcraft did not return a document id")
-        return opened
+    # -- helpers ---------------------------------------------------------------------------
+    @staticmethod
+    def _open(ctx: ActivityContext, path: str, password: str) -> tuple[PdfReader, bool]:
+        """Open a PDF; returns the reader and whether the owner (full-rights) password was used."""
+        reader = PdfReader(safe_path(ctx, path, must_exist=True))
+        owner = True
+        if reader.is_encrypted:
+            kind = reader.decrypt(password)
+            if int(kind) == 0:
+                raise ValueError(f"{path}: password required or incorrect")
+            owner = int(kind) == 2
+        return reader, owner
 
-    def _output(self, ctx: ActivityContext, inputs: PdfInputs, suffix: str) -> Path:
+    @staticmethod
+    def _output(ctx: ActivityContext, inputs: PdfInputs, suffix: str) -> Path:
         default = f"{Path(inputs.path).stem}-{suffix}.pdf"
         return safe_path(ctx, inputs.output_path or default)
 
-    def _save(self, ctx: ActivityContext, pdf: PdfCraft, doc: int, target: Path) -> None:
-        pdf.call("doc_save", {"doc": doc, "path": _rel(ctx, target)})
+    @staticmethod
+    def _page_indexes(pages: list[int], count: int) -> list[int]:
+        for page in pages:
+            if not 1 <= page <= count:
+                raise ValueError(f"page {page} is outside 1..{count}")
+        return [page - 1 for page in pages]
 
-    def _info(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
-    ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        info = pdf.call("doc_info", {"doc": doc["doc"]})
+    @staticmethod
+    def _save(writer: PdfWriter, target: Path) -> None:
+        with target.open("wb") as handle:
+            writer.write(handle)
+
+    # -- operations: each returns (outputs, files written) ---------------------------------
+    def _info(self, ctx: ActivityContext, inputs: PdfInputs) -> tuple[dict[str, Any], list[Path]]:
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        metadata = {key.lstrip("/"): str(value) for key, value in (reader.metadata or {}).items()}
         summary = {
-            "pages": doc.get("pages"),
-            "encrypted": doc.get("encrypted"),
-            "metadata": info.get("metadata", {}) if isinstance(info, dict) else {},
-            "form_fields": len(info.get("form_fields", []) or []) if isinstance(info, dict) else 0,
+            "pages": len(reader.pages),
+            "encrypted": reader.is_encrypted,
+            "metadata": metadata,
+            "form_fields": len(reader.get_fields() or {}),
         }
         return summary, []
 
-    def _text(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
-    ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        args: dict[str, Any] = {"doc": doc["doc"]}
-        if inputs.pages:
-            args["pages"] = inputs.pages
-        result = pdf.call("text_extract", args)
-        pages = result.get("pages", []) if isinstance(result, dict) else []
-        text = "\f".join(str(page.get("text", "")) for page in pages)
+    def _text(self, ctx: ActivityContext, inputs: PdfInputs) -> tuple[dict[str, Any], list[Path]]:
+        reader, owner = self._open(ctx, inputs.path, inputs.password)
+        if reader.is_encrypted and not owner:
+            permissions = reader.user_access_permissions
+            if permissions is not None and not permissions & UserAccessPermissions.EXTRACT:
+                raise ValueError("this document does not allow copying text")
+        indexes = (
+            self._page_indexes(inputs.pages, len(reader.pages))
+            if inputs.pages
+            else list(range(len(reader.pages)))
+        )
+        text = "\f".join(reader.pages[index].extract_text() or "" for index in indexes)
         target = safe_path(ctx, inputs.output_path or f"{Path(inputs.path).stem}.txt")
         target.write_text(text, encoding="utf-8")
-        return {"pages": len(pages), "characters": len(text), "preview": text[:2000]}, [target]
+        return {"pages": len(indexes), "characters": len(text), "preview": text[:2000]}, [target]
 
     def _combine(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
+        writer = PdfWriter()
         for item in inputs.paths:
-            safe_path(ctx, item, must_exist=True)
+            reader = PdfReader(safe_path(ctx, item, must_exist=True))
+            if reader.is_encrypted:
+                raise ValueError(f"{item}: encrypted files cannot be combined")
+            writer.append(reader)
         target = safe_path(ctx, inputs.output_path or "combined.pdf")
-        pdf.call("doc_combine", {"paths": inputs.paths, "out": _rel(ctx, target)})
+        self._save(writer, target)
         return {"inputs": len(inputs.paths)}, [target]
 
     def _extract_pages(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        writer = PdfWriter()
+        for index in self._page_indexes(inputs.pages, len(reader.pages)):
+            writer.add_page(reader.pages[index])
         target = self._output(ctx, inputs, "pages")
-        pdf.call(
-            "page_extract", {"doc": doc["doc"], "pages": inputs.pages, "out": _rel(ctx, target)}
-        )
+        self._save(writer, target)
         return {"pages": len(inputs.pages)}, [target]
 
-    def _split(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
-    ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
+    def _split(self, ctx: ActivityContext, inputs: PdfInputs) -> tuple[dict[str, Any], list[Path]]:
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        count = len(reader.pages)
+        if inputs.every:
+            starts = list(range(0, count, inputs.every))
+        else:
+            self._page_indexes(inputs.before, count)
+            starts = sorted({0, *(page - 1 for page in inputs.before)})
         folder = safe_path(ctx, inputs.output_dir)
         folder.mkdir(parents=True, exist_ok=True)
-        before = set(folder.glob("*.pdf"))
-        args: dict[str, Any] = {"doc": doc["doc"], "out_dir": _rel(ctx, folder)}
-        if inputs.every:
-            args["every"] = inputs.every
-        else:
-            args["before"] = inputs.before
-        pdf.call("doc_split", args)
-        written = sorted(set(folder.glob("*.pdf")) - before)
+        written: list[Path] = []
+        for number, start in enumerate(starts, start=1):
+            stop = starts[number] if number < len(starts) else count
+            writer = PdfWriter()
+            for index in range(start, stop):
+                writer.add_page(reader.pages[index])
+            target = folder / f"{Path(inputs.path).stem}-part-{number:03d}.pdf"
+            self._save(writer, target)
+            written.append(target)
         return {"parts": len(written)}, written
 
     def _protect(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        args: dict[str, Any] = {"doc": doc["doc"], "compatibility": "aes-256"}
-        if inputs.open_password:
-            args["open_password"] = inputs.open_password
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        writer = PdfWriter(clone_from=reader)
+        flags = UserAccessPermissions.all()
         if inputs.permissions_password:
-            # Restrictions only mean something behind a permissions password.
-            args["permissions_password"] = inputs.permissions_password
-            args["printing"] = inputs.printing
-            args["copy"] = inputs.allow_copy
-        pdf.call("doc_protect", args)
+            # Restrictions only mean something behind a permissions (owner) password.
+            if inputs.printing == "none":
+                flags &= ~(_PRINT | _PRINT_HIGH)
+            elif inputs.printing == "low":
+                flags &= ~_PRINT_HIGH
+            if not inputs.allow_copy:
+                flags &= ~_COPY
+        writer.encrypt(
+            user_password=inputs.open_password,
+            owner_password=inputs.permissions_password or None,
+            permissions_flag=flags,
+            algorithm="AES-256",
+        )
         target = self._output(ctx, inputs, "protected")
-        self._save(ctx, pdf, doc["doc"], target)
+        self._save(writer, target)
         return {"encryption": "aes-256"}, [target]
 
     def _watermark(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        args: dict[str, Any] = {
-            "doc": doc["doc"],
-            "text": inputs.watermark_text,
-            "opacity": inputs.opacity,
-            "rotation": inputs.rotation,
-        }
-        if inputs.pages:
-            args["pages"] = inputs.pages
-        pdf.call("doc_watermark", args)
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        writer = PdfWriter(clone_from=reader)
+        wanted = (
+            set(self._page_indexes(inputs.pages, len(writer.pages)))
+            if inputs.pages
+            else set(range(len(writer.pages)))
+        )
+        for index, page in enumerate(writer.pages):
+            if index in wanted:
+                page.merge_page(
+                    _stamp(page, inputs.watermark_text, inputs.opacity, inputs.rotation)
+                )
         target = self._output(ctx, inputs, "watermarked")
-        self._save(ctx, pdf, doc["doc"], target)
+        self._save(writer, target)
         return {"watermark": inputs.watermark_text}, [target]
 
-    def _redact(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
-    ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        marks = 0
-        for word in inputs.redact_words:
-            marked = pdf.call("redact_mark", {"doc": doc["doc"], "find": word})
-            marks += _count(marked)
-        for pattern in inputs.redact_patterns:
-            marked = pdf.call("redact_mark", {"doc": doc["doc"], "pattern": pattern})
-            marks += _count(marked)
-        pdf.call("redact_apply", {"doc": doc["doc"]})
-        target = self._output(ctx, inputs, "redacted")
-        self._save(ctx, pdf, doc["doc"], target)
-        # Verify on the saved file: none of the words may still be extractable.
-        reopened = pdf.call("doc_open", {"path": _rel(ctx, target)})
-        remaining = pdf.call("text_extract", {"doc": reopened["doc"]})
-        text = " ".join(str(page.get("text", "")) for page in remaining.get("pages", []))
-        leaked = [word for word in inputs.redact_words if word.lower() in text.lower()]
-        if leaked:
-            target.unlink(missing_ok=True)
-            raise ValueError(f"redaction left {len(leaked)} search term(s) in the text")
-        return {"marks": marks}, [target]
-
     def _fill_form(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
-        pdf.call("form_fill", {"doc": doc["doc"], "values": inputs.form_values})
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
+        known = set((reader.get_fields() or {}).keys())
+        unknown = sorted(set(inputs.form_values) - known)
+        if unknown:
+            raise ValueError(f"unknown form field(s): {', '.join(unknown)}")
+        writer = PdfWriter(clone_from=reader)
+        values = {
+            name: ("/Yes" if value else "/Off") if isinstance(value, bool) else str(value)
+            for name, value in inputs.form_values.items()
+        }
+        for page in writer.pages:
+            writer.update_page_form_field_values(page, values, auto_regenerate=False)
+        writer.set_need_appearances_writer(True)
         target = self._output(ctx, inputs, "filled")
-        self._save(ctx, pdf, doc["doc"], target)
+        self._save(writer, target)
         return {"fields": sorted(inputs.form_values)}, [target]
 
     def _optimize(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
+        self, ctx: ActivityContext, inputs: PdfInputs
     ) -> tuple[dict[str, Any], list[Path]]:
-        doc = self._open(pdf, inputs)
+        reader, _ = self._open(ctx, inputs.path, inputs.password)
         source = safe_path(ctx, inputs.path, must_exist=True)
+        writer = PdfWriter(clone_from=reader)
+        for page in writer.pages:
+            page.compress_content_streams()
+        writer.compress_identical_objects(remove_duplicates=True, remove_unreferenced=True)
         target = self._output(ctx, inputs, "optimized")
-        pdf.call("doc_optimize", {"doc": doc["doc"], "path": _rel(ctx, target)})
+        self._save(writer, target)
         return {"bytes_before": source.stat().st_size, "bytes_after": target.stat().st_size}, [
             target
         ]
 
-    def _script(
-        self, ctx: ActivityContext, pdf: PdfCraft, inputs: PdfInputs
-    ) -> tuple[dict[str, Any], list[Path]]:
-        workspace = ctx.workspace.resolve()
-        before = {path: path.stat().st_mtime_ns for path in workspace.rglob("*") if path.is_file()}
-        results = [pdf.call(step.tool, step.args) for step in inputs.steps]
-        written = sorted(
-            path
-            for path in workspace.rglob("*")
-            if path.is_file() and before.get(path) != path.stat().st_mtime_ns
-        )
-        return {"steps": len(results), "results": _relativise(results, workspace)}, written
+
+def _stamp(page: PageObject, text: str, opacity: float, rotation: float) -> PageObject:
+    """A transparent overlay page carrying ``text`` in Helvetica, centred and rotated."""
+    width = float(page.mediabox.width)
+    height = float(page.mediabox.height)
+    safe = text.encode("latin-1", errors="replace").decode("latin-1")
+    escaped = safe.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    diagonal = math.hypot(width, height)
+    size = max(8.0, min(72.0, 0.7 * diagonal / (_AVERAGE_ADVANCE * max(len(safe), 1))))
+    angle = math.radians(rotation)
+    cos, sin = math.cos(angle), math.sin(angle)
+    half_width = _AVERAGE_ADVANCE * size * len(safe) / 2
+    half_height = size * 0.35
+    x = width / 2 - (half_width * cos - half_height * sin)
+    y = height / 2 - (half_width * sin + half_height * cos)
+    content = (
+        f"q /GS0 gs 0.5 g BT /F0 {size:.2f} Tf "
+        f"{cos:.5f} {sin:.5f} {-sin:.5f} {cos:.5f} {x:.2f} {y:.2f} Tm ({escaped}) Tj ET Q"
+    )
+    stream = StreamObject()
+    stream.set_data(content.encode("latin-1"))
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    state = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/ExtGState"),
+            NameObject("/ca"): FloatObject(opacity),
+            NameObject("/CA"): FloatObject(opacity),
+        }
+    )
+    overlay = PageObject.create_blank_page(None, width, height)
+    overlay[NameObject("/Resources")] = DictionaryObject(
+        {
+            NameObject("/Font"): DictionaryObject({NameObject("/F0"): font}),
+            NameObject("/ExtGState"): DictionaryObject({NameObject("/GS0"): state}),
+        }
+    )
+    overlay[NameObject("/Contents")] = stream
+    overlay[NameObject("/MediaBox")] = ArrayObject(
+        [NumberObject(0), NumberObject(0), FloatObject(width), FloatObject(height)]
+    )
+    return overlay
 
 
-class PdfCraft:
-    """A minimal MCP client for ``pdfcraft-cli mcp --root <workspace>``."""
-
-    def __init__(self, engine: str, root: Path, *, timeout: float) -> None:
-        self.engine = engine
-        self.root = root
-        self.deadline = time.monotonic() + timeout
-        self.timeout = timeout
-        self._next_id = 0
-        self._lines: queue.Queue[str | None] = queue.Queue()
-        self.process: subprocess.Popen[str] | None = None
-
-    def __enter__(self) -> PdfCraft:
-        self.process = subprocess.Popen(  # noqa: S603 - admin-configured engine, no shell
-            [self.engine, "mcp", "--root", str(self.root)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            cwd=self.root,
-            encoding="utf-8",
-            errors="replace",
-        )
-        threading.Thread(target=self._pump, daemon=True).start()
-        self._request(
-            "initialize",
-            {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "uaf", "version": "1"},
-            },
-        )
-        self._send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        if self.process is None:
-            return
-        with contextlib.suppress(OSError):
-            if self.process.stdin:
-                self.process.stdin.close()
-        try:
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            kill_tree(self.process.pid)
-
-    def call(self, tool: str, arguments: dict[str, Any]) -> Any:
-        reply = self._request("tools/call", {"name": tool, "arguments": arguments})
-        content = reply.get("content", []) if isinstance(reply, dict) else []
-        text = "\n".join(
-            str(item.get("text", "")) for item in content if item.get("type") == "text"
-        )
-        if reply.get("isError"):
-            message = self._relative_text(text)
-            raise ValueError(message if message.startswith(f"{tool}:") else f"{tool}: {message}")
-        try:
-            return json.loads(text) if text else {}
-        except ValueError:
-            return {"text": text}
-
-    def _request(self, method: str, params: dict[str, Any]) -> Any:
-        self._next_id += 1
-        request_id = self._next_id
-        self._send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
-        while True:
-            remaining = self.deadline - time.monotonic()
-            if remaining <= 0:
-                self._abort()
-                raise TimeoutError(f"pdfcraft exceeded {self.timeout:g}s")
-            try:
-                line = self._lines.get(timeout=remaining)
-            except queue.Empty:
-                continue
-            if line is None:
-                raise RuntimeError("pdfcraft engine exited unexpectedly")
-            message = json.loads(line)
-            if message.get("id") != request_id:
-                continue  # notifications or unrelated replies
-            if "error" in message:
-                raise ValueError(f"{params.get('name', method)}: {message['error'].get('message')}")
-            return message.get("result", {})
-
-    def _send(self, message: dict[str, Any]) -> None:
-        assert self.process is not None and self.process.stdin is not None
-        self.process.stdin.write(json.dumps(message) + "\n")
-        self.process.stdin.flush()
-
-    def _pump(self) -> None:
-        assert self.process is not None and self.process.stdout is not None
-        for line in self.process.stdout:
-            if line.strip():
-                self._lines.put(line)
-        self._lines.put(None)
-
-    def _abort(self) -> None:
-        if self.process is not None:
-            kill_tree(self.process.pid)
-
-    def _relative_text(self, text: str) -> str:
-        return strip_root(text, self.root)
-
-
-def _rel(ctx: ActivityContext, path: Path) -> str:
-    return path.resolve().relative_to(ctx.workspace.resolve()).as_posix()
-
-
-def _count(result: Any) -> int:
-    if isinstance(result, dict):
-        for key in ("marked", "count", "marks"):
-            value = result.get(key)
-            if isinstance(value, int):
-                return value
-            if isinstance(value, list):
-                return len(value)
-    return 0
-
-
-def _relativise(value: Any, root: Path) -> Any:
-    if isinstance(value, str):
-        return strip_root(value, root)
-    if isinstance(value, list):
-        return [_relativise(item, root) for item in value]
-    if isinstance(value, dict):
-        return {key: _relativise(item, root) for key, item in value.items()}
-    return value
-
-
-__all__ = ["DENIED_TOOLS", "PdfActivity", "PdfCraft"]
+__all__ = ["PdfActivity"]

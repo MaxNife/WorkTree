@@ -57,12 +57,6 @@ secrets:
 
 activities:
   extra_folder: "./runtime/activities"
-  # CraftApps engine executables (empty: use PATH). See KNOWN_GAPS G16 for building them.
-  pdfcraft_cli: ""     # pdf activity
-  wordcraft_cli: ""    # document activity
-  gridcraft_cli: ""    # spreadsheet activity
-  deckcraft_cli: ""    # presentation activity
-  photocraft_cli: ""   # image activity
 
 scheduler:
   enabled: true

@@ -1,36 +1,26 @@
-"""The `pdf` activity on the PdfCraft engine (pdfcraft-cli over MCP, confined to the workspace).
-
-Needs a built ``pdfcraft-cli``: set ``UAF_TEST_PDFCRAFT_CLI`` to its path, or put it on PATH
-(build: ``cargo build --release -p pdfcraft-cli`` in CraftApps/pdfcraft). Skipped otherwise.
-"""
+"""The `pdf` activity on pypdf: confined to the workspace, no external binary or skips."""
 
 from __future__ import annotations
 
-import os
-import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from pypdf import PdfReader
 
 from activities.pdf import PdfActivity, PdfInputs
 from app.domain.activity import ActivityContext
 from app.domain.clock import FakeClock
 from app.domain.enums import Outcome
 from app.domain.masking import get_masker
-
-ENGINE = os.environ.get("UAF_TEST_PDFCRAFT_CLI") or shutil.which("pdfcraft-cli") or ""
-needs_engine = pytest.mark.skipif(
-    not ENGINE or not Path(ENGINE).is_file(), reason="pdfcraft-cli not available"
-)
+from fixtures.pdf_files import write_form_pdf, write_text_pdf
 
 STATEMENT = "Statement for account 1000\nIBAN GB29NWBK60161331926819\nTotal due 42.50"
 
 
 @pytest.fixture
-def ctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ActivityContext:
-    monkeypatch.setenv("UAF_CHILD_PDFCRAFT_CLI", ENGINE)
+def ctx(tmp_path: Path) -> ActivityContext:
     workspace = tmp_path / "ws"
     workspace.mkdir()
     return ActivityContext(
@@ -42,47 +32,27 @@ def pdf(ctx: ActivityContext, **inputs: Any) -> Any:
     return PdfActivity().execute(ctx, inputs)
 
 
-def make_pdf(ctx: ActivityContext, name: str, text: str) -> None:
-    result = pdf(
-        ctx,
-        operation="script",
-        steps=[
-            {"tool": "doc_create", "args": {"from": "text", "text": text}},
-            {"tool": "doc_save", "args": {"doc": 1, "path": name}},
-        ],
-    )
-    assert result.outcome == Outcome.DONE, result.message
-    assert result.outputs["files"] == [name]
-
-
 def text_of(ctx: ActivityContext, name: str, password: str = "") -> str:
     result = pdf(ctx, operation="text", path=name, password=password, output_path=f"{name}.txt")
     assert result.outcome == Outcome.DONE, result.message
     return (ctx.workspace / f"{name}.txt").read_text(encoding="utf-8")
 
 
-def test_missing_engine_is_a_clear_failure(ctx, monkeypatch) -> None:
-    monkeypatch.setenv("UAF_CHILD_PDFCRAFT_CLI", str(ctx.workspace / "no-such-engine.exe"))
-    result = pdf(ctx, operation="info", path="a.pdf")
-    assert result.outcome == Outcome.FAILED
-    assert "pdfcraft-cli is not installed" in result.message
-
-
-def test_dangerous_tools_and_incomplete_operations_are_refused() -> None:
-    with pytest.raises(ValidationError, match="not allowed in a workflow: doc_print, js_run"):
-        PdfInputs(operation="script", steps=[{"tool": "js_run"}, {"tool": "doc_print"}])
+def test_incomplete_operations_and_removed_ones_are_refused() -> None:
     with pytest.raises(ValidationError, match="combine needs at least two paths"):
         PdfInputs(operation="combine", paths=["one.pdf"])
     with pytest.raises(ValidationError, match="protect needs"):
         PdfInputs(operation="protect")
     with pytest.raises(ValidationError, match="restrictions need a permissions_password"):
         PdfInputs(operation="protect", open_password="x", allow_copy=False)
+    for removed in ("redact", "script"):
+        with pytest.raises(ValidationError):
+            PdfInputs(operation=removed)  # type: ignore[arg-type]
 
 
-@needs_engine
 def test_text_combine_extract_and_split(ctx) -> None:
-    make_pdf(ctx, "statement.pdf", STATEMENT)
-    make_pdf(ctx, "cover.pdf", "Cover letter")
+    write_text_pdf(ctx.workspace / "statement.pdf", [STATEMENT])
+    write_text_pdf(ctx.workspace / "cover.pdf", ["Cover letter"])
     assert "IBAN GB29NWBK60161331926819" in text_of(ctx, "statement.pdf")
 
     combined = pdf(
@@ -92,6 +62,7 @@ def test_text_combine_extract_and_split(ctx) -> None:
     assert [a.name for a in combined.artifacts] == ["pack.pdf"]
     info = pdf(ctx, operation="info", path="pack.pdf")
     assert info.outputs["pages"] == 2
+    assert info.outputs["encrypted"] is False
 
     extracted = pdf(
         ctx, operation="extract_pages", path="pack.pdf", pages=[2], output_path="p2.pdf"
@@ -104,12 +75,21 @@ def test_text_combine_extract_and_split(ctx) -> None:
     assert split.outputs["parts"] == 2
     assert all(name.startswith("parts/") for name in split.outputs["files"])
 
+    before = pdf(ctx, operation="split", path="pack.pdf", before=[2], output_dir="cut")
+    assert before.outputs["parts"] == 2
 
-@needs_engine
+
+def test_page_numbers_are_validated(ctx) -> None:
+    write_text_pdf(ctx.workspace / "a.pdf", ["one"])
+    result = pdf(ctx, operation="extract_pages", path="a.pdf", pages=[3])
+    assert result.outcome == Outcome.FAILED
+    assert "outside 1..1" in result.message
+
+
 def test_protect_requires_the_password_and_never_leaks_it(ctx) -> None:
     secret = "open-sesame-77c1"
     get_masker().register(secret)
-    make_pdf(ctx, "statement.pdf", STATEMENT)
+    write_text_pdf(ctx.workspace / "statement.pdf", [STATEMENT])
     protected = pdf(
         ctx,
         operation="protect",
@@ -122,6 +102,7 @@ def test_protect_requires_the_password_and_never_leaks_it(ctx) -> None:
     assert protected.outcome == Outcome.DONE, protected.message
     assert secret not in str(protected.outputs) + protected.message
     assert secret.encode() not in (ctx.workspace / "locked.pdf").read_bytes()
+    assert PdfReader(ctx.workspace / "locked.pdf").is_encrypted
 
     without = pdf(ctx, operation="text", path="locked.pdf")
     assert without.outcome == Outcome.FAILED
@@ -134,56 +115,81 @@ def test_protect_requires_the_password_and_never_leaks_it(ctx) -> None:
     assert "Total due 42.50" in text_of(ctx, "locked.pdf", password=secret + "-owner")
 
 
-@needs_engine
-def test_redaction_removes_the_text_and_is_verified(ctx) -> None:
-    make_pdf(ctx, "statement.pdf", STATEMENT)
-    result = pdf(
-        ctx,
-        operation="redact",
-        path="statement.pdf",
-        redact_words=["GB29NWBK60161331926819"],
-        output_path="redacted.pdf",
-    )
-    assert result.outcome == Outcome.DONE, result.message
-    remaining = text_of(ctx, "redacted.pdf")
-    assert "GB29NWBK60161331926819" not in remaining
-    assert "Total due 42.50" in remaining
+def test_open_password_only_allows_everything_once_unlocked(ctx) -> None:
+    write_text_pdf(ctx.workspace / "a.pdf", [STATEMENT])
+    protected = pdf(ctx, operation="protect", path="a.pdf", open_password="pw", output_path="b.pdf")
+    assert protected.outcome == Outcome.DONE, protected.message
+    wrong = pdf(ctx, operation="info", path="b.pdf", password="nope")
+    assert wrong.outcome == Outcome.FAILED
+    assert "Total due 42.50" in text_of(ctx, "b.pdf", password="pw")
 
 
-@needs_engine
 def test_watermark_writes_a_new_file_and_keeps_the_original(ctx) -> None:
-    make_pdf(ctx, "statement.pdf", STATEMENT)
-    original = (ctx.workspace / "statement.pdf").read_bytes()
-    result = pdf(ctx, operation="watermark", path="statement.pdf", watermark_text="CONFIDENTIAL")
-    assert result.outcome == Outcome.DONE, result.message
-    assert result.outputs["files"] == ["statement-watermarked.pdf"]
-    assert (ctx.workspace / "statement.pdf").read_bytes() == original
-    assert "CONFIDENTIAL" in text_of(ctx, "statement-watermarked.pdf")
-
-
-@needs_engine
-def test_the_engine_refuses_paths_outside_the_workspace(ctx, tmp_path) -> None:
-    (tmp_path / "outside.pdf").write_bytes(b"%PDF-1.4\n")
+    write_text_pdf(ctx.workspace / "a.pdf", ["Body text", "Second page"])
+    original = (ctx.workspace / "a.pdf").read_bytes()
     result = pdf(
-        ctx, operation="script", steps=[{"tool": "doc_open", "args": {"path": "../outside.pdf"}}]
+        ctx, operation="watermark", path="a.pdf", watermark_text="DRAFT (v1)", output_path="w.pdf"
     )
-    assert result.outcome == Outcome.FAILED
-    assert "outside the allowed directory" in result.message
-    assert str(tmp_path) not in result.message, "no server paths in run records"
+    assert result.outcome == Outcome.DONE, result.message
+    assert (ctx.workspace / "a.pdf").read_bytes() == original
+    stamped = text_of(ctx, "w.pdf")
+    assert stamped.count("DRAFT (v1)") == 2
+    assert "Body text" in stamped
+
+    only_second = pdf(
+        ctx,
+        operation="watermark",
+        path="a.pdf",
+        watermark_text="ONLY",
+        pages=[2],
+        output_path="x.pdf",
+    )
+    assert only_second.outcome == Outcome.DONE, only_second.message
+    assert text_of(ctx, "x.pdf").count("ONLY") == 1
 
 
-@needs_engine
-def test_script_results_carry_workspace_relative_paths(ctx) -> None:
-    make_pdf(ctx, "a.pdf", "Page A")
+def test_fill_form_sets_values_and_rejects_unknown_fields(ctx) -> None:
+    write_form_pdf(ctx.workspace / "form.pdf", ["name", "city"])
+    assert pdf(ctx, operation="info", path="form.pdf").outputs["form_fields"] == 2
     result = pdf(
         ctx,
-        operation="script",
-        steps=[
-            {"tool": "doc_open", "args": {"path": "a.pdf"}},
-            {"tool": "page_rotate", "args": {"doc": 1, "pages": [1], "degrees": 90}},
-            {"tool": "doc_save", "args": {"doc": 1, "path": "rotated.pdf"}},
-        ],
+        operation="fill_form",
+        path="form.pdf",
+        form_values={"name": "Ada Lovelace", "city": "London"},
+        output_path="filled.pdf",
     )
     assert result.outcome == Outcome.DONE, result.message
-    assert result.outputs["files"] == ["rotated.pdf"]
-    assert str(ctx.workspace) not in str(result.outputs)
+    fields = PdfReader(ctx.workspace / "filled.pdf").get_fields() or {}
+    assert fields["name"].get("/V") == "Ada Lovelace"
+    assert fields["city"].get("/V") == "London"
+
+    bad = pdf(ctx, operation="fill_form", path="form.pdf", form_values={"nope": "x"})
+    assert bad.outcome == Outcome.FAILED
+    assert "unknown form field" in bad.message
+
+
+def test_optimize_writes_a_valid_file(ctx) -> None:
+    write_text_pdf(ctx.workspace / "a.pdf", [STATEMENT * 40])
+    result = pdf(ctx, operation="optimize", path="a.pdf", output_path="small.pdf")
+    assert result.outcome == Outcome.DONE, result.message
+    assert result.outputs["bytes_after"] < result.outputs["bytes_before"]
+    assert "Total due 42.50" in text_of(ctx, "small.pdf")
+
+
+def test_paths_outside_the_workspace_are_refused(ctx, tmp_path) -> None:
+    write_text_pdf(tmp_path / "outside.pdf", ["secret"])
+    result = pdf(ctx, operation="info", path="../outside.pdf")
+    assert result.outcome == Outcome.FAILED
+    escape = pdf(ctx, operation="combine", paths=["../outside.pdf", "../outside.pdf"])
+    assert escape.outcome == Outcome.FAILED
+
+
+def test_outputs_from_an_encrypted_source_are_flagged_unencrypted(ctx) -> None:
+    write_text_pdf(ctx.workspace / "a.pdf", ["one", "two"])
+    pdf(ctx, operation="protect", path="a.pdf", open_password="pw", output_path="b.pdf")
+    result = pdf(
+        ctx, operation="extract_pages", path="b.pdf", password="pw", pages=[1], output_path="c.pdf"
+    )
+    assert result.outcome == Outcome.DONE, result.message
+    assert result.outputs["source_encrypted_output_unencrypted"] is True
+    assert not PdfReader(ctx.workspace / "c.pdf").is_encrypted
