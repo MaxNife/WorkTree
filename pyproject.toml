@@ -112,6 +112,13 @@ ignore_missing_imports = true
 module = ["tests.*", "fixtures.*"]
 disallow_untyped_decorators = false
 
+# Paramiko ships no type information. The fake server is the only class-based use; keep
+# strict checking everywhere else rather than sprinkling unchecked assignments with casts.
+[[tool.mypy.overrides]]
+module = ["fixtures.fake_sftp"]
+disallow_subclassing_any = false
+warn_return_any = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"

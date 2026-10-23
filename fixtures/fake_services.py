@@ -12,6 +12,7 @@ import socket
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 import uvicorn
@@ -24,6 +25,11 @@ class RunningServer:
     base_url: str
     server: uvicorn.Server
     thread: threading.Thread
+    state: FixtureState | None = None
+
+    @property
+    def running(self) -> bool:
+        return self.thread.is_alive() and bool(self.server.started)
 
     def stop(self) -> None:
         self.server.should_exit = True
@@ -36,7 +42,7 @@ def _free_port() -> int:
         return int(sock.getsockname()[1])
 
 
-def start_server(app: FastAPI) -> RunningServer:
+def start_server(app: FastAPI, *, state: FixtureState | None = None) -> RunningServer:
     port = _free_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
@@ -47,16 +53,42 @@ def start_server(app: FastAPI) -> RunningServer:
         time.sleep(0.02)
     if not server.started:
         raise RuntimeError("fixture server did not start")
-    return RunningServer(f"http://127.0.0.1:{port}", server, thread)
+    return RunningServer(f"http://127.0.0.1:{port}", server, thread, state)
+
+
+def _fixture_messages() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "msg-1",
+            "subject": "Older invoice",
+            "bodyPreview": "Invoice INV-099 is ready",
+            "receivedDateTime": "2026-01-01T08:00:00Z",
+            "from": {"emailAddress": {"address": "billing@old.example"}},
+        },
+        {
+            "id": "msg-2",
+            "subject": "Newest invoice",
+            "bodyPreview": "Your verification code is 654321",
+            "receivedDateTime": "2026-01-02T09:30:00Z",
+            "from": {"emailAddress": {"address": "billing@acme.example"}},
+        },
+    ]
 
 
 @dataclass
 class FixtureState:
-    messages: list[dict[str, Any]] = field(default_factory=list)
+    messages: list[dict[str, Any]] = field(default_factory=_fixture_messages)
     sent_mail: list[dict[str, Any]] = field(default_factory=list)
     portal_sessions: set[str] = field(default_factory=lambda: {"fixture-session"})
     llm_requests: list[dict[str, Any]] = field(default_factory=list)
+    uploads: dict[str, bytes] = field(default_factory=dict)
     download_bytes: bytes = b"fixture,payload\n1,alpha\n2,beta\n"
+    otp_code: str = "654321"
+    api_token: str = "fixture-api-token"
+
+
+def _parse_graph_time(value: str) -> datetime:
+    return datetime.fromisoformat(value.strip().replace("Z", "+00:00")).astimezone(UTC)
 
 
 def build_fake_app(state: FixtureState | None = None) -> FastAPI:
@@ -112,11 +144,31 @@ def build_fake_app(state: FixtureState | None = None) -> FastAPI:
         </body></html>
         """
 
+    @app.post("/portal/otp", response_class=HTMLResponse)
+    def portal_otp(
+        response: Response,
+        request: Request,
+        code: str = Form(default=""),
+    ) -> str:
+        if request.cookies.get("fixture_session") not in state.portal_sessions:
+            response.status_code = 401
+            return "<html><body>expired session</body></html>"
+        if code != state.otp_code:
+            response.status_code = 401
+            return "<html><body>invalid code</body></html>"
+        return '<html><body><div id="verified">verified</div></body></html>'
+
     @app.get("/portal/report.csv")
     def portal_report(request: Request) -> PlainTextResponse:
         if request.cookies.get("fixture_session") not in state.portal_sessions:
             raise HTTPException(status_code=401, detail="expired session")
         return PlainTextResponse("account,amount\n1000,42.50\n")
+
+    @app.get("/portal/api/report")
+    def portal_api_report(x_api_token: str = Header(default="")) -> dict[str, Any]:
+        if x_api_token != state.api_token:
+            raise HTTPException(status_code=401, detail="bad API token")
+        return {"account": "1000", "amount": 42.5, "source": "api-token"}
 
     @app.post("/{tenant}/oauth2/v2.0/token")
     def graph_token(tenant: str, client_secret: str = Form(default="")) -> dict[str, Any]:
@@ -138,11 +190,58 @@ def build_fake_app(state: FixtureState | None = None) -> FastAPI:
     @app.get("/v1.0/users/{mailbox}/messages")
     def messages(
         mailbox: str,
+        request: Request,
         authorization: str = Header(default=""),
     ) -> dict[str, Any]:
         if authorization != "Bearer fixture-token":
             raise HTTPException(status_code=401, detail="bad token")
-        return {"value": state.messages}
+        items = [dict(item) for item in state.messages]
+        filter_expression = request.query_params.get("$filter", "")
+        for clause in filter_expression.split(" and "):
+            clause = clause.strip()
+            if clause.startswith("receivedDateTime ge "):
+                moment = _parse_graph_time(clause.removeprefix("receivedDateTime ge ").strip())
+                items = [
+                    item
+                    for item in items
+                    if _parse_graph_time(str(item["receivedDateTime"])) >= moment
+                ]
+            elif clause.startswith("from/emailAddress/address eq "):
+                sender = clause.removeprefix("from/emailAddress/address eq ").strip(" '")
+                items = [
+                    item
+                    for item in items
+                    if item["from"]["emailAddress"]["address"].lower() == sender.lower()
+                ]
+        order = request.query_params.get("$orderby", "")
+        if order.startswith("receivedDateTime"):
+            items.sort(
+                key=lambda item: str(item["receivedDateTime"]),
+                reverse="desc" in order.lower(),
+            )
+        if request.query_params.get("$top"):
+            items = items[: int(request.query_params["$top"])]
+        selected = request.query_params.get("$select")
+        if selected:
+            fields = [field.strip() for field in selected.split(",") if field.strip()]
+            items = [{field: item[field] for field in fields if field in item} for item in items]
+        return {"value": items}
+
+    @app.put("/v1.0/users/{mailbox}/drive/root:/{item_path:path}:/content")
+    async def upload(
+        mailbox: str,
+        item_path: str,
+        request: Request,
+        authorization: str = Header(default=""),
+    ) -> dict[str, Any]:
+        if authorization != "Bearer fixture-token":
+            raise HTTPException(status_code=401, detail="bad token")
+        state.uploads[item_path] = await request.body()
+        return {
+            "id": f"upload-{len(state.uploads)}",
+            "name": item_path.rsplit("/", 1)[-1],
+            "size": len(state.uploads[item_path]),
+        }
 
     @app.post("/v1/chat/completions")
     def chat(payload: dict[str, Any] = Body(default={})) -> dict[str, Any]:

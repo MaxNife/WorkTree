@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,17 @@ from app.container import Container, build_container, seed_reference_data
 from app.domain.clock import FakeClock
 from app.domain.enums import Role
 from app.main import create_app
+from fixtures.data import generate_all
+from fixtures.fake_services import (
+    FakeSmtpServer,
+    FixtureState,
+    RunningServer,
+    build_fake_app,
+    start_server,
+    start_smtp_sink,
+)
+from fixtures.fake_sftp import FakeSftpServer, start_sftp_server
+from fixtures.gl import create_gl_database
 
 
 @dataclass
@@ -105,6 +117,58 @@ def api(client: TestClient) -> Api:
         data["user"]["id"],
         "admin",
     )
+
+
+@pytest.fixture
+def fake_services() -> Iterator[RunningServer]:
+    state = FixtureState()
+    server = start_server(build_fake_app(state), state=state)
+    yield server
+    server.stop()
+
+
+@pytest.fixture
+def fake_http(fake_services: RunningServer) -> RunningServer:
+    return fake_services
+
+
+@pytest.fixture
+def fake_portal(fake_services: RunningServer) -> RunningServer:
+    return fake_services
+
+
+@pytest.fixture
+def fake_graph(fake_services: RunningServer) -> RunningServer:
+    return fake_services
+
+
+@pytest.fixture
+def fake_llm(fake_services: RunningServer) -> RunningServer:
+    return fake_services
+
+
+@pytest.fixture
+def smtp_sink() -> Iterator[FakeSmtpServer]:
+    sink = start_smtp_sink()
+    yield sink
+    sink.stop()
+
+
+@pytest.fixture
+def fake_sftp(tmp_path: Path) -> Iterator[FakeSftpServer]:
+    server = start_sftp_server(tmp_path / "sftp")
+    yield server
+    server.stop()
+
+
+@pytest.fixture
+def gl_database(tmp_path: Path) -> Path:
+    return create_gl_database(tmp_path / "gl.db")
+
+
+@pytest.fixture(scope="session")
+def generated_data(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+    return generate_all(tmp_path_factory.mktemp("generated"), big_rows=1_000_000)
 
 
 @pytest.fixture
