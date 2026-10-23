@@ -9,9 +9,6 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
-
 from app.domain.activity import ActivityContext, file_artifact
 from app.domain.envelope import ArtifactRef
 
@@ -50,45 +47,6 @@ def validate_url(url: str, *, schemes: tuple[str, ...] = ("http", "https")) -> N
         raise ValueError(f"unsupported URL: {url!r}")
     if parsed.username or parsed.password:
         raise ValueError("credentials must not be embedded in a URL; use a secret reference")
-
-
-def db_engine(url: str) -> Engine:
-    if url.startswith("sqlite:///"):
-        raw = url[len("sqlite:///") :]
-        if raw and raw != ":memory:":
-            Path(raw).parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(url, future=True)
-
-
-def quote_identifier(value: str) -> str:
-    """Only simple identifiers may be interpolated (table names for bulk loads)."""
-    if not value.replace("_", "").replace(".", "").isalnum():
-        raise ValueError(f"invalid identifier: {value!r}")
-    return value
-
-
-def execute_sql(
-    url: str,
-    sql: str,
-    params: dict[str, Any] | list[dict[str, Any]] | None = None,
-    *,
-    max_rows: int = 100_000,
-) -> list[dict[str, Any]]:
-    """Run parameterised SQL. The statement is never built from string interpolation."""
-    engine = db_engine(url)
-    try:
-        with engine.begin() as connection:
-            if isinstance(params, list):
-                for item in params:
-                    connection.execute(text(sql), item)
-                return []
-            result = connection.execute(text(sql), params or {})
-            if not result.returns_rows:
-                return []
-            rows = result.mappings().fetchmany(max_rows)
-            return [{str(k): v for k, v in row.items()} for row in rows]
-    finally:
-        engine.dispose()
 
 
 def write_rows(

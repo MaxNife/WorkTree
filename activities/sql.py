@@ -6,7 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from activities._common import artifact_for, execute_sql, safe_path, write_rows
+from activities._common import artifact_for, read_table, safe_path, write_rows
+from activities.database import open_database
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 
 
@@ -28,7 +29,11 @@ class SqlQueryActivity(Activity[QueryInputs]):
     input_model = QueryInputs
 
     def run(self, ctx: ActivityContext, inputs: QueryInputs) -> ActivityResult:
-        rows = execute_sql(inputs.db_url, inputs.sql, inputs.params, max_rows=inputs.max_rows)
+        database = open_database(inputs.db_url)
+        try:
+            rows = database.query(inputs.sql, inputs.params, max_rows=inputs.max_rows)
+        finally:
+            database.close()
         path = safe_path(ctx, inputs.output_path)
         write_rows(ctx, rows, path, fmt=inputs.output_format)
         return ActivityResult.done(
@@ -50,19 +55,25 @@ class ExecuteInputs(BaseModel):
 
     db_url: str = "sqlite:///./runtime/gl.db"
     sql: str = Field(min_length=1)
-    params: dict[str, Any] = Field(default_factory=dict)
+    # A dict for one call (named binds), or a list of dicts for chunked executemany. An
+    # Oracle PL/SQL ``BEGIN ... END;`` block is executed whole; a SQLite script is split.
+    params: dict[str, Any] | list[dict[str, Any]] = Field(default_factory=dict)
     chunk_size: int = Field(default=1000, ge=1, le=100_000)
 
 
 class OracleExecuteActivity(Activity[ExecuteInputs]):
     name = "oracle_execute"
     category = "Data / Oracle"
-    description = "Execute a parameterised INSERT/UPDATE/DELETE/PLSQL block."
+    description = "Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block."
     input_model = ExecuteInputs
 
     def run(self, ctx: ActivityContext, inputs: ExecuteInputs) -> ActivityResult:
-        execute_sql(inputs.db_url, inputs.sql, inputs.params)
-        return ActivityResult.done({"executed": True})
+        database = open_database(inputs.db_url)
+        try:
+            affected = database.execute(inputs.sql, inputs.params, chunk_size=inputs.chunk_size)
+        finally:
+            database.close()
+        return ActivityResult.done({"executed": True, "affected": affected})
 
 
 class BulkLoadInputs(BaseModel):
@@ -75,51 +86,52 @@ class BulkLoadInputs(BaseModel):
     columns: list[str] = Field(default_factory=list)
     key_columns: list[str] = Field(default_factory=list)
     chunk_size: int = Field(default=1000, ge=1, le=100_000)
+    clear_staging: bool = True
 
 
 class OracleBulkLoadActivity(Activity[BulkLoadInputs]):
     name = "oracle_bulk_load"
     category = "Data / Oracle"
-    description = "Chunked executemany into staging, with per-row errors reported."
+    description = (
+        "Chunked executemany into staging, then a MERGE into the target, with per-row errors."
+    )
     input_model = BulkLoadInputs
 
     def run(self, ctx: ActivityContext, inputs: BulkLoadInputs) -> ActivityResult:
-        from sqlalchemy import text
-
-        from activities._common import db_engine, quote_identifier, read_table
-
         rows = read_table(safe_path(ctx, inputs.source_path, must_exist=True))
         if not rows:
-            return ActivityResult.done({"loaded": 0, "failed": 0})
+            return ActivityResult.done(
+                {"loaded": 0, "failed": 0, "merged": 0, "errors": []}, "no rows to load"
+            )
         columns = inputs.columns or list(rows[0])
-        table = quote_identifier(inputs.staging_table or inputs.table)
-        quoted = ", ".join(quote_identifier(column) for column in columns)
-        binds = ", ".join(f":{column}" for column in columns)
-        statement = text(f"INSERT INTO {table} ({quoted}) VALUES ({binds})")  # noqa: S608
-        loaded = 0
-        errors: list[dict[str, Any]] = []
-        engine = db_engine(inputs.db_url)
+        if inputs.key_columns and not inputs.staging_table:
+            return ActivityResult.failed("staging_table is required when key_columns are set")
+        database = open_database(inputs.db_url)
         try:
-            for start in range(0, len(rows), inputs.chunk_size):
-                chunk = rows[start : start + inputs.chunk_size]
-                try:
-                    with engine.begin() as connection:
-                        connection.execute(statement, chunk)
-                    loaded += len(chunk)
-                except Exception as exc:
-                    for index, row in enumerate(chunk, start=start):
-                        try:
-                            with engine.begin() as connection:
-                                connection.execute(statement, row)
-                            loaded += 1
-                        except Exception as row_exc:
-                            errors.append(
-                                {"row": index, "error": f"{type(row_exc).__name__}: {row_exc}"}
-                            )
-                    del exc
+            if inputs.staging_table:
+                if inputs.clear_staging:
+                    database.delete_all(inputs.staging_table)
+                loaded, errors = database.load(
+                    inputs.staging_table, columns, rows, chunk_size=inputs.chunk_size
+                )
+                merged = (
+                    database.merge(inputs.staging_table, inputs.table, columns, inputs.key_columns)
+                    if loaded
+                    else 0
+                )
+            else:
+                loaded, errors = database.load(
+                    inputs.table, columns, rows, chunk_size=inputs.chunk_size
+                )
+                merged = loaded
         finally:
-            engine.dispose()
+            database.close()
         return ActivityResult.done(
-            {"loaded": loaded, "failed": len(errors), "errors": errors[:100]},
-            f"{loaded} rows loaded, {len(errors)} failed",
+            {
+                "loaded": loaded,
+                "merged": merged,
+                "failed": len(errors),
+                "errors": errors[:100],
+            },
+            f"{loaded} rows loaded, {merged} merged into {inputs.table}, {len(errors)} failed",
         )

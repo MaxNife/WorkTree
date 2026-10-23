@@ -3,9 +3,9 @@
 The resume point for the build agent. **Read this file first on every start or restart.** Checkpoint definitions are in `docs/BUILD_CHECKPOINTS.md`. Process rules are in `docs/AGENT_START_PROMPT.md`.
 
 ## Current position
-- **Current checkpoint:** CP-19 (complete)
-- **Status:** done — backend checkpoints CP-01 to CP-19 are closed; frontend/activity checkpoints remain.
-- **Next action:** CP-20: GL and Oracle activities against the SQLite fixture, with the real-Oracle gap logged.
+- **Current checkpoint:** CP-20 (complete)
+- **Status:** done — backend checkpoints CP-01 to CP-20 are closed; frontend/activity checkpoints remain.
+- **Next action:** CP-21: HTTP, streamed download, SFTP get/put/list and UNC archive against the local fixtures, including a checksum mismatch -> failed.
 - **Last commit:** see `git log -1`.
 - **Last updated:** 2026-10-23
 
@@ -13,7 +13,7 @@ The resume point for the build agent. **Read this file first on every start or r
 
 | Gate | Command | Result |
 |---|---|---|
-| Tests | `uv run pytest -q` | **234 passed** (3 consecutive full runs green) |
+| Tests | `uv run pytest -q` | **244 passed** (CP-20 full run) |
 | Lint | `uv run ruff check .` | passed |
 | Format | `uv run ruff format --check .` | passed (154 files) |
 | Types | `uv run mypy --strict app activities fixtures` | passed (83 source files) |
@@ -21,11 +21,11 @@ The resume point for the build agent. **Read this file first on every start or r
 | Hooks | `uv run pre-commit run --all-files` | all hooks passed |
 | Migrations | `alembic upgrade head` / `downgrade base` / `upgrade head` / `alembic check` (scratch SQLite) | passed; "No new upgrade operations detected" |
 
-**Not yet verified:** coverage percentage; activity-library tests CP-20 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
+**Not yet verified:** coverage percentage; activity-library tests CP-21 to CP-26; Playwright; the whole frontend; acceptance items A1-A10. Local fixtures smoke-tested in CP-19.
 
 ## Code review (2026-10-23, build-5): activity library
 
-Review of `activities/` (CP-20 to CP-26 code, previously "code + mypy only"). Each item is fixed and has a regression test in `tests/integration/test_activity_review.py` (10 of its 11 tests fail on the pre-fix code; the 11th pins the happy-path move). This does **not** close CP-20 to CP-26: their own gates are still open.
+Review of `activities/` (CP-20 to CP-26 code, previously "code + mypy only"). Each item is fixed and has a regression test in `tests/integration/test_activity_review.py` (10 of its 11 tests fail on the pre-fix code; the 11th pins the happy-path move). This did **not** close CP-20 to CP-26 by itself; their own gates were still open (CP-20 is now closed).
 
 | # | Defect | Fix |
 |---|---|---|
@@ -42,7 +42,7 @@ Review of `activities/` (CP-20 to CP-26 code, previously "code + mypy only"). Ea
 | R32 | Graph `mailbox`/`sender` interpolated unescaped into the URL path | `quote(..., safe="@")` |
 | R33 | Fake SFTP fixture thread crashed (`EOFError`) when a client hung up mid-handshake, an unhandled-thread warning in the suite | `EOFError` handled like other disconnects |
 
-Found but **not** fixed (policy calls or later checkpoints): `unc_archive.destination_dir` and `sql`/`oracle_*` `db_url` accept any location/URL the author writes (no allow-list; CP-39 threat model); `email` SMTP has no STARTTLS, so `smtp_password` goes over plaintext (CP-22); `oracle_execute.chunk_size` is unused (CP-20). The deferred list below still applies.
+Found but **not** fixed (policy calls or later checkpoints): `unc_archive.destination_dir` and `sql`/`oracle_*` `db_url` accept any location/URL the author writes (no allow-list; CP-39 threat model); `email` SMTP has no STARTTLS, so `smtp_password` goes over plaintext (CP-22). The deferred list below still applies.
 
 ## Code review (2026-10-22, build-3)
 
@@ -72,7 +72,7 @@ Full review of the backend before closing CP-01. Every item below is fixed and h
 | R20 | Migration `7ffcb5d8ab0e` added NOT NULL columns without server defaults (upgrade of a non-empty DB fails) | server defaults added |
 | R21 | pre-commit ruff hook pinned to v0.8.6 disagreed with the locked ruff | hooks run `uv run ruff` (DECISIONS 9.7) |
 
-Deferred to the activity checkpoints (tracked there, not yet fixed): CSV read is not streamed (CP-23 memory gate); ZIP size cap trusts declared sizes and has no entry-count cap (CP-23); `oracle_bulk_load` has no MERGE (CP-20); `matching` lacks amount/date tolerance and 1:N and is O(n*m) (CP-26); `legacy_robot_wrapper` lacks exit-code mapping and output-file collection (CP-25).
+Deferred to the activity checkpoints (tracked there, not yet fixed): CSV read is not streamed (CP-23 memory gate); ZIP size cap trusts declared sizes and has no entry-count cap (CP-23); `matching` lacks amount/date tolerance and 1:N and is O(n*m) (CP-26); `legacy_robot_wrapper` lacks exit-code mapping and output-file collection (CP-25).
 
 ## Implementation snapshot (code present, not a completion claim)
 
@@ -109,7 +109,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-17 | Human tasks, SLA and alerting | done | (cp-17 tag) | `tests/integration/test_tasks.py` 9 passed: all four task types claim (role-gated, 409 on double claim), validate decisions (reject needs a reason) and resume the run; manual-match pairs stored; reject routes through `on_failed`; task SLA breach notifies the assignee role once, is audited and drives the overdue view/RBAC; active-run workflow SLA breach; webhook + SMTP delivery with masking; a broken channel never loses the notification |
 | CP-18 | REST API completion, live events, health and metrics | done | (cp-18 tag) | `tests/integration/test_api.py` 9 passed: every BP:42 resource (workflows/versions/environments/runs/tasks/schedules/users+roles/audit/secrets metadata/artifacts) plus dashboard, activities, views, notifications; error envelope 404/422 and no traceback (fixed pydantic `ValidationError` -> 422 in save/validate); WebSocket delivers `step.completed`+`run.finished` to a test client and rejects anonymous subscribers; `/health`, Prometheus `/metrics`; `scripts/export_openapi.py --check` keeps the 48-path `docs/openapi.json` current |
 | CP-19 | Local fixtures | done | (cp-19 tag) | `tests/integration/test_fixtures.py` 7 passed from pytest fixtures: fake portal (form login, email OTP, session cookie file download, API-token mode), fake Graph (token, `$filter`/`$orderby`/`$top`/`$select`, sendMail, drive upload), fake LLM completion, paramiko SFTP (put/get/list/mkdir/rename, root confinement, clean stop), SMTP sink delivery, deterministic SQLite GL, and data generators (1M-row CSV in an AES-256 ZIP, 500-row Excel, fixed-width and log samples); generated files are git-ignored. Real hosts remain gaps G3/G4/G5/G11 |
-| CP-20 | Activities: GL and Oracle | in-progress* | | code + mypy only; no activity test yet |
+| CP-20 | Activities: GL and Oracle | done | (cp-20 tag) | `tests/integration/test_sql_activities.py` 10 passed: aggregate join to Parquet, named binds + `max_rows`, positional placeholders refused, UPDATE and batched executemany with `chunk_size`, multi-statement script, 2,000-row fixture invoices staged then MERGE-upserted without duplicates, per-row errors reported with row indexes, direct load, identifier/URL refusal; contract suite passes; G2 narrowed to real Oracle |
 | CP-21 | Activities: HTTP, download, SFTP, UNC archive | in-progress* | | code + mypy only; no fixture test yet |
 | CP-22 | Activities: email and Graph mail | in-progress* | | code + mypy only; fake endpoint exists but is not exercised |
 | CP-23 | Activities: file tools | in-progress* | | code + mypy only; no fixture test yet |
@@ -135,7 +135,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-19 closed. CP-20 has not started.
+- None: CP-20 closed. CP-21 not started.
 
 ## Blockers and workarounds
 
@@ -163,3 +163,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-4 | CP-18 | API gate: resource coverage (added `/api/environments` + `/api/admin/roles`, pagination on workflows/tasks), consistent 404/422 envelope (pydantic validation now 422, not 500), WebSocket run events, health/metrics, OpenAPI exporter + checked-in schema. | cp-18 |
 | 2026-10-23 | build-4 | CP-19 | Fixture gate: pytest-owned fake portal/Graph/LLM/SFTP/SMTP/GL, data generators (1M-row AES-256 ZIP, Excel, fixed-width, log), start/stop smoke tests. G5 updated. | cp-19 |
 | 2026-10-23 | build-5 | review (CP-20 to CP-26 code) | Re-verified every gate from scratch (all matched the tracker). Reviewed `activities/`: 12 defects fixed (R22-R33), incl. secret leak via logged command line, data loss in `unc_archive` move and `matching`, CSV column shift/NaN. 11 regression tests; 234 pass. CP-20 to CP-26 remain open. | uncommitted |
+| 2026-10-23 | build-6 | CP-20 | Added the `Database`/SQLite/Oracle interface (`activities/database.py`), converted the SQL activities to it, implemented staged chunked loads + SQLite upsert/Oracle MERGE + append and per-row errors, used `chunk_size` for batched executes and multi-statement/PLSQL scripts, and refused positional binds. 10 SQLite tests incl. 2,000 fixture invoices. G2 narrowed. 244 pass. | cp-20 |

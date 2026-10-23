@@ -19,8 +19,8 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | [`human_task`](#human-task) | Platform / Human | 1.0 | Suspend the run and wait for an approval, exception or manual match decision. |
 | [`legacy_robot_wrapper`](#legacy-robot-wrapper) | Platform / Automation | 1.0 | Run an existing command-line robot without a shell, with timeouts and logs. |
 | [`matching`](#matching) | Data / Matching | 1.0 | Deterministic fuzzy match two tables and write matched and unmatched rows. |
-| [`oracle_bulk_load`](#oracle-bulk-load) | Data / Oracle | 1.0 | Chunked executemany into staging, with per-row errors reported. |
-| [`oracle_execute`](#oracle-execute) | Data / Oracle | 1.0 | Execute a parameterised INSERT/UPDATE/DELETE/PLSQL block. |
+| [`oracle_bulk_load`](#oracle-bulk-load) | Data / Oracle | 1.0 | Chunked executemany into staging, then a MERGE into the target, with per-row errors. |
+| [`oracle_execute`](#oracle-execute) | Data / Oracle | 1.0 | Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block. |
 | [`oracle_query`](#oracle-query) | Data / Oracle | 1.0 | Parameterised Oracle query (python-oracledb thin mode or SQLite in tests). |
 | [`playwright_robot`](#playwright-robot) | Platform / Browser | 1.0 | Run a browser robot from a declarative step list (portal login, download, extract). |
 | [`playwright_script`](#playwright-script) | Platform / Browser | 1.0 | Run an existing Playwright Python script with page/context injected. |
@@ -239,7 +239,7 @@ Deterministic fuzzy match two tables and write matched and unmatched rows.
 
 ## oracle_bulk_load
 
-Chunked executemany into staging, with per-row errors reported.
+Chunked executemany into staging, then a MERGE into the target, with per-row errors.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
@@ -250,16 +250,17 @@ Chunked executemany into staging, with per-row errors reported.
 | `columns` | array |  |  |
 | `key_columns` | array |  |  |
 | `chunk_size` | integer | `1000` |  |
+| `clear_staging` | boolean | `True` |  |
 
 ## oracle_execute
 
-Execute a parameterised INSERT/UPDATE/DELETE/PLSQL block.
+Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|
 | `db_url` | string | `'sqlite:///./runtime/gl.db'` |  |
 | `sql` | string |  | required |
-| `params` | object |  |  |
+| `params` | object or array |  |  |
 | `chunk_size` | integer | `1000` |  |
 
 ## oracle_query
