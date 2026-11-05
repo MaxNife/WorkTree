@@ -19,7 +19,7 @@ web/test-results/
 
 # Runtime data (workspaces, logs, session state, databases)
 runtime/
-data/
+/data/
 *.db
 *.sqlite
 *.sqlite3
