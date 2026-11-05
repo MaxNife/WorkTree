@@ -42,6 +42,10 @@ not change a decision here without asking the product owner. Reference products 
 ## Open items (not yet decided)
 
 - The sprout mark is a placeholder drawing; the product owner may supply final logo artwork.
-- **Node cards need design.** The owner said the current flat `NodeCard` is not right yet. Show the
-  owner options and lock the design before the Studio canvas (CP-31).
+- **Node cards:** direction locked 2026-11-04: **Make.com style blended with n8n**. Make supplies the
+  look (below); n8n supplies the run data on the node (item counts, duration, state) and typed
+  connections, shown as small badges and edge labels without crowding the node. Compact round or rounded-square
+  nodes with the label and operation beneath, routers as branching nodes, `done` / `failed` ports
+  on the node edge, run state as a dot, and details in the properties panel rather than on the
+  canvas. The current flat `NodeCard` is replaced in CP-31.
 - Mobile / narrow-width behaviour (desktop-first for the MVP; the shell must not break at 1024 px).
