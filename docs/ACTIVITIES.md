@@ -31,7 +31,7 @@ and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIV
 | [`sleep`](#sleep) | Platform / Core | 1.0 | Wait for a number of seconds (testing and pacing). |
 | [`spreadsheet`](#spreadsheet) | Platform / Excel | 1.0 | Calculate workbooks with the pure-Python formula engine: recalculate formulas, fill a model's inputs and read its results, read computed ranges, evaluate, convert, check. |
 | [`txt_log`](#txt-log) | Platform / Files | 1.0 | Append or read a plain-text log with a line cap. |
-| [`unc_archive`](#unc-archive) | Platform / Files | 1.0 | Copy or move a file to a UNC/network path and verify its SHA-256. |
+| [`unc_archive`](#unc-archive) | Platform / Files | 1.0 | Copy or move a file to a UNC/network path and verify its SHA-256. The destination must be inside a folder listed in the server's activities.archive_roots. |
 | [`zip`](#zip) | Platform / Files | 1.0 | AES ZIP create/extract with zip-slip and size protections. |
 
 ## ai_extract
@@ -516,7 +516,7 @@ Fields by operation:
 
 ## unc_archive
 
-Copy or move a file to a UNC/network path and verify its SHA-256.
+Copy or move a file to a UNC/network path and verify its SHA-256. The destination must be inside a folder listed in the server's activities.archive_roots.
 
 | Input | Type | Default | Notes |
 |---|---|---|---|

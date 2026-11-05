@@ -208,7 +208,7 @@ def test_sftp_rejects_bad_credentials_and_missing_paths(fake_sftp, tmp_path: Pat
 
 
 # ----------------------------------------------------------------------------- UNC archive
-def test_unc_archive_copies_verifies_and_moves(tmp_path: Path) -> None:
+def test_unc_archive_copies_verifies_and_moves(tmp_path: Path, archive_roots_env: Path) -> None:
     ctx = _ctx(tmp_path / "ws")
     source = ctx.workspace / "report.csv"
     source.write_text("account,amount\n1000,42.50\n", encoding="utf-8")
@@ -238,7 +238,9 @@ def test_unc_archive_copies_verifies_and_moves(tmp_path: Path) -> None:
     assert (archive / "report.csv").is_file()
 
 
-def test_unc_archive_checksum_mismatch_is_failed_and_loses_nothing(tmp_path: Path) -> None:
+def test_unc_archive_checksum_mismatch_is_failed_and_loses_nothing(
+    tmp_path: Path, archive_roots_env: Path
+) -> None:
     ctx = _ctx(tmp_path / "ws")
     source = ctx.workspace / "report.csv"
     source.write_text("original\n", encoding="utf-8")
@@ -259,7 +261,9 @@ def test_unc_archive_checksum_mismatch_is_failed_and_loses_nothing(tmp_path: Pat
         assert not (archive / "report.csv").exists()
 
 
-def test_unc_archive_refuses_an_existing_destination_unless_overwrite(tmp_path: Path) -> None:
+def test_unc_archive_refuses_an_existing_destination_unless_overwrite(
+    tmp_path: Path, archive_roots_env: Path
+) -> None:
     ctx = _ctx(tmp_path / "ws")
     source = ctx.workspace / "report.csv"
     source.write_text("new\n", encoding="utf-8")

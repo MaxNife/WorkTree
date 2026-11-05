@@ -104,6 +104,27 @@ def secret_refs(value: JsonValue) -> list[str]:
     return names
 
 
+def is_sole_secret_reference(value: JsonValue) -> bool:
+    """True when ``value`` is exactly one ``{{ secret:name }}`` reference and nothing else."""
+    if not isinstance(value, str):
+        return False
+    match = _TEMPLATE_RE.fullmatch(value.strip())
+    if match is None:
+        return False
+    try:
+        reference = parse_expression(match.group("body"))
+    except ReferenceError:
+        return False
+    return reference.kind is ReferenceKind.SECRET and not reference.secret_nonce
+
+
+def secret_only_violations(inputs: Mapping[str, JsonValue], fields: Iterable[str]) -> list[str]:
+    """The ``fields`` that are set in ``inputs`` to something other than one secret reference."""
+    return [
+        field for field in fields if field in inputs and not is_sole_secret_reference(inputs[field])
+    ]
+
+
 def _navigate(data: JsonValue, path: str) -> JsonValue:
     if not path:
         return data

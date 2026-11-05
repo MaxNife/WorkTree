@@ -2,12 +2,18 @@
 
 Each test pins one protection. A test that fails because of a real defect is marked
 ``xfail(strict=True)`` with the finding id (SEC-n); ``docs/SECURITY.md`` explains each one.
+Findings SEC-1 to SEC-9 are fixed, so none is marked now. SEC-10 has no test (no protection
+exists to pin).
 """
 
 from __future__ import annotations
 
+import argparse
 import ast
+import json
 import re
+import sqlite3
+import sys
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack
 from http.cookies import SimpleCookie
@@ -21,10 +27,12 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.adapters.db.models import Artifact, AuditLog, User
 from app.audit.guard import AuditMutationError
-from app.config import Settings
+from app.cli import serve
+from app.config import InsecureConfiguration, Settings
 from app.container import Container, build_container, seed_reference_data
 from app.domain.clock import FakeClock, SystemClock
 from app.domain.enums import Role
+from app.errors import RateLimited
 from app.main import create_app
 from app.security.passwords import hash_password, needs_rehash, verify_password
 from app.workers.process import _base_env
@@ -167,17 +175,29 @@ def test_secure_flag_is_set_when_configured(
     assert client.get("/api/auth/me").status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-6: cookie_secure stays false when app.environment is prod",
-)
-def test_prod_environment_sets_secure_cookies_without_extra_configuration(
-    make_client: Callable[..., tuple[TestClient, Container]],
+def test_prod_environment_refuses_to_start_without_secure_cookies(
+    container: Container, settings: Settings
 ) -> None:
-    client, _ = make_client(environment="prod", base_url="https://testserver")
-    response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
+    """SEC-6: the flag is not forced on; a prod server with it off does not start."""
+    settings.app.environment = "prod"  # type: ignore[assignment]
+    assert settings.security.cookie_secure is False
+    with pytest.raises(InsecureConfiguration, match="cookie_secure"):
+        create_app(settings, container=container, start_background=False)
+    # The same prod settings with the flag set start, and the cookies carry Secure.
+    settings.security.cookie_secure = True
+    application = create_app(settings, container=container, start_background=False)
+    with TestClient(application, base_url="https://testserver") as client:
+        response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
     assert _cookies(response)["uaf_session"]["secure"] is True
+
+
+def test_the_serve_command_prints_the_prod_cookie_error_and_exits(
+    settings: Settings, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings.app.environment = "prod"  # type: ignore[assignment]
+    code = serve(argparse.Namespace(host="127.0.0.1", port=0, log_level="info"), settings)
+    assert code == 2
+    assert "refusing to start" in capsys.readouterr().err
 
 
 def test_logout_revokes_the_session_and_clears_both_cookies(client: TestClient) -> None:
@@ -272,11 +292,6 @@ def test_the_websocket_refuses_an_anonymous_connection(client: TestClient) -> No
     assert caught.value.code == 1008
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-8: the event socket checks the session once, at connect",
-)
 def test_a_logged_out_session_stops_receiving_websocket_events(
     client: TestClient, container: Container, actors: Any
 ) -> None:
@@ -285,11 +300,43 @@ def test_a_logged_out_session_stops_receiving_websocket_events(
         assert socket.receive_json()["type"] == "connected"
         assert actor.call("POST", "/api/auth/logout").status_code == 200
         container.events.publish({"type": "run.finished", "run_id": "r", "status": "done"})
-        try:
+        with pytest.raises(WebSocketDisconnect) as caught:
             message = socket.receive_json()
-        except WebSocketDisconnect:
-            return
-        assert message["type"] != "run.finished", "a revoked session still receives events"
+            assert message["type"] != "run.finished", "a revoked session still receives events"
+            socket.receive_json()
+        assert caught.value.code == 1008
+
+
+def test_the_websocket_refuses_a_foreign_origin_and_accepts_its_own(client: TestClient) -> None:
+    actor = Actor(client, "viewer")
+    for origin in ("http://evil.example", "http://testserver:9999", "null"):
+        with (
+            pytest.raises(WebSocketDisconnect) as caught,
+            actor.client.websocket_connect("/api/events", headers={"Origin": origin}),
+        ):
+            pass
+        assert caught.value.code == 1008, origin
+    with actor.client.websocket_connect(
+        "/api/events", headers={"Origin": "http://testserver"}
+    ) as socket:
+        assert socket.receive_json()["type"] == "connected"
+    # A client that sends no Origin (not a browser) is still served.
+    with actor.client.websocket_connect("/api/events") as socket:
+        assert socket.receive_json()["type"] == "connected"
+
+
+def test_a_deactivated_users_socket_closes_on_the_next_event(
+    container: Container, actors: Any
+) -> None:
+    admin, viewer = actors("admin"), actors("viewer")
+    with viewer.client.websocket_connect("/api/events") as socket:
+        assert socket.receive_json()["type"] == "connected"
+        deactivated = admin.call("POST", f"/api/admin/users/{viewer.user_id}/deactivate")
+        assert deactivated.status_code == 200, deactivated.text
+        container.events.publish({"type": "run.finished", "run_id": "r", "status": "done"})
+        with pytest.raises(WebSocketDisconnect) as caught:
+            socket.receive_json()
+        assert caught.value.code == 1008
 
 
 def test_the_public_routes_work_without_a_session(client: TestClient) -> None:
@@ -477,11 +524,6 @@ def test_the_rate_limit_applies_to_unknown_usernames_too(client: TestClient) -> 
     assert codes[10] == 429
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-5: the login limiter is keyed on username and address, so spraying is free",
-)
 def test_one_address_cannot_spray_a_password_across_many_usernames(client: TestClient) -> None:
     codes = [
         client.post(
@@ -490,6 +532,51 @@ def test_one_address_cannot_spray_a_password_across_many_usernames(client: TestC
         for index in range(60)
     ]
     assert 429 in codes
+    # The block is per address: it also refuses a real account's correct password from here.
+    blocked = client.post("/api/auth/login", json={"username": "viewer", "password": PASSWORD})
+    assert blocked.status_code == 429
+
+
+def test_one_account_cannot_be_guessed_from_many_addresses(
+    container: Container, fake_clock: FakeClock
+) -> None:
+    limiter = container.auth.limiter
+    attempts = container.settings.security.login_rate_limit_account_attempts
+    for index in range(attempts):
+        limiter.check("operator", f"10.0.0.{index}")
+        limiter.record_failure("operator", f"10.0.0.{index}")
+    with pytest.raises(RateLimited):
+        limiter.check("operator", "10.9.9.9")
+    # Another account from the same new address is unaffected, and the block ends.
+    limiter.check("viewer", "10.9.9.9")
+    fake_clock.advance(limiter.block_seconds + limiter.window_seconds + 1)
+    limiter.check("operator", "10.9.9.9")
+
+
+def test_a_successful_login_does_not_reset_the_address_counter(client: TestClient) -> None:
+    limit = client.app.state.container.settings.security.login_rate_limit_address_attempts  # type: ignore[attr-defined]
+    codes = []
+    for index in range(limit + 5):
+        if index % 5 == 0:  # the attacker logs in to an account it owns between guesses
+            client.post("/api/auth/login", json={"username": "viewer", "password": PASSWORD})
+        codes.append(
+            client.post(
+                "/api/auth/login", json={"username": f"user-{index:03d}", "password": "x" * 12}
+            ).status_code
+        )
+    assert 429 in codes
+
+
+def test_expired_login_limiter_buckets_are_purged(
+    container: Container, fake_clock: FakeClock
+) -> None:
+    limiter = container.auth.limiter
+    for index in range(200):
+        limiter.record_failure(f"user-{index}", f"10.1.{index // 250}.{index % 250}")
+    assert limiter.bucket_count() >= 200
+    fake_clock.advance(limiter.window_seconds + limiter.block_seconds + 1)
+    limiter.check("someone", "10.2.0.1")
+    assert limiter.bucket_count() == 0
 
 
 # ---- errors ------------------------------------------------------------------------------
@@ -512,11 +599,6 @@ def test_an_unhandled_error_returns_no_stack_trace(
     assert response.headers["content-type"].startswith("application/json")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-9: a 500 response carries no correlation id and none of the security headers",
-)
 def test_an_unhandled_error_response_keeps_the_correlation_id_and_security_headers(
     make_client: Callable[..., tuple[TestClient, Container]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -526,7 +608,14 @@ def test_an_unhandled_error_response_keeps_the_correlation_id_and_security_heade
     response = actor.client.get("/api/schedules", headers={"X-Correlation-ID": "trace-me"})
     assert response.status_code == 500
     assert response.headers.get("x-correlation-id") == "trace-me"
+    assert response.json()["error"]["correlation_id"] == "trace-me"
     assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert "frame-ancestors 'none'" in response.headers.get("content-security-policy", "")
+    # Without a caller-supplied id the server's own id is in both places.
+    generated = actor.client.get("/api/schedules")
+    assert generated.status_code == 500
+    assert generated.json()["error"]["correlation_id"] == generated.headers["x-correlation-id"]
 
 
 def test_validation_errors_and_unknown_routes_do_not_leak_internals(client: TestClient) -> None:
@@ -603,23 +692,23 @@ def test_secret_data_from_a_step_cannot_request_a_secret(actors: Any) -> None:
     assert value not in ran.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-7: the admin API accepts platform secret names such as session_signing_key",
-)
 def test_the_admin_api_refuses_to_overwrite_platform_secrets(actors: Any) -> None:
     admin = actors("admin")
     for name in ("session_signing_key", "uaf_internal_anything"):
         response = admin.call("PUT", f"/api/admin/secrets/{name}", json={"value": "x" * 32})
         assert response.status_code in (403, 422), (name, response.status_code)
+    # No route deletes a secret, so there is no DELETE to guard.
+    assert admin.call("DELETE", "/api/admin/secrets/session_signing_key").status_code in (404, 405)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-4: the activity child inherits non-secret UAF_* variables such as the DB URL",
-)
+def test_the_admin_api_refuses_a_secret_name_over_100_characters(actors: Any) -> None:
+    admin = actors("admin")
+    longest = admin.call("PUT", f"/api/admin/secrets/{'s' * 100}", json={"value": "v" * 8})
+    assert longest.status_code == 200, longest.text
+    too_long = admin.call("PUT", f"/api/admin/secrets/{'s' * 101}", json={"value": "v" * 8})
+    assert too_long.status_code == 422
+
+
 def test_activity_children_do_not_inherit_the_control_plane_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -668,19 +757,27 @@ def test_cutting_rows_off_the_end_of_the_audit_log_is_detected(
     assert result["ok"] is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-2: audit rows hash the full field but store a truncated one, breaking verify",
-)
-def test_a_long_resource_name_does_not_break_the_audit_chain(actors: Any) -> None:
+def test_a_long_resource_name_does_not_break_the_audit_chain(
+    container: Container, actors: Any
+) -> None:
     admin = actors("admin")
-    name = "s" * 150  # valid secret name, longer than the 100-character resource_id column
-    assert (
-        admin.call("PUT", f"/api/admin/secrets/{name}", json={"value": "v" * 8}).status_code == 200
-    )
+    # The writer takes any length but the columns are shorter, so the hash must be over what
+    # is stored. (The admin API now refuses secret names over 100 characters outright.)
+    with container.database.session() as session:
+        container.audit.write(
+            session,
+            actor="a" * 150,
+            action="test.long." + "x" * 150,
+            resource_type="t" * 80,
+            resource_id="s" * 150,
+            source_ip="1" * 100,
+            correlation_id="c" * 100,
+        )
     result = admin.client.get("/api/admin/audit/verify").json()
     assert result["ok"] is True, result
+    with container.database.session() as session:
+        row = session.execute(select(AuditLog).order_by(AuditLog.id.desc())).scalars().first()
+        assert row is not None and row.resource_id == "s" * 100
 
 
 # ---- webhook and file triggers -----------------------------------------------------------
@@ -796,11 +893,6 @@ def test_artifact_download_refuses_a_path_outside_the_run_workspace(
     assert response.status_code == 422 and "nope" not in response.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-1: SQL activities accept any db_url, including the control-plane database",
-)
 def test_an_author_cannot_point_a_sql_activity_at_the_control_plane_database(
     container: Container, actors: Any
 ) -> None:
@@ -812,17 +904,206 @@ def test_an_author_cannot_point_a_sql_activity_at_the_control_plane_database(
         json={"inputs": {"db_url": control_plane, "sql": "SELECT count(*) AS n FROM users"}},
     )
     assert ran.status_code in (400, 403, 422) or ran.json()["outcome"] == "failed", ran.text
+    assert ran.status_code == 422 and "secret" in ran.text, ran.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="SEC-3: unc_archive writes to any folder the server can reach, for any Author",
+def _sql_workflow(db_url: Any, name: str = "sql-flow") -> dict[str, Any]:
+    return {
+        "name": name,
+        "steps": [
+            {
+                "id": "q",
+                "activity": "gl_query",
+                "inputs": {"db_url": db_url, "sql": "SELECT 1 AS n"},
+            }
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "db_url",
+    [
+        "sqlite:///./runtime/uaf.db",
+        "oracle+oracledb://app:hunter2@db/svc",
+        "{{ inputs.db_url }}",
+        "{{ run.id }}",
+        "prefix-{{ secret:gl_db_url }}",
+        "{{ secret:gl_db_url }}{{ secret:other }}",
+        "",
+        None,
+    ],
 )
-def test_an_author_cannot_archive_a_file_into_an_arbitrary_server_folder(
-    container: Container, actors: Any, tmp_path: Path
+def test_an_author_cannot_save_a_sql_step_with_anything_but_one_secret_reference(
+    actors: Any, db_url: Any
 ) -> None:
-    author = actors("author")
+    refused = actors("author").call(
+        "POST", "/api/workflows", json={"definition": _sql_workflow(db_url)}
+    )
+    assert refused.status_code == 422, refused.text
+    assert "db_url" in refused.text and "secret" in refused.text
+
+
+def test_a_secret_reference_for_db_url_is_accepted_and_an_admin_may_type_a_value(
+    actors: Any,
+) -> None:
+    author, admin = actors("author"), actors("admin")
+    for index, reference in enumerate(("{{ secret:gl_db_url }}", "  {{secret:gl_db_url}} ")):
+        saved = author.call(
+            "POST",
+            "/api/workflows",
+            json={"definition": _sql_workflow(reference, name=f"sql-ref-{index}")},
+        )
+        assert saved.status_code == 200, saved.text
+    # A step that does not set db_url uses the activity's fixed default, which is fine.
+    no_url = {
+        "name": "sql-default",
+        "steps": [{"id": "q", "activity": "gl_query", "inputs": {"sql": "SELECT 1"}}],
+    }
+    assert author.call("POST", "/api/workflows", json={"definition": no_url}).status_code == 200
+    raw = admin.call(
+        "POST",
+        "/api/workflows",
+        json={"definition": _sql_workflow("sqlite:///./runtime/gl.db", name="sql-admin")},
+    )
+    assert raw.status_code == 200, raw.text
+
+
+def test_activity_specs_list_the_secret_only_inputs(actors: Any) -> None:
+    specs = {spec["name"]: spec for spec in actors("viewer").client.get("/api/activities").json()}
+    for name in ("gl_query", "oracle_query", "oracle_execute", "oracle_bulk_load"):
+        assert specs[name]["secret_only_inputs"] == ["db_url"], name
+    assert specs["echo"]["secret_only_inputs"] == []
+
+
+def test_an_authors_step_test_with_a_secret_reference_still_cannot_open_the_control_plane(
+    container: Container, actors: Any
+) -> None:
+    """Defence in depth: even a secret an Admin set to the control-plane URL is refused."""
+    admin, author = actors("admin"), actors("author")
+    control_plane = container.settings.database.url
+    assert (
+        admin.call("PUT", "/api/admin/secrets/ctl_db", json={"value": control_plane}).status_code
+        == 200
+    )
+    for actor in (author, admin):
+        ran = actor.call(
+            "POST",
+            "/api/activities/gl_query/test",
+            json={
+                "inputs": {
+                    "db_url": "{{ secret:ctl_db }}",
+                    "sql": "SELECT count(*) AS n FROM users",
+                }
+            },
+        )
+        assert ran.status_code == 200, ran.text
+        assert ran.json()["outcome"] == "failed", ran.text
+        assert "platform's own" in ran.json()["message"]
+    # An Admin typing the URL directly gets the same refusal at run time.
+    typed = admin.call(
+        "POST",
+        "/api/activities/gl_query/test",
+        json={"inputs": {"db_url": control_plane, "sql": "SELECT count(*) AS n FROM users"}},
+    )
+    assert typed.json()["outcome"] == "failed" and "platform's own" in typed.json()["message"]
+
+
+def test_the_worker_passes_the_control_plane_database_to_activity_children(
+    container: Container,
+) -> None:
+    from app.workers.process import child_environment
+
+    env = child_environment(container.settings)
+    expected = Path(container.settings.database.url.removeprefix("sqlite:///")).resolve()
+    assert Path(env["UAF_CHILD_PROTECTED_DB"]) == expected
+
+
+def test_open_database_refuses_the_protected_file_however_it_is_spelled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from activities.database import open_database
+
+    protected = tmp_path / "control" / "uaf.db"
+    protected.parent.mkdir()
+    sqlite3.connect(protected).close()
+    spellings = [
+        f"sqlite:///{protected.as_posix()}",
+        f"sqlite:///{(protected.parent / '..' / 'control' / 'uaf.db').as_posix()}",
+        f"sqlite:///{protected.as_posix().upper()}" if sys.platform == "win32" else None,
+        f"sqlite:///file:{protected.as_posix()}?mode=ro&uri=true",
+        f"sqlite+pysqlite:///{protected.as_posix()}",
+    ]
+    for url in filter(None, spellings):
+        with pytest.raises(ValueError, match="platform's own"):
+            open_database(url, protected=[protected])
+    # A relative path resolves against the working directory before it is compared.
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="platform's own"):
+        open_database("sqlite:///./control/uaf.db", protected=[protected])
+    # The worker announces the path through the environment, and open_database reads it there.
+    monkeypatch.setenv("UAF_CHILD_PROTECTED_DB", str(protected))
+    with pytest.raises(ValueError, match="platform's own"):
+        open_database(f"sqlite:///{protected.as_posix()}")
+    # Other files, and memory databases, still open.
+    other = tmp_path / "gl.db"
+    database = open_database(f"sqlite:///{other.as_posix()}")
+    assert database.query("SELECT 1 AS n") == [{"n": 1}]
+    database.close()
+    memory = open_database("sqlite:///:memory:")
+    memory.close()
+
+
+def test_open_database_refuses_a_link_to_the_protected_file(tmp_path: Path) -> None:
+    from activities.database import open_database
+
+    protected = tmp_path / "uaf.db"
+    sqlite3.connect(protected).close()
+    link = tmp_path / "alias.db"
+    try:
+        link.symlink_to(protected)
+    except (OSError, NotImplementedError):
+        try:
+            import os
+
+            os.link(protected, link)  # a hard link is the same file
+        except OSError:
+            pytest.skip("no symlink or hard link privilege on this machine")
+    with pytest.raises(ValueError, match="platform's own"):
+        open_database(f"sqlite:///{link.as_posix()}", protected=[protected])
+
+
+def test_open_database_does_not_create_folders_for_a_sqlite_file(tmp_path: Path) -> None:
+    from activities.database import open_database
+
+    missing = tmp_path / "no" / "such" / "folder" / "x.db"
+    database = open_database(f"sqlite:///{missing.as_posix()}", protected=[])
+    try:
+        with pytest.raises(Exception, match="unable to open"):
+            database.query("SELECT 1")
+    finally:
+        database.close()
+    assert not missing.parent.exists()
+
+
+def test_a_sql_statement_cannot_attach_the_protected_file(tmp_path: Path) -> None:
+    from activities.database import open_database
+
+    protected = tmp_path / "uaf.db"
+    with sqlite3.connect(protected) as connection:
+        connection.execute("CREATE TABLE users (name TEXT)")
+    harmless = tmp_path / "gl.db"
+    database = open_database(f"sqlite:///{harmless.as_posix()}", protected=[protected])
+    try:
+        with pytest.raises(Exception, match="not authorized"):
+            database.query(f"ATTACH DATABASE '{protected.as_posix()}' AS stolen")
+        other = tmp_path / "other.db"
+        sqlite3.connect(other).close()
+        database.query(f"ATTACH DATABASE '{other.as_posix()}' AS fine")
+    finally:
+        database.close()
+
+
+def _archive_run(container: Container, author: Any) -> str:
     workflow_id = author.call("POST", "/api/workflows", json={"definition": SAFE_WORKFLOW}).json()[
         "workflow"
     ]["id"]
@@ -830,19 +1111,134 @@ def test_an_author_cannot_archive_a_file_into_an_arbitrary_server_folder(
     workspace = Path(run.workspace)
     workspace.mkdir(parents=True, exist_ok=True)
     (workspace / "payload.txt").write_text("data", encoding="utf-8")
-    # The folder the server loads drop-in activities from: a file written here is imported by
-    # every activity child process.
-    target = container.settings.activities.extra_folder
-    ran = author.call(
+    return str(run.id)
+
+
+def _archive(author: Any, run_id: str, destination: Path, **extra: Any) -> Any:
+    return author.call(
         "POST",
         "/api/activities/unc_archive/test",
         json={
-            "run_id": run.id,
-            "inputs": {"source_path": "payload.txt", "destination_dir": str(target)},
+            "run_id": run_id,
+            "inputs": {
+                "source_path": "payload.txt",
+                "destination_dir": str(destination),
+                **extra,
+            },
         },
     )
+
+
+def test_an_author_cannot_archive_a_file_into_an_arbitrary_server_folder(
+    container: Container, actors: Any, tmp_path: Path
+) -> None:
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    # The folder the server loads drop-in activities from: a file written here is imported by
+    # every activity child process. A configured root that contains it must not change that.
+    container.settings.activities.archive_roots = [tmp_path]
+    target = container.settings.activities.extra_folder
+    assert tmp_path in target.parents
+    ran = _archive(author, run_id, target)
     landed = (target / "payload.txt").exists()
     assert not landed, ran.text
+    assert ran.json()["outcome"] == "failed" and "activity folder" in ran.json()["message"]
+
+
+def test_unc_archive_refuses_every_destination_until_roots_are_configured(
+    container: Container, actors: Any, tmp_path: Path
+) -> None:
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    assert container.settings.activities.archive_roots == []
+    target = tmp_path / "share"
+    ran = _archive(author, run_id, target)
+    assert ran.json()["outcome"] == "failed"
+    assert "activities.archive_roots" in ran.json()["message"]
+    assert not target.exists()
+
+
+def test_unc_archive_writes_only_inside_a_configured_root(
+    container: Container, actors: Any, tmp_path: Path
+) -> None:
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    root = tmp_path / "archive-root"
+    container.settings.activities.archive_roots = [root]
+    inside = _archive(author, run_id, root / "2026" / "january")
+    assert inside.json()["outcome"] == "done", inside.text
+    assert (root / "2026" / "january" / "payload.txt").read_text(encoding="utf-8") == "data"
+    for outside in (tmp_path / "elsewhere", root / ".." / "elsewhere", Path(tmp_path.anchor)):
+        refused = _archive(author, run_id, outside)
+        assert refused.json()["outcome"] == "failed", refused.text
+        assert "archive_roots" in refused.json()["message"]
+    assert not (tmp_path / "elsewhere").exists()
+
+
+def test_unc_archive_refuses_a_file_name_that_steps_out_of_the_destination(
+    container: Container, actors: Any, tmp_path: Path
+) -> None:
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    root = tmp_path / "archive-root"
+    container.settings.activities.archive_roots = [root]
+    names = ["../escape.txt", "sub/../../escape.txt"]
+    if sys.platform == "win32":
+        names.append("..\\escape.txt")
+    for name in names:
+        refused = _archive(author, run_id, root, filename=name)
+        assert refused.json()["outcome"] == "failed", (name, refused.text)
+    assert not (tmp_path / "escape.txt").exists()
+
+
+def test_unc_archive_refuses_a_link_that_leaves_the_root(
+    container: Container, actors: Any, tmp_path: Path
+) -> None:
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    root, outside = tmp_path / "archive-root", tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    try:
+        (root / "link").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        # A directory junction needs no privilege on Windows and is followed by resolve().
+        try:
+            import _winapi
+
+            _winapi.CreateJunction(str(outside), str(root / "link"))
+        except (ImportError, OSError):
+            pytest.skip("no symlink or junction support on this machine")
+    container.settings.activities.archive_roots = [root]
+    refused = _archive(author, run_id, root / "link")
+    assert refused.json()["outcome"] == "failed", refused.text
+    assert not (outside / "payload.txt").exists()
+
+
+def test_a_relative_activity_folder_is_still_protected_inside_the_child(
+    container: Container, actors: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The child runs in the run workspace; the folder must be resolved by the server."""
+    author = actors("author")
+    run_id = _archive_run(container, author)
+    monkeypatch.chdir(tmp_path)
+    container.settings.activities.extra_folder = Path("extra-activities")
+    container.settings.activities.archive_roots = [tmp_path]
+    refused = _archive(author, run_id, tmp_path / "extra-activities")
+    assert refused.json()["outcome"] == "failed", refused.text
+    assert "activity folder" in refused.json()["message"]
+    assert not (tmp_path / "extra-activities" / "payload.txt").exists()
+
+
+def test_the_worker_passes_the_archive_roots_to_activity_children(
+    container: Container, tmp_path: Path
+) -> None:
+    from app.workers.process import child_environment
+
+    assert json.loads(child_environment(container.settings)["UAF_CHILD_ARCHIVE_ROOTS"]) == []
+    container.settings.activities.archive_roots = [tmp_path / "a", tmp_path / "b"]
+    roots = json.loads(child_environment(container.settings)["UAF_CHILD_ARCHIVE_ROOTS"])
+    assert roots == [str((tmp_path / "a").resolve()), str((tmp_path / "b").resolve())]
 
 
 # ---- SQL ---------------------------------------------------------------------------------

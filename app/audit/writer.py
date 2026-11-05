@@ -71,6 +71,11 @@ class AuditWriter:
         correlation_id: str,
         ts: datetime,
     ) -> AuditLog:
+        # Hash what is stored: the columns are shorter than the inputs may be, and a hash over
+        # the full value would never match the row that verify() reads back (SEC-2).
+        actor, action = actor[:100], action[:100]
+        resource_type, resource_id = resource_type[:50], resource_id[:100]
+        source_ip, correlation_id = source_ip[:64], correlation_id[:64]
         session.flush()
         locked = session.execute(
             update(AuditHead).where(AuditHead.id == 1).values(appends=AuditHead.appends + 1)
@@ -84,14 +89,14 @@ class AuditWriter:
         prev_hash = previous or GENESIS_HASH
         row = AuditLog(
             ts=ts,
-            actor=actor[:100],
-            action=action[:100],
-            resource_type=resource_type[:50],
-            resource_id=resource_id[:100],
-            source_ip=source_ip[:64],
+            actor=actor,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            source_ip=source_ip,
             before=before,
             after=after,
-            correlation_id=correlation_id[:64],
+            correlation_id=correlation_id,
             prev_hash=prev_hash,
             hash=compute_hash(
                 ts=ts,

@@ -126,6 +126,9 @@ class Activity[InputT: BaseModel](ABC):
     # (fields not listed for any operation are always shown).
     operation_fields: ClassVar[dict[str, tuple[str, ...]]] = {}
     requires_admin_author: ClassVar[bool] = False
+    # Inputs that reach a connection or a credential. Outside an Admin's hands they may only be
+    # a single ``{{ secret:name }}`` reference, so an Author never types the value (SEC-1).
+    secret_only_inputs: ClassVar[tuple[str, ...]] = ()
 
     @abstractmethod
     def run(self, ctx: ActivityContext, inputs: InputT) -> ActivityResult:

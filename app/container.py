@@ -178,6 +178,8 @@ def build_container(
         clock,
         settings.security.login_rate_limit_attempts,
         settings.security.login_rate_limit_window_seconds,
+        address_attempts=settings.security.login_rate_limit_address_attempts,
+        account_attempts=settings.security.login_rate_limit_account_attempts,
     )
     auth = AuthService(clock, audit, session_factory, limiter)
     workflows = WorkflowService(clock, audit, activity_registry)

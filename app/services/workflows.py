@@ -21,6 +21,7 @@ from app.domain.workflow import (
     WorkflowDefinition,
     assert_valid,
     dump_workflow_yaml,
+    secret_only_violations,
     secret_refs,
 )
 from app.errors import Conflict, Forbidden, NotFound, ValidationFailed
@@ -51,6 +52,24 @@ class WorkflowService:
         self.clock = clock
         self.audit = audit
         self.registry = registry
+
+    def _require_secret_only_inputs(self, definition: WorkflowDefinition) -> None:
+        """Outside an Admin's hands, connection inputs must be a secret reference (SEC-1)."""
+        problems: list[str] = []
+        for step in definition.steps:
+            activity = self.registry.get(step.activity) if step.activity else None
+            if activity is None:
+                continue
+            problems.extend(
+                f"step {step.id!r} input {field!r}"
+                for field in secret_only_violations(step.inputs, activity.secret_only_inputs)
+            )
+        if problems:
+            raise ValidationFailed(
+                "only an Admin can type a value for "
+                + ", ".join(problems)
+                + "; use a single {{ secret:name }} reference (an Admin creates the secret)"
+            )
 
     def save(
         self,
@@ -93,6 +112,7 @@ class WorkflowService:
                     + ", ".join(restricted)
                     + " (these activities run code on the server)"
                 )
+            self._require_secret_only_inputs(definition)
 
         if workflow_id is None:
             workflow = session.execute(

@@ -39,6 +39,7 @@ from sqlalchemy import select
 
 from activities.matching import MatchingActivity
 from app.adapters.db.models import AuditLog, Run, RunStep
+from app.config import Settings
 from app.domain.activity import ActivityContext
 from app.domain.clock import FakeClock
 from app.domain.enums import TERMINAL_RUN_STATUSES, Outcome, Role
@@ -128,6 +129,13 @@ def _mail_a_fresh_otp_on_login(app: Any, state: FixtureState) -> None:
                 }
             )
         return response
+
+
+@pytest.fixture
+def settings(settings: Settings, tmp_path: Path) -> Settings:
+    """The A1 workflow archives to a share under the test folder; unc_archive needs that root."""
+    settings.activities.archive_roots = [tmp_path / "unc"]
+    return settings
 
 
 @pytest.fixture

@@ -8,16 +8,68 @@ are restricted to simple identifiers before they are quoted.
 
 from __future__ import annotations
 
+import os
 import re
+import sqlite3
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import unquote, urlparse
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine, make_url
 
 # Positional placeholders (sqlite ``?``, DB-API ``%s``/``%(name)s`` and numeric ``:1``)
 # are refused so that an activity author cannot fall back to manual argument ordering.
 _POSITIONAL_BIND = re.compile(r"\?|%s|%\(\w+\)s|(?<!:):\d+")
+
+
+# The child learns where the control-plane database is from this variable (set by the worker
+# from ``database.url``); a SQL activity must never open that file, whoever wrote the step.
+PROTECTED_DB_ENV = "UAF_CHILD_PROTECTED_DB"
+
+
+def protected_paths_from_env() -> tuple[Path, ...]:
+    raw = os.environ.get(PROTECTED_DB_ENV, "").strip()
+    return (Path(raw),) if raw else ()
+
+
+def sqlite_file_candidates(url: str) -> list[Path]:
+    """Every file a SQLite URL (or an ATTACH target) could open; empty for in-memory."""
+    try:
+        database = make_url(url).database
+    except Exception as exc:
+        raise ValueError("invalid database URL") from exc
+    if not database or database == ":memory:":
+        return []
+    return filename_candidates(database)
+
+
+def filename_candidates(name: str) -> list[Path]:
+    candidates = [Path(name)]
+    if name.lower().startswith("file:"):
+        # URI form (``file:...?mode=ro``): the path part, with a Windows drive letter fixed.
+        path = unquote(urlparse(name).path)
+        if re.match(r"^/[A-Za-z]:", path):
+            path = path[1:]
+        if path and path != ":memory:":
+            candidates.append(Path(path))
+    return candidates
+
+
+def _same_file(first: Path, second: Path) -> bool:
+    try:
+        resolved_first, resolved_second = first.resolve(), second.resolve()
+        if os.path.normcase(str(resolved_first)) == os.path.normcase(str(resolved_second)):
+            return True
+        return first.exists() and second.exists() and os.path.samefile(first, second)
+    except OSError:
+        return False
+
+
+def refers_to_protected(candidates: Sequence[Path], protected: Sequence[Path]) -> bool:
+    """True when any candidate resolves to a protected file (symlinks and hard links too)."""
+    return any(_same_file(candidate, guarded) for candidate in candidates for guarded in protected)
 
 
 class Database(Protocol):
@@ -125,13 +177,30 @@ class SqlDatabase:
 
     dialect = "generic"
 
-    def __init__(self, url: str) -> None:
-        if url.startswith("sqlite:///"):
-            raw = url[len("sqlite:///") :]
-            if raw and raw != ":memory:":
-                Path(raw).parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, url: str, protected: Sequence[Path] = ()) -> None:
         self.engine: Engine = create_engine(url, future=True)
         self.dialect = self.engine.dialect.name
+        if self.dialect == "sqlite" and protected:
+            guarded = tuple(protected)
+
+            @event.listens_for(self.engine, "connect")
+            def _deny_attach(dbapi_connection: Any, _record: Any) -> None:
+                def authorizer(
+                    action: int,
+                    arg1: str | None,
+                    _arg2: str | None,
+                    _db: str | None,
+                    _src: str | None,
+                ) -> int:
+                    if (
+                        action == sqlite3.SQLITE_ATTACH
+                        and arg1
+                        and refers_to_protected(filename_candidates(arg1), guarded)
+                    ):
+                        return sqlite3.SQLITE_DENY
+                    return sqlite3.SQLITE_OK
+
+                dbapi_connection.set_authorizer(authorizer)
 
     def query(
         self,
@@ -281,9 +350,14 @@ class OracleDatabase(SqlDatabase):
     """Oracle 19c+ thin-mode implementation (untested here; see KNOWN_GAPS G2)."""
 
 
-def open_database(url: str) -> Database:
+def open_database(url: str, *, protected: Sequence[Path] | None = None) -> Database:
+    """Open a SQLite or Oracle database. ``protected`` defaults to the control-plane database
+    file announced by the worker; a SQLite URL that resolves to it is refused."""
+    guarded = tuple(protected) if protected is not None else protected_paths_from_env()
     if url.startswith("sqlite"):
-        return SqliteDatabase(url)
+        if guarded and refers_to_protected(sqlite_file_candidates(url), guarded):
+            raise ValueError("this SQLite database is the platform's own and cannot be opened")
+        return SqliteDatabase(url, guarded)
     if url.startswith("oracle"):
         return OracleDatabase(url)
     raise ValueError(
@@ -292,6 +366,7 @@ def open_database(url: str) -> Database:
 
 
 __all__ = [
+    "PROTECTED_DB_ENV",
     "Database",
     "OracleDatabase",
     "SqlDatabase",

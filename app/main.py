@@ -20,7 +20,7 @@ from app.api import system as system_routes
 from app.api import tasks as task_routes
 from app.api import workflows as workflow_routes
 from app.audit.guard import AuditMutationError
-from app.config import Settings, load_settings
+from app.config import Settings, assert_startup_safe, load_settings
 from app.container import Container, build_container
 from app.errors import AppError
 from app.logging_setup import (
@@ -35,6 +35,35 @@ from app.telemetry import configure_telemetry
 WEB_DIST = Path(__file__).resolve().parents[1] / "web" / "dist"
 
 
+def apply_response_headers(response: Any, correlation: str) -> None:
+    """The headers every response carries, including the 500 that no middleware wraps."""
+    response.headers["X-Correlation-ID"] = correlation
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; connect-src 'self' ws: wss:; font-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
+
+
+def internal_error_response(correlation: str) -> JSONResponse:
+    """A fixed 500 body (no exception text) that carries the id to look up in the log."""
+    response = JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "internal_error",
+                "message": "an internal error occurred; see the server log",
+                "correlation_id": correlation,
+            }
+        },
+    )
+    apply_response_headers(response, correlation)
+    return response
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -42,6 +71,7 @@ def create_app(
     start_background: bool = True,
 ) -> FastAPI:
     settings = settings or (container.settings if container else load_settings())
+    assert_startup_safe(settings)
     active = container or build_container(settings, create_schema=True)
 
     @asynccontextmanager
@@ -70,17 +100,14 @@ def create_app(
         bind_correlation_id(request.state.correlation_id)
         try:
             response = await call_next(request)
+        except Exception as exc:
+            # Answer here, inside the middleware, so the 500 gets the same headers and the
+            # correlation id as every other response (the server-error handler sits outside).
+            log.error("unhandled_request_error", error=f"{type(exc).__name__}: {exc}")
+            response = internal_error_response(request.state.correlation_id)
         finally:
             clear_correlation_id()
-        response.headers["X-Correlation-ID"] = request.state.correlation_id
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "same-origin"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "script-src 'self'; connect-src 'self' ws: wss:; font-src 'self' data:; "
-            "frame-ancestors 'none'"
-        )
+        apply_response_headers(response, request.state.correlation_id)
         return response
 
     @app.exception_handler(AppError)
@@ -117,17 +144,10 @@ def create_app(
         )
 
     @app.exception_handler(Exception)
-    async def unhandled(_request: Request, exc: Exception) -> JSONResponse:
+    async def unhandled(request: Request, exc: Exception) -> JSONResponse:
         log.error("unhandled_request_error", error=f"{type(exc).__name__}: {exc}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": {
-                    "code": "internal_error",
-                    "message": "an internal error occurred; see the server log",
-                }
-            },
-        )
+        correlation = getattr(request.state, "correlation_id", "") or new_correlation_id()
+        return internal_error_response(correlation)
 
     for router in (
         auth_routes.router,

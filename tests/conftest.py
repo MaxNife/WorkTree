@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +51,17 @@ class Api:
             data["user"]["id"],
             role.value,
         )
+
+
+@pytest.fixture
+def archive_roots_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Let ``unc_archive`` write anywhere under the test's temp folder when it runs in-process.
+
+    A worker child learns its archive roots from ``UAF_CHILD_ARCHIVE_ROOTS``; the default is
+    none, which refuses every destination (see ``test_security.py`` for those cases).
+    """
+    monkeypatch.setenv("UAF_CHILD_ARCHIVE_ROOTS", json.dumps([str(tmp_path)]))
+    return tmp_path
 
 
 @pytest.fixture

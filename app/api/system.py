@@ -7,6 +7,7 @@ import asyncio
 import shutil
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import func, select
@@ -47,6 +48,7 @@ from app.domain.workflow import (
     bind_secret_refs,
     new_secret_nonce,
     resolve_value,
+    secret_only_violations,
     secret_refs,
     strip_secret_bindings,
 )
@@ -206,6 +208,13 @@ def test_activity(
     activity = container.registry.require(name)
     if activity.requires_admin_author and Role.ADMIN not in user.roles:
         raise Forbidden(f"only an Admin can run {name} (it runs code on the server)")
+    if Role.ADMIN not in user.roles:
+        typed = secret_only_violations(body.inputs, activity.secret_only_inputs)
+        if typed:
+            raise ValidationFailed(
+                f"only an Admin can type a value for {', '.join(typed)}; "
+                "use a single {{ secret:name }} reference (an Admin creates the secret)"
+            )
     test_id = container.clock.now().strftime("%Y%m%d%H%M%S%f")
     workspace = container.settings.data.root / "activity-tests" / test_id
     # Bound before pinned data is merged in, so run data cannot request a secret.
@@ -494,8 +503,11 @@ def _collaboration(request: Request) -> CollaborationService:
 @router.websocket("/events")
 async def events(websocket: WebSocket) -> None:
     """Live events over a WebSocket (``/api/events``), authenticated by the session cookie
-    (closed with code 1008 without one). Every connected user receives every event; messages
-    carry ids only, so screens refetch what they show. Message shapes:
+    (closed with code 1008 without one, or when an ``Origin`` header is present and is not this
+    host). The session is checked again before every event and at least every 15 s; the socket
+    closes with 1008 once it has ended (logout, expiry, deactivation). Every connected user
+    receives every event; messages carry ids only, so screens refetch what they show. Message
+    shapes:
 
     - ``{"type": "connected", "user": "<username>"}``: once, on connect.
     - ``{"type": "ping"}``: after 15 s without another message.
@@ -510,16 +522,28 @@ async def events(websocket: WebSocket) -> None:
     oldest queued events (1,000 per connection).
     """
     container = websocket.app.state.container
-    cookie = websocket.cookies.get(container.settings.security.cookie_name)
     from app.adapters.db.database import Database
 
     database: Database = container.database
-    with database.session() as session:
-        user = container.auth.resolve_session(
-            session,
-            cookie_value=cookie,
-            source_ip=websocket.client.host if websocket.client else "",
-        )
+
+    def current_user() -> Any:
+        cookie = websocket.cookies.get(container.settings.security.cookie_name)
+        with database.session() as session:
+            return container.auth.resolve_session(
+                session,
+                cookie_value=cookie,
+                source_ip=websocket.client.host if websocket.client else "",
+            )
+
+    # A browser sends Origin on a WebSocket handshake; a page on another origin must not be
+    # able to open this socket with the user's cookie (SameSite does not cover another port).
+    origin = websocket.headers.get("origin")
+    if origin is not None and urlparse(origin).netloc.lower() != (
+        websocket.headers.get("host", "").lower()
+    ):
+        await websocket.close(code=1008)
+        return
+    user = current_user()
     if user is None:
         await websocket.close(code=1008)
         return
@@ -530,9 +554,12 @@ async def events(websocket: WebSocket) -> None:
         while True:
             try:
                 event = await asyncio.wait_for(queue.get(), timeout=15)
-                await websocket.send_json(event)
             except TimeoutError:
-                await websocket.send_json({"type": "ping"})
+                event = {"type": "ping"}
+            if current_user() is None:
+                await websocket.close(code=1008)
+                return
+            await websocket.send_json(event)
     except WebSocketDisconnect:
         pass
     finally:

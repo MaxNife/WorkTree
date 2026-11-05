@@ -27,6 +27,7 @@ class SqlQueryActivity(Activity[QueryInputs]):
     category = "Data / SQL"
     description = "Run a parameterised SELECT against the GL database and write a table file."
     input_model = QueryInputs
+    secret_only_inputs = ("db_url",)
 
     def run(self, ctx: ActivityContext, inputs: QueryInputs) -> ActivityResult:
         database = open_database(inputs.db_url)
@@ -48,6 +49,7 @@ class OracleQueryActivity(SqlQueryActivity):
     category = "Data / Oracle"
     description = "Parameterised Oracle query (python-oracledb thin mode or SQLite in tests)."
     input_model = QueryInputs
+    secret_only_inputs = ("db_url",)
 
 
 class ExecuteInputs(BaseModel):
@@ -66,6 +68,7 @@ class OracleExecuteActivity(Activity[ExecuteInputs]):
     category = "Data / Oracle"
     description = "Execute a parameterised INSERT/UPDATE/DELETE or PL/SQL block."
     input_model = ExecuteInputs
+    secret_only_inputs = ("db_url",)
 
     def run(self, ctx: ActivityContext, inputs: ExecuteInputs) -> ActivityResult:
         database = open_database(inputs.db_url)
@@ -96,6 +99,7 @@ class OracleBulkLoadActivity(Activity[BulkLoadInputs]):
         "Chunked executemany into staging, then a MERGE into the target, with per-row errors."
     )
     input_model = BulkLoadInputs
+    secret_only_inputs = ("db_url",)
 
     def run(self, ctx: ActivityContext, inputs: BulkLoadInputs) -> ActivityResult:
         rows = read_table(safe_path(ctx, inputs.source_path, must_exist=True))

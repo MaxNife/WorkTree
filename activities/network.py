@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 import mimetypes
+import os
 import shutil
 import smtplib
 import ssl
@@ -404,17 +405,70 @@ class UncArchiveInputs(BaseModel):
     overwrite: bool = False
 
 
+def _archive_roots(ctx: ActivityContext) -> list[Path]:
+    """The folders ``unc_archive`` may write into: ``activities.archive_roots`` in-process, or
+    the ``UAF_CHILD_ARCHIVE_ROOTS`` JSON list the worker passes to a child."""
+    activities = getattr(getattr(ctx, "settings", None), "activities", None)
+    if activities is not None:
+        return [Path(root) for root in activities.archive_roots]
+    try:
+        roots = json.loads(os.environ.get("UAF_CHILD_ARCHIVE_ROOTS") or "[]")
+    except ValueError:
+        return []
+    return [Path(root) for root in roots] if isinstance(roots, list) else []
+
+
+def _extra_folder(ctx: ActivityContext) -> Path | None:
+    activities = getattr(getattr(ctx, "settings", None), "activities", None)
+    if activities is not None:
+        return Path(activities.extra_folder)
+    raw = os.environ.get("UAF_CHILD_ACTIVITIES_EXTRA")
+    return Path(raw) if raw else None
+
+
+def _is_inside(path: Path, folder: Path) -> bool:
+    root, candidate = folder.resolve(), path.resolve()
+    return candidate == root or root in candidate.parents
+
+
+def archive_refusal(ctx: ActivityContext, target: Path) -> str | None:
+    """Why ``target`` (a resolved file or folder) may not be written to, or None if it may."""
+    roots = _archive_roots(ctx)
+    if not roots:
+        return (
+            "unc_archive is not configured: it refuses every destination until "
+            "activities.archive_roots lists the folders it may write to"
+        )
+    extra = _extra_folder(ctx)
+    if extra is not None and _is_inside(target, extra):
+        return "unc_archive may not write into the activity folder (activities.extra_folder)"
+    if not any(_is_inside(target, root) for root in roots):
+        return "destination is outside every folder listed in activities.archive_roots"
+    return None
+
+
 class UncArchiveActivity(Activity[UncArchiveInputs]):
     name = "unc_archive"
     category = "Platform / Files"
-    description = "Copy or move a file to a UNC/network path and verify its SHA-256."
+    description = (
+        "Copy or move a file to a UNC/network path and verify its SHA-256. The destination "
+        "must be inside a folder listed in the server's activities.archive_roots."
+    )
     input_model = UncArchiveInputs
 
     def run(self, ctx: ActivityContext, inputs: UncArchiveInputs) -> ActivityResult:
         source = safe_path(ctx, inputs.source_path, must_exist=True)
+        if inputs.filename and Path(inputs.filename).name != inputs.filename:
+            return ActivityResult.failed("filename must be a plain file name, not a path")
         destination_dir = Path(inputs.destination_dir)
-        destination_dir.mkdir(parents=True, exist_ok=True)
         destination = destination_dir / (inputs.filename or source.name)
+        # Both the folder and the final file are checked after resolving links and "..", so a
+        # symlink or a crafted name cannot step out of an archive root.
+        for target in (destination_dir, destination):
+            refusal = archive_refusal(ctx, target)
+            if refusal:
+                return ActivityResult.failed(refusal)
+        destination_dir.mkdir(parents=True, exist_ok=True)
         if destination.exists() and not inputs.overwrite:
             return ActivityResult.failed(f"destination already exists: {destination}")
         # A move is copy, verify, then delete: the source is only removed once the archived

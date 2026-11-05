@@ -127,7 +127,9 @@ def test_excel_set_cells_refuses_an_unknown_sheet(tmp_path: Path) -> None:
 
 
 # ----------------------------------------------------------------------------- network
-def test_unc_move_keeps_the_source_when_the_checksum_does_not_match(tmp_path: Path) -> None:
+def test_unc_move_keeps_the_source_when_the_checksum_does_not_match(
+    tmp_path: Path, archive_roots_env: Path
+) -> None:
     ctx = _ctx(tmp_path / "ws")
     (ctx.workspace / "report.csv").write_text("x\n", encoding="utf-8")
     archive = tmp_path / "archive"
@@ -145,7 +147,7 @@ def test_unc_move_keeps_the_source_when_the_checksum_does_not_match(tmp_path: Pa
     assert not (archive / "report.csv").exists()
 
 
-def test_unc_move_verifies_then_removes_the_source(tmp_path: Path) -> None:
+def test_unc_move_verifies_then_removes_the_source(tmp_path: Path, archive_roots_env: Path) -> None:
     ctx = _ctx(tmp_path / "ws")
     (ctx.workspace / "report.csv").write_text("x\n", encoding="utf-8")
     archive = tmp_path / "archive"

@@ -59,6 +59,11 @@ class SecuritySettings(BaseModel):
     cookie_name: str = "uaf_session"
     login_rate_limit_attempts: int = Field(default=10, ge=1)
     login_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # Failures per window from one address across all usernames (password spraying), and
+    # against one account across all addresses. Both are looser than the per-pair limit above,
+    # so a person mistyping is stopped first by the pair limit.
+    login_rate_limit_address_attempts: int = Field(default=50, ge=1)
+    login_rate_limit_account_attempts: int = Field(default=30, ge=1)
     csrf_cookie_name: str = "uaf_csrf"
     csrf_header_name: str = "X-CSRF-Token"
 
@@ -94,6 +99,9 @@ class SecretSettings(BaseModel):
 
 class ActivitySettings(BaseModel):
     extra_folder: Path = Path("./runtime/activities")
+    # Folders ``unc_archive`` may write into. Empty (the default) refuses every destination.
+    # Never list the activity folder: it is refused even when a root contains it.
+    archive_roots: list[Path] = Field(default_factory=list)
 
 
 class SchedulerSettings(BaseModel):
@@ -192,6 +200,24 @@ def load_settings(**overrides: Any) -> Settings:
     ):
         path.mkdir(parents=True, exist_ok=True)
     return settings
+
+
+class InsecureConfiguration(RuntimeError):
+    """The settings would start the server in a state its environment must not be in."""
+
+
+def assert_startup_safe(settings: Settings) -> None:
+    """Refuse to start a ``prod`` server that would send its session cookie over plain HTTP.
+
+    The flag is not forced on: an operator who terminates TLS elsewhere must say so, and a
+    silent override would hide a misconfiguration (SEC-6).
+    """
+    if settings.app.environment == "prod" and not settings.security.cookie_secure:
+        raise InsecureConfiguration(
+            "app.environment is 'prod' but security.cookie_secure is false: the session cookie "
+            "would be sent without the Secure flag. Set security.cookie_secure: true "
+            "(UAF_SECURITY__COOKIE_SECURE=true) and serve the app over HTTPS."
+        )
 
 
 def is_insecure_password(password: str) -> bool:

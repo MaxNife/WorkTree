@@ -10,7 +10,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from app.config import Settings, is_insecure_password, load_settings
+from app.config import (
+    InsecureConfiguration,
+    Settings,
+    assert_startup_safe,
+    is_insecure_password,
+    load_settings,
+)
 from app.container import build_container, seed_reference_data
 from app.domain.enums import TERMINAL_RUN_STATUSES, Role, RunStatus
 from app.domain.workflow import load_workflow_yaml, validate_definition
@@ -140,6 +146,11 @@ def serve(args: argparse.Namespace, settings: Settings) -> int:
     from app.logging_setup import configure_logging
     from app.main import create_app
 
+    try:
+        assert_startup_safe(settings)
+    except InsecureConfiguration as exc:
+        print(f"refusing to start: {exc}", file=sys.stderr)
+        return 2
     configure_logging(settings, console=True)
     container = _container(settings)
     if not container.has_admin():

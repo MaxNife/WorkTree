@@ -110,6 +110,7 @@ class ActivityRegistry:
             "output_fields": list(activity.output_fields),
             "sensitive_fields": list(activity.sensitive_fields),
             "requires_admin_author": activity.requires_admin_author,
+            "secret_only_inputs": list(activity.secret_only_inputs),
             "option_fields": sorted(activity.option_providers),
             "operation_fields": {
                 operation: list(fields) for operation, fields in activity.operation_fields.items()

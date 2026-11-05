@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.models import AuditLog, RoleRow, SecretMetadata
+from app.adapters.secrets.base import is_internal_secret
 from app.api.deps import (
     client_ip,
     correlation_id,
@@ -24,7 +25,7 @@ from app.api.serializers import user as serialize_user
 from app.errors import ValidationFailed
 from app.security.rbac import Permission
 
-SECRET_NAME_RE = re.compile(r"[A-Za-z0-9_.\-/]{1,200}")
+SECRET_NAME_RE = re.compile(r"[A-Za-z0-9_.\-/]{1,100}")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -146,8 +147,10 @@ def set_secret(
     container = request.app.state.container
     if not SECRET_NAME_RE.fullmatch(name):
         raise ValidationFailed(
-            "secret names are 1-200 characters of letters, digits, '_', '.', '-' or '/'"
+            "secret names are 1-100 characters of letters, digits, '_', '.', '-' or '/'"
         )
+    if is_internal_secret(name):
+        raise ValidationFailed(f"{name} is reserved for the platform and cannot be set here")
     container.secrets.set(name, body.value)
     row = session.get(SecretMetadata, name)
     now = container.clock.now()
