@@ -70,7 +70,7 @@ function onKeydown(event: KeyboardEvent, index: number): void {
   color: var(--uaf-text);
 }
 .tabs__tab--selected {
-  border-bottom-color: var(--uaf-accent);
+  border-bottom-color: var(--uaf-accent-text);
   color: var(--uaf-text);
   font-weight: var(--fontWeightSemibold);
 }

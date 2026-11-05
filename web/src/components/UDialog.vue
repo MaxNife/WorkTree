@@ -5,7 +5,15 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UButton from './UButton.vue'
 
 const open = defineModel<boolean>('open', { default: false })
-withDefaults(defineProps<{ title: string; size?: 'small' | 'medium' | 'large' }>(), { size: 'medium' })
+const props = withDefaults(
+  defineProps<{
+    title: string
+    size?: 'small' | 'medium' | 'large'
+    /** A backdrop click does not close it, for a dialog holding a form. Escape and Close still do. */
+    persistent?: boolean
+  }>(),
+  { size: 'medium' },
+)
 
 const dialog = ref<HTMLElement & { show?: () => void; hide?: () => void }>()
 let shown = false
@@ -45,6 +53,12 @@ function onEscape(event: KeyboardEvent): void {
   if (!event.defaultPrevented) open.value = false
 }
 
+// Fluent light-dismisses from a click listener on its shadow <dialog>, the only target a backdrop click
+// has. Stopping that click on the way down leaves every other click alone.
+function onCapturedClick(event: MouseEvent): void {
+  if (props.persistent && event.composedPath()[0] instanceof HTMLDialogElement) event.stopPropagation()
+}
+
 // Skip Fluent's own close handler so there is one close path, through the model.
 function onClose(event: MouseEvent): void {
   event.preventDefault()
@@ -64,6 +78,7 @@ onBeforeUnmount(() => {
     class="u-dialog"
     :class="`u-dialog--${size}`"
     :aria-label="title"
+    @click.capture="onCapturedClick"
     @toggle.self="onToggle"
     @keydown.esc="onEscape"
   >

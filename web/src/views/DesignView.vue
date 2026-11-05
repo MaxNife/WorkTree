@@ -262,6 +262,8 @@ const rejectOpen = ref(false)
         <UTextArea v-model="notes" label="Notes" placeholder="Add a note" />
         <UTextArea v-model="notes" label="Required, five rows" required :rows="5" />
         <UTextArea :model-value="LONG_TEXT" label="Disabled" disabled />
+        <UTextArea v-model="notes" label="With help" description="Shown under the field." />
+        <UTextArea v-model="notes" label="With an error" error="Inputs must be a JSON object." />
       </div>
     </section>
 
@@ -271,6 +273,8 @@ const rejectOpen = ref(false)
         <USelect v-model="choice" label="Owner" :options="choices" />
         <USelect v-model="owner" label="With placeholder" :options="choices" placeholder="Any owner" />
         <USelect v-model="choice" label="Disabled" :options="choices" disabled />
+        <USelect v-model="choice" label="With help" :options="choices" description="Shown under the field." />
+        <USelect v-model="owner" label="With an error" :options="choices" placeholder="Any owner" error="Choose an owner." />
       </div>
       <div class="fields">
         <UCheckbox v-model="on" label="Checked" />
@@ -417,7 +421,7 @@ const rejectOpen = ref(false)
         <UButton @click="confirmOpen = true">Open confirmation</UButton>
         <UButton @click="rejectOpen = true">Open required reason</UButton>
       </div>
-      <UDialog v-model:open="dialogOpen" title="Rename workflow">
+      <UDialog v-model:open="dialogOpen" title="Rename workflow" persistent>
         <UTextInput v-model="filled" label="Name" required />
         <template #footer>
           <UButton @click="dialogOpen = false">Cancel</UButton>
