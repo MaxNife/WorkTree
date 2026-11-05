@@ -8,19 +8,17 @@ import PropertyList from '@/components/PropertyList.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const health = useQuery({ queryKey: ['health'], queryFn: () => apiGet('/health'), refetchInterval: 15_000 })
-const reachable = computed(() => health.isSuccess.value)
-const items = computed(() => [
-  { key: 'api', label: 'API', value: reachable.value ? 'reachable' : health.isPending.value ? 'checking' : 'unreachable' },
-])
+const connection = computed(() => {
+  if (health.isSuccess.value) return { status: 'done', label: 'Connected' }
+  return health.isPending.value ? { status: 'pending', label: 'Checking' } : { status: 'failed', label: 'Unreachable' }
+})
+const items = computed(() => [{ key: 'api', label: 'API', value: connection.value.label }])
 </script>
 
 <template>
   <PageHeader title="Welcome" subtitle="The operations console, studio and task inbox arrive in the next checkpoints.">
     <template #actions>
-      <StatusBadge
-        :status="reachable ? 'done' : health.isPending.value ? 'pending' : 'failed'"
-        :label="reachable ? 'Connected' : health.isPending.value ? 'Checking' : 'Unreachable'"
-      />
+      <StatusBadge :status="connection.status" :label="connection.label" />
     </template>
   </PageHeader>
   <PropertyList :items="items" />

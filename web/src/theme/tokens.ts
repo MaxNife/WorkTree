@@ -1,6 +1,6 @@
 // Design tokens: the single source of colour truth (docs/design-language.md).
-// The objects use Fluent's own token names, so wrapped Fluent web components pick them up through
-// setTheme(); our CSS reads the same tokens as CSS custom properties (see styles/base.css).
+// The objects use Fluent's own token names. theme/apply.ts writes them as CSS custom properties on
+// the root, where the wrapped Fluent web components and styles/base.css both read them.
 
 export type ThemeName = 'light' | 'dark' | 'high-contrast'
 export type TokenValue = string | number
@@ -13,12 +13,16 @@ export const BRAND = {
   pressed: '#0C5E0C',
   tint: '#DFF6DD',
   onDark: '#54B054',
+  onDarkPressed: '#479647',
   linkOnDark: '#6CCB5F',
+  linkHoverOnDark: '#8AD97D',
   tintOnDark: '#0A2E0A',
 } as const
 
 // Values that do not change with the theme (Fluent's scale).
 const shared: TokenSet = {
+  colorNeutralForeground1Static: '#242424',
+  colorNeutralForegroundStaticInverted: '#ffffff',
   fontFamilyBase:
     "'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif",
   fontFamilyMonospace: "Consolas, 'Courier New', Courier, monospace",
@@ -31,6 +35,8 @@ const shared: TokenSet = {
   fontSizeBase600: '24px',
   fontSizeHero700: '28px',
   fontSizeHero800: '32px',
+  fontSizeHero900: '40px',
+  fontSizeHero1000: '68px',
   lineHeightBase100: '14px',
   lineHeightBase200: '16px',
   lineHeightBase300: '20px',
@@ -39,6 +45,8 @@ const shared: TokenSet = {
   lineHeightBase600: '32px',
   lineHeightHero700: '36px',
   lineHeightHero800: '40px',
+  lineHeightHero900: '52px',
+  lineHeightHero1000: '92px',
   fontWeightRegular: 400,
   fontWeightMedium: 500,
   fontWeightSemibold: 600,
@@ -82,6 +90,7 @@ const shared: TokenSet = {
   durationSlow: '300ms',
   durationSlower: '400ms',
   durationUltraSlow: '500ms',
+  durationGentle: '250ms',
   curveAccelerateMax: 'cubic-bezier(0.9,0.1,1,0.2)',
   curveAccelerateMid: 'cubic-bezier(1,0,1,1)',
   curveAccelerateMin: 'cubic-bezier(0.8,0,0.78,1)',
@@ -128,6 +137,10 @@ interface Palette {
   brandBgHover: string
   brandBgPressed: string
   brandBg2: string
+  // Fills under a small glyph (checkbox tick, switch thumb), which sits in the inverted foreground.
+  compoundBg: string
+  compoundBgHover: string
+  compoundBgPressed: string
   brandFg: string
   brandFg2: string
   brandLink: string
@@ -147,7 +160,7 @@ function build(p: Palette): TokenSet {
   t.colorNeutralForeground4 = p.fg4
   t.colorNeutralForegroundDisabled = p.fgDisabled
   t.colorNeutralForegroundOnBrand = p.fgOnBrand
-  t.colorNeutralForegroundInverted = p.bg1
+  set(['colorNeutralForegroundInverted', 'colorNeutralForegroundInvertedHover', 'colorNeutralForegroundInvertedPressed'], p.bg1)
   set(['colorNeutralForeground2BrandHover', 'colorNeutralForeground2BrandPressed', 'colorNeutralForeground2BrandSelected'], p.brandFg)
   set(['colorNeutralForeground3BrandHover', 'colorNeutralForeground3BrandPressed', 'colorNeutralForeground3BrandSelected'], p.brandFg)
   set(['colorBrandForeground1', 'colorCompoundBrandForeground1'], p.brandFg)
@@ -191,9 +204,9 @@ function build(p: Palette): TokenSet {
   t.colorBrandBackgroundHover = p.brandBgHover
   t.colorBrandBackgroundPressed = p.brandBgPressed
   t.colorBrandBackgroundSelected = p.brandBgHover
-  t.colorCompoundBrandBackground = p.brandBg
-  t.colorCompoundBrandBackgroundHover = p.brandBgHover
-  t.colorCompoundBrandBackgroundPressed = p.brandBgPressed
+  t.colorCompoundBrandBackground = p.compoundBg
+  t.colorCompoundBrandBackgroundHover = p.compoundBgHover
+  t.colorCompoundBrandBackgroundPressed = p.compoundBgPressed
   t.colorBrandBackground2 = p.brandBg2
   t.colorBrandBackgroundStatic = p.brandBg
 
@@ -213,8 +226,8 @@ function build(p: Palette): TokenSet {
   t.colorBrandStroke1 = p.brandStroke
   t.colorBrandStroke2 = p.brandBg2
   t.colorCompoundBrandStroke = p.brandStroke
-  t.colorCompoundBrandStrokeHover = p.brandBgHover
-  t.colorCompoundBrandStrokePressed = p.brandBgPressed
+  t.colorCompoundBrandStrokeHover = p.compoundBgHover
+  t.colorCompoundBrandStrokePressed = p.compoundBgPressed
   t.colorTransparentStroke = 'transparent'
   t.colorTransparentStrokeInteractive = 'transparent'
   t.colorTransparentStrokeDisabled = 'transparent'
@@ -257,6 +270,7 @@ const light: Palette = {
   strokeAccessible: '#616161', strokeDisabled: '#e0e0e0', focus1: '#ffffff', focus2: '#000000',
   overlay: 'rgba(0,0,0,0.4)', shadow: ['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.14)'],
   brandBg: BRAND.base, brandBgHover: BRAND.hover, brandBgPressed: BRAND.pressed, brandBg2: BRAND.tint,
+  compoundBg: BRAND.base, compoundBgHover: BRAND.hover, compoundBgPressed: BRAND.pressed,
   brandFg: BRAND.base, brandFg2: BRAND.pressed, brandLink: BRAND.hover, brandLinkHover: BRAND.pressed, brandStroke: BRAND.base,
   wordmarkWork: BRAND.base, wordmarkTree: '#7a4a1e',
   status: {
@@ -276,7 +290,8 @@ const dark: Palette = {
   strokeAccessible: '#d6d6d6', strokeDisabled: '#424242', focus1: '#000000', focus2: '#ffffff',
   overlay: 'rgba(0,0,0,0.5)', shadow: ['rgba(0,0,0,0.24)', 'rgba(0,0,0,0.28)'],
   brandBg: BRAND.base, brandBgHover: BRAND.hover, brandBgPressed: BRAND.pressed, brandBg2: BRAND.tintOnDark,
-  brandFg: BRAND.onDark, brandFg2: BRAND.linkOnDark, brandLink: BRAND.linkOnDark, brandLinkHover: '#8ad97d', brandStroke: BRAND.onDark,
+  compoundBg: BRAND.onDark, compoundBgHover: BRAND.linkOnDark, compoundBgPressed: BRAND.onDarkPressed,
+  brandFg: BRAND.onDark, brandFg2: BRAND.linkOnDark, brandLink: BRAND.linkOnDark, brandLinkHover: BRAND.linkHoverOnDark, brandStroke: BRAND.onDark,
   wordmarkWork: BRAND.onDark, wordmarkTree: '#c9a27c',
   status: {
     green: ['#9fd89f', '#052505', '#107c10'],
@@ -296,6 +311,7 @@ const highContrast: Palette = {
   strokeAccessible: '#ffffff', strokeDisabled: '#a6a6a6', focus1: '#000000', focus2: '#00ffff',
   overlay: 'rgba(0,0,0,0.8)', shadow: ['rgba(255,255,255,0)', 'rgba(255,255,255,0)'],
   brandBg: '#ffff00', brandBgHover: '#ffffff', brandBgPressed: '#ffffff', brandBg2: '#000000',
+  compoundBg: '#ffff00', compoundBgHover: '#ffffff', compoundBgPressed: '#ffffff',
   brandFg: '#ffff00', brandFg2: '#ffff00', brandLink: '#ffff00', brandLinkHover: '#ffffff', brandStroke: '#ffff00',
   wordmarkWork: '#3ff23f', wordmarkTree: '#ffa94d',
   status: {

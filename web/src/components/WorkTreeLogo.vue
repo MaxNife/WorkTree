@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // The WorkTree logo: a sprout beside the wordmark, "Work" in green and "Tree" in brown.
 // The mark lives only here (not on empty states or decoration). Colours come from theme tokens.
+// The wordmark scales with the mark: 16px type beside the default 20px sprout.
 withDefaults(defineProps<{ size?: number; markOnly?: boolean }>(), { size: 20 })
 </script>
 
@@ -16,7 +17,7 @@ withDefaults(defineProps<{ size?: number; markOnly?: boolean }>(), { size: 20 })
         <path d="M12 11c0-3.6 2.3-6 6.5-6 0 3.6-2.3 6-6.5 6Z" />
       </g>
     </svg>
-    <span v-if="!markOnly" class="logo__word" aria-hidden="true">
+    <span v-if="!markOnly" class="logo__word" :style="{ fontSize: `${Math.round(size * 0.8)}px` }" aria-hidden="true">
       <span class="logo__work">Work</span><span class="logo__tree">Tree</span>
     </span>
   </span>
@@ -36,7 +37,7 @@ withDefaults(defineProps<{ size?: number; markOnly?: boolean }>(), { size: 20 })
 }
 .logo__word {
   font-weight: var(--fontWeightSemibold);
-  font-size: var(--fontSizeBase400);
+  line-height: 1;
   letter-spacing: -0.01em;
 }
 .logo__work {

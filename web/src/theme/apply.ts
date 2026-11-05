@@ -1,7 +1,10 @@
 import { THEMES, type ThemeName, type TokenSet } from './tokens'
 
-export type ThemeMode = 'system' | ThemeName
-export type Density = 'compact' | 'comfortable'
+export const THEME_MODES = ['system', 'light', 'dark', 'high-contrast'] as const
+export const DENSITIES = ['compact', 'comfortable'] as const
+
+export type ThemeMode = (typeof THEME_MODES)[number]
+export type Density = (typeof DENSITIES)[number]
 
 /** Resolve the effective theme from the user's mode and the OS preferences. */
 export function resolveTheme(

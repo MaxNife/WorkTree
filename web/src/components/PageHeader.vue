@@ -1,17 +1,18 @@
 <script setup lang="ts">
-// Title, optional subtitle, a breadcrumb slot above and an actions slot on the right.
+// Title, optional subtitle, a breadcrumb slot above and an actions slot on the right. A long title
+// wraps, and the actions drop below it when the two no longer fit side by side.
 defineProps<{ title: string; subtitle?: string }>()
 </script>
 
 <template>
   <header class="page-header">
-    <div class="page-header__crumbs"><slot name="breadcrumbs" /></div>
+    <div v-if="$slots.breadcrumbs" class="page-header__crumbs"><slot name="breadcrumbs" /></div>
     <div class="page-header__row">
       <div class="page-header__titles">
         <h1 class="page-header__title">{{ title }}</h1>
         <p v-if="subtitle" class="page-header__subtitle">{{ subtitle }}</p>
       </div>
-      <div class="page-header__actions"><slot name="actions" /></div>
+      <div v-if="$slots.actions" class="page-header__actions"><slot name="actions" /></div>
     </div>
   </header>
 </template>
@@ -23,26 +24,33 @@ defineProps<{ title: string; subtitle?: string }>()
   padding-bottom: var(--uaf-gap);
   border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
 }
-.page-header__crumbs:empty {
-  display: none;
-}
 .page-header__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--spacingHorizontalL);
+  gap: var(--spacingVerticalS) var(--spacingHorizontalL);
+}
+.page-header__titles {
+  flex: 1 1 32ch;
+  min-width: 0;
 }
 .page-header__title {
   font-size: var(--fontSizeBase600);
   line-height: var(--lineHeightBase600);
+  overflow-wrap: anywhere;
 }
 .page-header__subtitle {
   margin: 0;
+  max-width: 80ch;
   color: var(--uaf-text-muted);
+  overflow-wrap: anywhere;
 }
 .page-header__actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--spacingHorizontalS);
+  max-width: 100%;
 }
 </style>

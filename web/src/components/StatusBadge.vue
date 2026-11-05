@@ -20,13 +20,14 @@ const text = computed(() => props.label ?? style.value.label)
 .status {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--spacingHorizontalSNudge);
   white-space: nowrap;
 }
 .status__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  flex: none;
+  width: var(--uaf-dot-size);
+  height: var(--uaf-dot-size);
+  border-radius: var(--borderRadiusCircular);
   background: var(--dot);
   border: var(--strokeWidthThin) solid var(--dot);
 }
@@ -43,12 +44,23 @@ const text = computed(() => props.label ?? style.value.label)
   --dot: var(--uaf-attention);
 }
 .status--running {
-  --dot: var(--uaf-accent);
+  --dot: var(--uaf-accent-text);
 }
 .status--neutral {
   --dot: var(--uaf-text-muted);
 }
 .status--neutral .status__dot {
   background: transparent;
+}
+/* Forced colours drop backgrounds, which would leave every dot hollow. */
+@media (forced-colors: active) {
+  .status__dot {
+    forced-color-adjust: none;
+    background: CanvasText;
+    border-color: CanvasText;
+  }
+  .status--neutral .status__dot {
+    background: transparent;
+  }
 }
 </style>

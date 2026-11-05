@@ -1,13 +1,13 @@
 <script setup lang="ts">
 // Plain text only: no illustration or icon. Say what is missing and, if possible, how to fix it.
-defineProps<{ title: string; description?: string }>()
+withDefaults(defineProps<{ title: string; description?: string; headingLevel?: 2 | 3 | 4 }>(), { headingLevel: 2 })
 </script>
 
 <template>
-  <section class="empty" aria-label="Nothing here yet">
-    <h2 class="empty__title">{{ title }}</h2>
+  <section class="empty">
+    <component :is="`h${headingLevel}`" class="empty__title">{{ title }}</component>
     <p v-if="description" class="empty__text">{{ description }}</p>
-    <div class="empty__action"><slot /></div>
+    <div v-if="$slots.default" class="empty__action"><slot /></div>
   </section>
 </template>
 
@@ -19,14 +19,14 @@ defineProps<{ title: string; description?: string }>()
   padding: var(--spacingVerticalXXL) 0;
 }
 .empty__title {
+  margin: 0;
   font-size: var(--fontSizeBase400);
+  font-weight: var(--fontWeightSemibold);
+  line-height: var(--lineHeightBase400);
 }
 .empty__text {
   margin: 0;
   color: var(--uaf-text-muted);
-}
-.empty__action:empty {
-  display: none;
 }
 .empty__action {
   margin-top: var(--spacingVerticalS);

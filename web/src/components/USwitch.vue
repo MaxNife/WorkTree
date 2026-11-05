@@ -1,26 +1,18 @@
 <script setup lang="ts">
 // Thin wrapper over <fluent-switch> with v-model support.
-const model = defineModel<boolean>({ default: false })
-defineProps<{ label: string; disabled?: boolean }>()
+import ToggleControl from './ToggleControl.vue'
 
-// Fluent's control has no label slot, so the visible text is our own span inside a label.
-function onChange(event: Event): void {
-  model.value = (event.target as HTMLInputElement).checked
-}
+const model = defineModel<boolean>({ default: false })
+defineProps<{ label: string; disabled?: boolean; description?: string; error?: string }>()
 </script>
 
 <template>
-  <label class="u-toggle">
-    <fluent-switch :checked="model || undefined" :disabled="disabled || undefined" :aria-label="label" @change="onChange" />
-    <span>{{ label }}</span>
-  </label>
+  <ToggleControl
+    v-model="model"
+    control="fluent-switch"
+    :label="label"
+    :disabled="disabled"
+    :description="description"
+    :error="error"
+  />
 </template>
-
-<style scoped>
-.u-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacingHorizontalS);
-  cursor: pointer;
-}
-</style>

@@ -43,4 +43,42 @@ describe('preferences store', () => {
     expect(() => preferences.setMode('light')).not.toThrow()
     expect(document.documentElement.dataset.theme).toBe('light')
   })
+
+  it('keeps the resolved theme current when the OS changes', () => {
+    let dark = false
+    const listeners = new Set<() => void>()
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      get matches() {
+        return dark && query === '(prefers-color-scheme: dark)'
+      },
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    }))
+    const preferences = usePreferences()
+    const stop = preferences.watchSystem()
+    expect(preferences.theme).toBe('light')
+
+    dark = true
+    listeners.forEach((listener) => listener())
+    expect(preferences.theme).toBe('dark')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    stop()
+    expect(listeners.size).toBe(0)
+  })
+
+  it('leaves an explicit theme alone when the OS changes', () => {
+    const listeners = new Set<() => void>()
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: () => undefined,
+    }))
+    const preferences = usePreferences()
+    preferences.setMode('light')
+    preferences.watchSystem()
+    listeners.forEach((listener) => listener())
+    expect(preferences.theme).toBe('light')
+    expect(document.documentElement.dataset.theme).toBe('light')
+  })
 })
