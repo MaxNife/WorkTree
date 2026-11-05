@@ -138,15 +138,15 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-25 | Activities: legacy wrapper and run_python | done | (cp-25 tag) | `tests/integration/test_process_activities.py` 10 passed: sample legacy robot collects named output files as artifacts; secrets masked in args/env/stdout/stderr/log; exit codes map to outcomes with messages (`success_codes`); missing outputs fail unless optional; output globs confined to the workspace; `UAF_*`/malformed env names refused; timeout kills the robot and its grandchild; `run_python` timeout keeps partial output and JSON result file returned; legacy robot runs under the worker envelope with `{{ secret:... }}` substitution and masking. `run_python` documented as process isolation, not a sandbox (DECISIONS 11.9) |
 | CP-26 | Activities: matching, human_task, ai_extract | done | (cp-26 tag) | `tests/integration/test_matching_ai_tasks.py` 15 passed: Hypothesis (300 examples each) - every row accounted for exactly once, no right row reused, pairs respect key/score/amount/date rules, 1:N groups sum within tolerance, deterministic, self-match complete; bank vs ledger 1:1 and 1:N to three Parquet tables; fuzzy only above threshold; human_task suspends and resumes for all four task types; ai_extract refused when disabled, sends the JSON schema to the fake LLM and validates the answer, schema mismatch and invalid schema fail (DECISIONS 11.10, 11.11) |
 | CP-27 | Frontend foundation and design language | done | | `web/` (Vite, Vue 3 + TS strict, Router, Pinia, vue-query, Fluent wrappers): tokens and 3 themes with AA contrast tests, own icon set with the leaf/branch mark, StatusBadge, PageHeader, PropertyList, EmptyState, RunTimeline, NodeCard, typed API client generated from `docs/openapi.json` with a freshness check, `docs/design-language.md`; `vue-tsc`, ESLint and 80 Vitest tests pass; bundle built into `web/dist` and served by FastAPI (4 tests) (DECISIONS 11.15, 11.16) |
-| CP-28 | App shell, navigation and command palette | todo | | not started |
+| CP-28 | App shell, navigation and command palette | wip | | shell, sidebar, breadcrumbs, palette, login, message bars and toasts built; 102 Vitest tests, `vue-tsc` and ESLint pass. Open: confirm keyboard navigation in a browser and the per-page command bar |
 | CP-29 | Operations Console | todo | | not started |
 | CP-30 | Task Inbox | todo | | not started |
 | CP-31 | Workflow Studio | todo | | not started |
 | CP-32 | Admin | todo | | not started |
 | CP-33 | Pages, data views and saved views | todo | | not started |
-| CP-34 | Acceptance A1: standard pattern end to end | todo | | not started |
-| CP-35 | Acceptance A2, A6, A7: HITL, secrets, audit | todo | | not started |
-| CP-36 | Acceptance A3, A4, A5: SoD, crash recovery, triggers | todo | | not started |
+| CP-34 | Acceptance A1: standard pattern end to end | wip | | `examples/a1_standard_pattern.yaml` and `tests/acceptance/test_a1_standard_pattern.py` pass end to end with the memory budget checked. Open: show the run live in the console (needs CP-29) |
+| CP-35 | Acceptance A2, A6, A7: HITL, secrets, audit | wip | | `tests/acceptance/test_a2_a6_a7.py` passes. The A6 grep now visits every GET route from the OpenAPI schema; it found and fixed an inline `run_python` script left on disk with secrets in it. Step-data smuggling narrowed; G17 stays open. Open: the A6 grep over rendered UI pages, which needs the real screens (CP-29 to CP-33, checked in CP-38) |
+| CP-36 | Acceptance A3, A4, A5: SoD, crash recovery, triggers | done | | `tests/acceptance/test_a3_a4_a5.py` passes. Fixed `duplicate_guard_key: inputs.<field>`, the lost duplicate-rejected audit row, and a queued run overtaking an active run created in the same instant |
 | CP-37 | Acceptance A8, A9: performance and reuse | todo | | not started |
 | CP-38 | End-to-end browser tests | todo | | not started |
 | CP-39 | Security hardening and threat model | todo | | not started |
@@ -156,7 +156,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 
 ## Work in progress (current checkpoint only)
 
-- None: CP-26 closed. CP-27 has not started.
+- CP-28, CP-34 and CP-35 are open on the items in their rows. The screens (CP-29 to CP-33) are next.
 
 ## Blockers and workarounds
 
@@ -191,3 +191,4 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | 2026-10-23 | build-6 | CP-24 (paused) | Wrote the three login styles, per-portal locked session state/reuse, Graph OTP polling with T0/regex/fresh-code retry, and fake-portal OTP login support. Imports, ruff and mypy pass; no CP-24 tests or gates yet. Paused on request; resume at the browser test suite. | wip(cp-24) |
 | 2026-10-23 | build-7 | review, CP-24, CP-25, CP-26, pdf | Second full review: 13 defects fixed (R34-R46) incl. duplicate-guard queue never queuing, per-run tick transactions, lock order, platform credentials leaking into activity children, webhook disclosure, last-admin lockout. Closed CP-24 (browser tests, lock/markers/state fixes), CP-25 (env, exit-code mapping, output files, tree kill), CP-26 (new reconciliation matcher with Hypothesis properties, schema-validated ai_extract). Added the `pdf` activity on PdfCraft (MCP over stdio) and the `document` activity on WordCraft (convert/text/info/mail merge), both from CraftApps, built from source; 8 + 6 engine tests pass. | cp-26 |
 | 2026-10-23 | build-8 | engine port (pdf, document, spreadsheet) | Replaced the CraftApps CLI nodes with pure Python: `activities/_formula` (GridCraft port: parser, evaluator, ~140 functions, workbook load/recalculate, XML write-back that keeps charts), `spreadsheet` and `excel` recalculation on it, `pdf` on pypdf, `document` on docx XML with WordCraft-style mail merge. Removed `activities/_engines.py`, the `*_cli` settings and the child env plumbing. 759 passed; all gates green. Redaction, OCR, docx to PDF and some inputs dropped (G16). | uncommitted |
+| 2026-11-05 | build-9 | CP-28, CP-34, CP-35, CP-36, API gaps | Reviewed and finished the stopped Wave 1 work. Fixed the portal session bug, the `run_python` script leak, the queued-run race and the secret-smuggling crash; widened the A6 grep to every GET route. Regenerated `docs/openapi.json`, `docs/DATA_MODEL.md` and the typed client. | see git log |
