@@ -13,13 +13,12 @@ Written 2026-11-05. Work these in order. Full briefs are in `docs/briefs/`.
 
 | Task | Thread title | Next step |
 |---|---|---|
-| SEC-1 to SEC-9 fixes | Fix security findings SEC-1 to SEC-9 | Review the diff yourself, run all gates, cherry-pick. Rerun from `docs/briefs/brief-sec-fixes.md` if it did not finish |
 | CP-29 Operations | CP-29 Operations Console | Review, confirm the manual live-update check was done, cherry-pick. Rerun from `docs/briefs/brief-operations.md` if it did not finish |
 
 ## Queue
 
-1. **SEC-10, Sonnet high, after the SEC fixes merge.** Implement `docs/adr/0001-secret-usage-policy.md`: `credential_inputs`, `destination_inputs`, `allowed_hosts` and `environments` on secret metadata with a migration and Admin API, checks at save, at dispatch and in the test endpoint, egress filtering in `validate_url`, `secrets.enforce_policy` with the prod startup check, secrets listed on promotions, and a names-only secret list for the Studio dropdown. Run A1 and A6 with the policy enforced. Remove G17 when done.
-2. **Live events after logout, small backend fix.** `/api/events` closes before accepting, so the browser sees 1006 and retries for ever. Accept, then close with 1008. Do this after the SEC fixes, which touch the same route.
+1. **SEC-10, Sonnet high, next.** Implement `docs/adr/0001-secret-usage-policy.md`: `credential_inputs`, `destination_inputs`, `allowed_hosts` and `environments` on secret metadata with a migration and Admin API, checks at save, at dispatch and in the test endpoint, egress filtering in `validate_url`, `secrets.enforce_policy` with the prod startup check, secrets listed on promotions, and a names-only secret list for the Studio dropdown. Run A1 and A6 with the policy enforced. Remove G17 when done.
+2. **Live events after logout, small backend fix.** `/api/events` closes before accepting, so the browser sees 1006 and retries for ever. Accept, then close with 1008.
 3. **CP-40 CI, free model.** Brief to be recreated from the checkpoint: `.github/workflows/ci.yml` and `docs/CI.md`.
 4. **CP-37 A8 and A9 tests, free model.** `tests/acceptance/test_a8_a9.py`. Keep the real limits and report any miss.
 5. **Studio graph logic, free model.** Pure TypeScript in `web/src/studio/`: definition to graph and back unchanged, auto-layout, safe edits, client validation.
