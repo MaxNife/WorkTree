@@ -171,4 +171,5 @@ clock, log, secrets)`.
 | 12.2 | The worker leaves a secret reference the step did not declare as plain text; `substitute_secrets` stays strict by default | declared secrets that are missing already fail in the worker, so what remains is data from an earlier step; see G17 for what this does not cover |
 | 12.3 | An inline `run_python` script is deleted as soon as its process ends | once substituted it holds secrets in plain text |
 | 12.4 | A queued run always waits for an active run that is not queued, then queued runs go in (created_at, id) order | comparing ids alone let a queued run start beside the active run when both had the same timestamp |
+| 12.6 | Each dispatch binds the saved step's secret references to a random nonce before data is merged in, and the worker resolves only those. The single-step test endpoint does the same, with secret names taken from the request, not from pinned data | data from a portal page or an email cannot reach a secret, even one the step uses itself |
 | 12.5 | The A6 grep lists GET routes from the OpenAPI schema | FastAPI no longer flattens included routers into `app.routes`, so the old list missed most of the API |

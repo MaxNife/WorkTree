@@ -49,8 +49,11 @@ from app.domain.workflow import (
     ResolveContext,
     Step,
     WorkflowDefinition,
+    bind_secret_refs,
+    new_secret_nonce,
     resolve_value,
     secret_refs,
+    strip_secret_bindings,
 )
 from app.errors import Conflict, DuplicateRun, Forbidden, NotFound
 from app.logging_setup import correlation_scope, get_logger, new_correlation_id
@@ -449,10 +452,12 @@ class RunEngine:
                 row.foreach_count = foreach_count
                 if row.iteration < len(collection):
                     context.inputs[step.foreach_item] = collection[row.iteration]
-            resolved = resolve_value(step.inputs, context)
+            nonce = new_secret_nonce()
+            resolved = resolve_value(bind_secret_refs(step.inputs, nonce), context)
             if not isinstance(resolved, dict):
                 raise ReferenceError("step inputs must resolve to an object")
-            inputs = dict(resolved)
+            job_inputs = dict(resolved)
+            inputs = strip_secret_bindings(job_inputs, nonce)
         except ReferenceError as exc:
             self._record_incident(session, run, row, "bad_reference", str(exc), fault=True)
             return
@@ -485,10 +490,11 @@ class RunEngine:
             iteration=row.iteration,
             attempt=row.attempt,
             activity=step.activity or "",
-            inputs=inputs,
+            inputs=job_inputs,
             # Only the secrets the saved step names: data from an earlier step (a portal page,
             # an email) that spells "{{ secret:x }}" must not get a secret resolved for it.
             secret_refs=secret_refs(step.inputs),
+            secret_nonce=nonce,
             workspace=run.workspace,
             correlation_id=run.correlation_id,
             timeout_seconds=step.timeout_seconds or self.default_timeout_seconds,

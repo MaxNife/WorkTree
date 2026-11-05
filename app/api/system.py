@@ -42,7 +42,14 @@ from app.api.serializers import saved_view as serialize_saved_view
 from app.domain.enums import Role, StepState, TaskStatus
 from app.domain.envelope import JobEnvelope
 from app.domain.workflow import ReferenceError as WorkflowReferenceError
-from app.domain.workflow import ResolveContext, resolve_value, secret_refs
+from app.domain.workflow import (
+    ResolveContext,
+    bind_secret_refs,
+    new_secret_nonce,
+    resolve_value,
+    secret_refs,
+    strip_secret_bindings,
+)
 from app.errors import Conflict, Forbidden, NotFound, ValidationFailed
 from app.logging_setup import new_correlation_id
 from app.security.masking import get_masker
@@ -201,12 +208,15 @@ def test_activity(
         raise Forbidden(f"only an Admin can run {name} (it runs code on the server)")
     test_id = container.clock.now().strftime("%Y%m%d%H%M%S%f")
     workspace = container.settings.data.root / "activity-tests" / test_id
-    inputs: dict[str, Any] = body.inputs
+    # Bound before pinned data is merged in, so run data cannot request a secret.
+    names = secret_refs(body.inputs)
+    nonce = new_secret_nonce()
+    inputs: dict[str, Any] = bind_secret_refs(body.inputs, nonce)
     if body.run_id:
         pinned = session.get(Run, body.run_id)
         if pinned is None:
             raise NotFound(f"run {body.run_id} not found")
-        inputs = _resolve_pinned_inputs(session, pinned, body.inputs)
+        inputs = _resolve_pinned_inputs(session, pinned, inputs)
         _copy_pinned_workspace(Path(pinned.workspace), workspace)
     workspace.mkdir(parents=True, exist_ok=True)
     container.audit.write(
@@ -219,7 +229,7 @@ def test_activity(
         after={"pinned_run_id": body.run_id, "test_id": test_id},
         correlation_id=correlation_id(request),
     )
-    names = secret_refs(inputs)
+    shown_inputs = strip_secret_bindings(inputs, nonce)
     secrets, missing = resolve_secrets(container.secrets, names)
     if missing:
         return {
@@ -228,7 +238,7 @@ def test_activity(
             "outputs": {},
             "message": f"secret(s) not found: {', '.join(sorted(missing))}",
             "artifacts": [],
-            "resolved_inputs": get_masker().mask_obj(inputs),
+            "resolved_inputs": get_masker().mask_obj(shown_inputs),
         }
     envelope = JobEnvelope(
         run_id=f"activity-test-{test_id}",
@@ -236,6 +246,7 @@ def test_activity(
         activity=name,
         inputs=inputs,
         secret_refs=names,
+        secret_nonce=nonce,
         workspace=str(workspace),
         correlation_id=new_correlation_id(),
         timeout_seconds=body.timeout_seconds,
@@ -257,7 +268,7 @@ def test_activity(
         "message": get_masker().mask(result.message),
         "artifacts": [artifact.model_dump() for artifact in result.artifacts],
         "timed_out": outcome.timed_out,
-        "resolved_inputs": get_masker().mask_obj(inputs),
+        "resolved_inputs": get_masker().mask_obj(shown_inputs),
     }
 
 

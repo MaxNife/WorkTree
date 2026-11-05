@@ -77,7 +77,9 @@ def main() -> int:
                 envelope, f"unknown activity: {envelope.activity}"
             ).model_dump(mode="json")
         else:
-            resolved_inputs = substitute_secrets(envelope.inputs, secrets, keep_undeclared=True)
+            resolved_inputs = substitute_secrets(
+                envelope.inputs, secrets, keep_undeclared=True, nonce=envelope.secret_nonce
+            )
             if not isinstance(resolved_inputs, dict):
                 raise ValueError("resolved inputs must be an object")
             result = activity.execute(ctx, resolved_inputs)

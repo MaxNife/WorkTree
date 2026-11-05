@@ -20,7 +20,8 @@ has to read one `JobEnvelope` and answer with one `ResultEnvelope`.
 | `attempt` | int | the engine's attempt counter; a result is applied only to the same attempt |
 | `activity` | string | registered activity name, e.g. `excel` |
 | `inputs` | object | step inputs with step/input/run references already resolved. Secret references stay as `{{ secret:name }}` text |
-| `secret_refs` | string[] | names of the secrets the saved step names in its inputs. A `{{ secret:name }}` that arrives in data from an earlier step, a run input or a sub-workflow input is not listed; unless the step also names that secret, it stays plain text |
+| `secret_refs` | string[] | names of the secrets the saved step names in its inputs. A `{{ secret:name }}` that arrives in data from an earlier step, a run input or a sub-workflow input is not listed and stays plain text |
+| `secret_nonce` | string | random per dispatch. The engine adds it to the references the saved step wrote (`{{ secret:name@nonce }}`) and the worker resolves only those, so data cannot request a secret the step uses. Run records show the reference without it |
 | `workspace` | string | absolute path of the run workspace; files travel by reference inside it |
 | `correlation_id` | string | joins logs across control plane, worker and activity |
 | `timeout_seconds` | int | the worker kills the whole process tree after this |

@@ -145,7 +145,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped-gap`. `in-prog
 | CP-32 | Admin | todo | | not started |
 | CP-33 | Pages, data views and saved views | todo | | not started |
 | CP-34 | Acceptance A1: standard pattern end to end | wip | | `examples/a1_standard_pattern.yaml` and `tests/acceptance/test_a1_standard_pattern.py` pass end to end with the memory budget checked. Open: show the run live in the console (needs CP-29) |
-| CP-35 | Acceptance A2, A6, A7: HITL, secrets, audit | wip | | `tests/acceptance/test_a2_a6_a7.py` passes. The A6 grep now visits every GET route from the OpenAPI schema; it found and fixed an inline `run_python` script left on disk with secrets in it. Step-data smuggling narrowed; G17 stays open. Open: the A6 grep over rendered UI pages, which needs the real screens (CP-29 to CP-33, checked in CP-38) |
+| CP-35 | Acceptance A2, A6, A7: HITL, secrets, audit | wip | | `tests/acceptance/test_a2_a6_a7.py` passes. The A6 grep now visits every GET route from the OpenAPI schema; it found and fixed an inline `run_python` script left on disk with secrets in it. Step-data smuggling closed (DECISIONS 12.6). Open: the A6 grep over rendered UI pages, which needs the real screens (CP-29 to CP-33, checked in CP-38) |
 | CP-36 | Acceptance A3, A4, A5: SoD, crash recovery, triggers | done | | `tests/acceptance/test_a3_a4_a5.py` passes. Fixed `duplicate_guard_key: inputs.<field>`, the lost duplicate-rejected audit row, and a queued run overtaking an active run created in the same instant |
 | CP-37 | Acceptance A8, A9: performance and reuse | todo | | not started |
 | CP-38 | End-to-end browser tests | todo | | not started |

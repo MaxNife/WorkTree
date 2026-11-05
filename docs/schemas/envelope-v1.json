@@ -45,6 +45,11 @@
           "title": "Secret Refs",
           "type": "array"
         },
+        "secret_nonce": {
+          "default": "",
+          "title": "Secret Nonce",
+          "type": "string"
+        },
         "workspace": {
           "title": "Workspace",
           "type": "string"

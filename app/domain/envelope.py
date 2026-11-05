@@ -31,6 +31,8 @@ class JobEnvelope(BaseModel):
     activity: str
     inputs: dict[str, Any] = Field(default_factory=dict)
     secret_refs: list[str] = Field(default_factory=list)
+    # Marks the secret references the saved step wrote; only those are resolved.
+    secret_nonce: str = ""
     workspace: str
     correlation_id: str = ""
     timeout_seconds: int = 300

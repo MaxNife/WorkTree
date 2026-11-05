@@ -15,12 +15,15 @@ from app.domain.workflow import (
     ReferenceError,
     ResolveContext,
     WorkflowDefinition,
+    bind_secret_refs,
     dump_workflow_yaml,
     iter_references,
     load_workflow_yaml,
+    new_secret_nonce,
     parse_expression,
     resolve_value,
     secret_refs,
+    strip_secret_bindings,
     substitute_secrets,
     validate_definition,
 )
@@ -61,6 +64,25 @@ def test_secret_substitution_is_exact_and_embedded() -> None:
         substitute_secrets("{{ secret:missing }}", {})
     with pytest.raises(ReferenceError):
         substitute_secrets({"v": "{{ secret:missing }}"}, {})
+
+
+def test_data_cannot_reach_a_secret_the_step_declares() -> None:
+    """Regression: only the references the saved step wrote carry the nonce the worker needs."""
+    nonce = new_secret_nonce()
+    template = {"key": "{{ secret:one }}", "note": "{{ steps.page.text }}"}
+    context = ResolveContext(steps={"page": {"text": "{{ secret:one }} x {{ secret:one }}"}})
+    job_inputs = resolve_value(bind_secret_refs(template, nonce), context)
+    resolved = substitute_secrets(job_inputs, {"one": "abc"}, keep_undeclared=True, nonce=nonce)
+    assert resolved == {"key": "abc", "note": "{{ secret:one }} x {{ secret:one }}"}
+    assert strip_secret_bindings(job_inputs, nonce) == {
+        "key": "{{ secret:one }}",
+        "note": "{{ secret:one }} x {{ secret:one }}",
+    }
+
+
+def test_a_reference_bound_to_another_dispatch_stays_text() -> None:
+    bound = bind_secret_refs("{{ secret:one }}", new_secret_nonce())
+    assert substitute_secrets(bound, {"one": "abc"}, nonce=new_secret_nonce()) == bound
 
 
 def test_yaml_round_trip_and_invalid_definitions() -> None:

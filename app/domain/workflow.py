@@ -7,6 +7,7 @@ as JSON to the API. Version 1 is the only current schema; every run snapshots it
 from __future__ import annotations
 
 import re
+import uuid
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
 from typing import Any, Literal
@@ -23,7 +24,7 @@ type JsonValue = Any
 
 STEP_ID_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$")
 _TEMPLATE_RE = re.compile(r"\{\{\s*(?P<body>[^{}]+?)\s*\}\}")
-_SECRET_RE = re.compile(r"^secret:(?P<name>[A-Za-z0-9_.\-/]+)$")
+_SECRET_RE = re.compile(r"^secret:(?P<name>[A-Za-z0-9_.\-/]+)(?:@(?P<nonce>[0-9a-f]{32}))?$")
 _STEPS_RE = re.compile(r"^steps\.(?P<step>[a-zA-Z][a-zA-Z0-9_-]{0,63})(?:\.(?P<path>.+))?$")
 _INPUTS_RE = re.compile(r"^inputs(?:\.(?P<path>.+))?$")
 _RUN_RE = re.compile(r"^run\.(?P<field>[a-zA-Z_]+)$")
@@ -44,6 +45,7 @@ class Reference(BaseModel):
     step_id: str | None = None
     path: str = ""
     secret_name: str | None = None
+    secret_nonce: str = ""
 
 
 class ReferenceError(ValueError):
@@ -55,7 +57,10 @@ def parse_expression(expression: str) -> Reference:
     secret = _SECRET_RE.match(body)
     if secret:
         return Reference(
-            kind=ReferenceKind.SECRET, raw=expression, secret_name=secret.group("name")
+            kind=ReferenceKind.SECRET,
+            raw=expression,
+            secret_name=secret.group("name"),
+            secret_nonce=secret.group("nonce") or "",
         )
     steps = _STEPS_RE.match(body)
     if steps:
@@ -184,41 +189,91 @@ def _resolve_reference(reference: Reference, context: ResolveContext) -> JsonVal
     return reference.raw
 
 
+def new_secret_nonce() -> str:
+    return uuid.uuid4().hex
+
+
+def bind_secret_refs(value: JsonValue, nonce: str) -> JsonValue:
+    """Mark the secret references of a saved step with this dispatch's nonce.
+
+    Call this before step data is merged in. The worker resolves only marked references, so
+    text from a portal page or an email that spells ``{{ secret:x }}`` stays text, even when
+    the step uses that secret itself: the nonce is random and exists only for this dispatch.
+    """
+    if isinstance(value, str):
+        return _TEMPLATE_RE.sub(lambda match: _bind_reference(match, nonce), value)
+    if isinstance(value, dict):
+        return {key: bind_secret_refs(item, nonce) for key, item in value.items()}
+    if isinstance(value, list):
+        return [bind_secret_refs(item, nonce) for item in value]
+    return value
+
+
+def _bind_reference(match: re.Match[str], nonce: str) -> str:
+    secret = _SECRET_RE.match(match.group("body").strip())
+    if secret is None:
+        return match.group(0)
+    return f"{{{{ secret:{secret.group('name')}@{nonce} }}}}"
+
+
+def strip_secret_bindings(value: JsonValue, nonce: str) -> JsonValue:
+    """The inputs without the nonce, for run records and API responses."""
+    if isinstance(value, str):
+        return value.replace(f"@{nonce}", "")
+    if isinstance(value, dict):
+        return {key: strip_secret_bindings(item, nonce) for key, item in value.items()}
+    if isinstance(value, list):
+        return [strip_secret_bindings(item, nonce) for item in value]
+    return value
+
+
 def substitute_secrets(
-    value: JsonValue, secrets: Mapping[str, str], *, keep_undeclared: bool = False
+    value: JsonValue,
+    secrets: Mapping[str, str],
+    *,
+    keep_undeclared: bool = False,
+    nonce: str = "",
 ) -> JsonValue:
     """Replace ``{{ secret:name }}`` with resolved values. Worker-side only.
 
-    A whole-string reference to a secret that was not provided raises, unless
+    Only references carrying ``nonce`` are resolved (see ``bind_secret_refs``); any other stays
+    text. A whole-string reference to a secret that was not provided raises, unless
     ``keep_undeclared`` is set. The worker sets it: it has already failed the step if a secret
-    the step declares is missing, so what is left is data from an earlier step, which stays text.
+    the step declares is missing.
     """
     if isinstance(value, str):
         exact = _TEMPLATE_RE.fullmatch(value.strip())
         if exact:
             reference = parse_expression(exact.group("body"))
             if reference.kind is ReferenceKind.SECRET and reference.secret_name:
+                if reference.secret_nonce != nonce:
+                    return value
                 if reference.secret_name in secrets:
                     return secrets[reference.secret_name]
                 if keep_undeclared:
                     return value
                 raise ReferenceError(f"secret {reference.secret_name!r} was not provided")
-        return _TEMPLATE_RE.sub(lambda match: _secret_or_original(match, secrets), value)
+        return _TEMPLATE_RE.sub(lambda match: _secret_or_original(match, secrets, nonce), value)
     if isinstance(value, dict):
         return {
-            key: substitute_secrets(item, secrets, keep_undeclared=keep_undeclared)
+            key: substitute_secrets(item, secrets, keep_undeclared=keep_undeclared, nonce=nonce)
             for key, item in value.items()
         }
     if isinstance(value, list):
         return [
-            substitute_secrets(item, secrets, keep_undeclared=keep_undeclared) for item in value
+            substitute_secrets(item, secrets, keep_undeclared=keep_undeclared, nonce=nonce)
+            for item in value
         ]
     return value
 
 
-def _secret_or_original(match: re.Match[str], secrets: Mapping[str, str]) -> str:
+def _secret_or_original(match: re.Match[str], secrets: Mapping[str, str], nonce: str) -> str:
     reference = parse_expression(match.group("body"))
-    if reference.kind is ReferenceKind.SECRET and reference.secret_name:
+    if (
+        reference.kind is ReferenceKind.SECRET
+        and reference.secret_name
+        and reference.secret_nonce == nonce
+    ):
         return secrets.get(reference.secret_name, match.group(0))
     return match.group(0)
 
