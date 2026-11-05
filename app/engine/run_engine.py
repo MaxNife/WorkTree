@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.database import Database
@@ -26,6 +26,7 @@ from app.adapters.db.models import (
     RunStep,
     StepAttempt,
     Task,
+    User,
     Workflow,
     WorkflowVersion,
 )
@@ -143,6 +144,9 @@ class RunEngine:
                         after={"duplicate_of": active.id, "key": duplicate_key},
                         correlation_id=correlation_id,
                     )
+                    # Keep the recorded reason: raising rolls back this (otherwise read-only)
+                    # session, which used to discard the audit row with the refused run.
+                    session.commit()
                     raise DuplicateRun(
                         f"workflow {workflow.name!r} is already running "
                         f"(run {active.id}, key {duplicate_key!r})",
@@ -258,7 +262,8 @@ class RunEngine:
         if key in {"workflow", "", "name"}:
             return "workflow"
         path = key[len("inputs.") :] if key.startswith("inputs.") else key
-        current: Any = {"inputs": inputs}
+        # The path is relative to the run inputs (the "inputs." prefix was stripped above).
+        current: Any = inputs
         try:
             for part in path.split("."):
                 current = current[part] if isinstance(current, dict) else getattr(current, part)
@@ -309,23 +314,23 @@ class RunEngine:
     def _is_queued(self, session: Session, run: Run) -> bool:
         if not run.trigger_detail.get("queued"):
             return False
-        # Strict (created_at, id) order: with "<=" alone, two queued runs created in the same
-        # instant each saw the other as earlier and waited for each other forever.
-        earlier = session.execute(
-            select(Run)
-            .where(
+        others = session.execute(
+            select(Run).where(
                 Run.workflow_id == run.workflow_id,
                 Run.duplicate_key == run.duplicate_key,
                 Run.status.in_(ACTIVE_RUN_STATUSES),
                 Run.id != run.id,
-                or_(
-                    Run.created_at < run.created_at,
-                    and_(Run.created_at == run.created_at, Run.id < run.id),
-                ),
             )
-            .limit(1)
-        ).scalar_one_or_none()
-        if earlier is None:
+        ).scalars()
+        # A run that is not queued is always ahead, even when it was created in the same
+        # instant. Queued runs go in strict (created_at, id) order, so two created in the same
+        # instant cannot each wait for the other forever.
+        ahead = any(
+            not other.trigger_detail.get("queued")
+            or (other.created_at, other.id) < (run.created_at, run.id)
+            for other in others
+        )
+        if not ahead:
             run.trigger_detail = {**run.trigger_detail, "queued": False}
             run.status = RunStatus.RUNNING.value
             return False
@@ -481,7 +486,9 @@ class RunEngine:
             attempt=row.attempt,
             activity=step.activity or "",
             inputs=inputs,
-            secret_refs=secret_refs(inputs),
+            # Only the secrets the saved step names: data from an earlier step (a portal page,
+            # an email) that spells "{{ secret:x }}" must not get a secret resolved for it.
+            secret_refs=secret_refs(step.inputs),
             workspace=run.workspace,
             correlation_id=run.correlation_id,
             timeout_seconds=step.timeout_seconds or self.default_timeout_seconds,
@@ -1014,9 +1021,11 @@ class RunEngine:
         token.consumed_at = self.clock.now()
         run.status = RunStatus.RUNNING.value
         outcome = Outcome.FAILED if task.decision == "reject" else Outcome.DONE
+        # claimed_by holds the user id; the audit actor is a username like every other row.
+        claimer = session.get(User, task.claimed_by) if task.claimed_by else None
         self.audit.write(
             session,
-            actor=task.claimed_by or "system",
+            actor=claimer.username if claimer else "system",
             action="run.resume",
             resource_type="run",
             resource_id=run.id,

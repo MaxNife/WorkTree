@@ -203,10 +203,14 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
                             if storage is not None:
                                 logs.append("saved session expired or rejected")
                             self._login(ctx, page, context, inputs, logs)
-                            with contextlib.suppress(OSError):
-                                context.storage_state(path=str(state_path))
-                                state_path.chmod(0o600)
-                            logs.append("session state saved")
+                            # A token login sends its header on every request, so it has no
+                            # session to keep. Saving one would leave an empty state that a
+                            # later form login on this portal mistakes for a valid session.
+                            if inputs.operation != "api_token":
+                                with contextlib.suppress(OSError):
+                                    context.storage_state(path=str(state_path))
+                                    state_path.chmod(0o600)
+                                logs.append("session state saved")
                 if start:
                     page.goto(start, wait_until="domcontentloaded")
                     logs.append(f"goto {start}")

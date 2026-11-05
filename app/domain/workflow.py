@@ -145,9 +145,7 @@ def resolve_value(value: JsonValue, context: ResolveContext) -> JsonValue:
             return _resolve_reference(reference, context)
         if "{{" not in value:
             return value
-        return _TEMPLATE_RE.sub(
-            lambda match: _stringify(_resolve_expression(match.group("body"), context)), value
-        )
+        return _TEMPLATE_RE.sub(lambda match: _interpolate(match, context), value)
     if isinstance(value, dict):
         return {key: resolve_value(item, context) for key, item in value.items()}
     if isinstance(value, list):
@@ -167,8 +165,11 @@ def _stringify(value: JsonValue) -> str:
     return str(value)
 
 
-def _resolve_expression(body: str, context: ResolveContext) -> JsonValue:
-    return _resolve_reference(parse_expression(body), context)
+def _interpolate(match: re.Match[str], context: ResolveContext) -> str:
+    reference = parse_expression(match.group("body"))
+    if reference.kind is ReferenceKind.SECRET:
+        return match.group(0)  # embedded secret references are left for the worker too
+    return _stringify(_resolve_reference(reference, context))
 
 
 def _resolve_reference(reference: Reference, context: ResolveContext) -> JsonValue:
@@ -183,21 +184,35 @@ def _resolve_reference(reference: Reference, context: ResolveContext) -> JsonVal
     return reference.raw
 
 
-def substitute_secrets(value: JsonValue, secrets: Mapping[str, str]) -> JsonValue:
-    """Replace ``{{ secret:name }}`` with resolved values. Worker-side only."""
+def substitute_secrets(
+    value: JsonValue, secrets: Mapping[str, str], *, keep_undeclared: bool = False
+) -> JsonValue:
+    """Replace ``{{ secret:name }}`` with resolved values. Worker-side only.
+
+    A whole-string reference to a secret that was not provided raises, unless
+    ``keep_undeclared`` is set. The worker sets it: it has already failed the step if a secret
+    the step declares is missing, so what is left is data from an earlier step, which stays text.
+    """
     if isinstance(value, str):
         exact = _TEMPLATE_RE.fullmatch(value.strip())
         if exact:
             reference = parse_expression(exact.group("body"))
             if reference.kind is ReferenceKind.SECRET and reference.secret_name:
-                if reference.secret_name not in secrets:
-                    raise ReferenceError(f"secret {reference.secret_name!r} was not provided")
-                return secrets[reference.secret_name]
+                if reference.secret_name in secrets:
+                    return secrets[reference.secret_name]
+                if keep_undeclared:
+                    return value
+                raise ReferenceError(f"secret {reference.secret_name!r} was not provided")
         return _TEMPLATE_RE.sub(lambda match: _secret_or_original(match, secrets), value)
     if isinstance(value, dict):
-        return {key: substitute_secrets(item, secrets) for key, item in value.items()}
+        return {
+            key: substitute_secrets(item, secrets, keep_undeclared=keep_undeclared)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
-        return [substitute_secrets(item, secrets) for item in value]
+        return [
+            substitute_secrets(item, secrets, keep_undeclared=keep_undeclared) for item in value
+        ]
     return value
 
 

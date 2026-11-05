@@ -54,6 +54,7 @@ class RunPythonActivity(Activity[RunPythonInputs]):
     def run(self, ctx: ActivityContext, inputs: RunPythonInputs) -> ActivityResult:
         workspace = ctx.workspace.resolve()
         script_path = safe_path(ctx, inputs.script_path) if inputs.script_path else None
+        inline = script_path is None
         if script_path is None:
             script_path = workspace / ".uaf-script.py"
             script_path.write_text(inputs.script, encoding="utf-8")
@@ -62,9 +63,16 @@ class RunPythonActivity(Activity[RunPythonInputs]):
         command = [sys.executable, str(script_path), *inputs.args]
         # The child is forced to UTF-8 (PYTHONIOENCODING), so decode as UTF-8 rather than the
         # Windows ANSI code page.
-        completed, timed_out = _run_process(
-            command, cwd=workspace, env=_safe_env(ctx), timeout=inputs.timeout_seconds
-        )
+        try:
+            completed, timed_out = _run_process(
+                command, cwd=workspace, env=_safe_env(ctx), timeout=inputs.timeout_seconds
+            )
+        finally:
+            # An inline script holds its secrets in plain text once they are substituted, so
+            # it must not stay in the workspace after the process ends.
+            if inline:
+                with contextlib.suppress(OSError):
+                    script_path.unlink(missing_ok=True)
         log_path = safe_path(ctx, inputs.output_path)
         _write_log(log_path, command, completed)
         if timed_out:
