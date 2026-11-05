@@ -51,9 +51,44 @@ export interface paths {
         /**
          * Test Activity
          * @description Run one activity ("Run this step") exactly as a worker would: in a child process,
-         *     with a timeout, with secrets resolved for this call only.
+         *     with a timeout, with secrets resolved for this call only. Audited as ``activity.test``.
+         *
+         *     With ``run_id`` (pinned upstream data), ``{{ steps.<id>.<path> }}``, ``{{ inputs.* }}``
+         *     and ``{{ run.* }}`` references in ``inputs`` resolve from that run's persisted step
+         *     outputs and inputs, and the run's workspace files are copied into a fresh test workspace
+         *     (the past run's workspace is never written to). ``resolved_inputs`` echoes the masked
+         *     inputs that were used. Steps saved with ``persistence: none`` or ``persist: exclude``
+         *     have no pinned outputs; a reference to them is a 422.
          */
         post: operations["test_activity_api_activities__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activity Feed
+         * @description The activity feed under a workflow, run or task page, newest first. Every item has
+         *     ``kind``, ``id``, ``ts`` and ``actor``:
+         *
+         *     - ``change``: an audited action on the resource (``action``, e.g. ``workflow.update``,
+         *       ``task.claim``, ``run.retry``); before/after values stay in the Admin audit log.
+         *     - ``comment``: ``body``.
+         *     - ``run`` (workflow pages): ``status``, ``environment``, ``trigger``, ``version``.
+         *     - ``promotion`` (workflow pages): ``status``, ``version``, ``to_environment``.
+         *     - ``task`` (run pages): ``title``, ``status``, ``assignee_role``.
+         */
+        get: operations["activity_feed_api_activity_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -265,6 +300,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Comments
+         * @description Comments on a workflow, run or task page, oldest first.
+         */
+        get: operations["list_comments_api_comments_get"];
+        put?: never;
+        /**
+         * Add Comment
+         * @description Post a comment (every role except Viewer). Known secret values are masked before the
+         *     body is stored; audited as ``comment.create`` on the commented resource.
+         */
+        post: operations["add_comment_api_comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dashboard": {
         parameters: {
             query?: never;
@@ -272,7 +332,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Dashboard */
+        /**
+         * Dashboard
+         * @description Operations dashboard. ``running`` includes pending (queued) runs; ``overdue_tasks``
+         *     counts open or claimed tasks past their SLA ``due_at``.
+         */
         get: operations["dashboard_api_dashboard_get"];
         put?: never;
         post?: never;
@@ -378,7 +442,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Runs */
+        /**
+         * List Runs
+         * @description Run history. ``status`` may repeat (``?status=failed&status=cancelled``); ``since`` and
+         *     ``until`` bound ``created_at`` (until is exclusive); ``q`` matches the run id, workflow
+         *     name, requester or correlation id; ``sort`` is a column name, ``-`` prefix for descending
+         *     (created_at, started_at, finished_at, status, workflow_name, environment). ``total`` is
+         *     the count of matching runs before paging.
+         */
         get: operations["list_runs_api_runs_get"];
         put?: never;
         post?: never;
@@ -416,6 +487,30 @@ export interface paths {
         put?: never;
         /** Cancel Run */
         post: operations["cancel_run_api_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Run Replay
+         * @description Read-only replay of a run on the canvas: the exact definition the run used plus one
+         *     node per step with its state, outcome, attempt and iteration counts, timing and masked
+         *     input/output summaries (string previews are cut at 120 characters; the full values are on
+         *     ``GET /api/runs/{run_id}``). Steps the run never reached have state ``not_run``. ``path``
+         *     lists step ids in the order they first started.
+         */
+        get: operations["run_replay_api_runs__run_id__replay_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -498,7 +593,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Tasks */
+        /**
+         * List Tasks
+         * @description Tasks visible to the caller's roles, soonest due first.
+         *
+         *     Inbox filters: ``mine`` (claimed by me), ``role`` (assigned to this role, e.g. my role),
+         *     ``unclaimed`` (open and nobody has claimed it), ``overdue`` (open or claimed and past
+         *     ``due_at``, the SLA deadline), plus ``status``, ``type`` and ``run_id``.
+         */
         get: operations["list_tasks_api_tasks_get"];
         put?: never;
         post?: never;
@@ -593,6 +695,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tasks/{task_id}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reassign Task
+         * @description Move a task to another role (it becomes open and unclaimed) or hand it to a user (it is
+         *     claimed on their behalf). Moving to a lower-ranked role is Admin-only; taking a task that
+         *     another user claimed needs Approver or Admin. Audited as ``task.reassign``.
+         */
+        post: operations["reassign_task_api_tasks__task_id__reassign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/views": {
         parameters: {
             query?: never;
@@ -600,10 +724,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Saved Views */
+        /**
+         * List Saved Views
+         * @description My views plus views other users shared, by name. Each item says whether it is
+         *     ``mine`` and who the ``owner`` is; ``query`` holds filters, sort, grouping and layout.
+         */
         get: operations["list_saved_views_api_views_get"];
         put?: never;
-        /** Create Saved View */
+        /**
+         * Create Saved View
+         * @description Create a view, or replace the query and sharing of my view with the same name.
+         */
         post: operations["create_saved_view_api_views_post"];
         delete?: never;
         options?: never;
@@ -621,11 +752,18 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Saved View */
+        /**
+         * Delete Saved View
+         * @description Delete one of my views (an Admin may also delete a shared view).
+         */
         delete: operations["delete_saved_view_api_views__view_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Saved View
+         * @description Rename, change the query of, or share/unshare one of my views.
+         */
+        patch: operations["update_saved_view_api_views__view_id__patch"];
         trace?: never;
     };
     "/api/workflows": {
@@ -635,7 +773,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Workflows */
+        /**
+         * List Workflows
+         * @description Workflows by name. ``folder`` matches the folder and its sub-folders (``Finance``
+         *     matches ``Finance/AP``; folders are ``/``-separated paths and drive the sidebar tree),
+         *     ``tag`` an exact tag, ``q`` the name, description or owner.
+         */
         get: operations["list_workflows_api_workflows_get"];
         put?: never;
         /** Save Workflow */
@@ -689,7 +832,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate Workflow */
+        /**
+         * Validate Workflow
+         * @description Validate and normalise a draft, from either form. The response carries both forms so
+         *     the Studio can round-trip canvas/steps and YAML: ``yaml`` and ``definition`` (the same
+         *     normalised data; dumping ``definition`` gives ``yaml``). Schema errors are a 422 whose
+         *     details carry ``step_id``; semantic issues come back as ``issues: [{code, message,
+         *     step_id}]``. ``subworkflows`` flags sub-workflow steps pinned to an older version.
+         */
         post: operations["validate_workflow_api_workflows_validate_post"];
         delete?: never;
         options?: never;
@@ -704,7 +854,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Workflow */
+        /**
+         * Get Workflow
+         * @description A workflow page: the workflow row (page properties), its latest version,
+         *     ``environments`` (latest version for dev, last approved promotion for test/prod, else
+         *     null), ``settings`` of the latest version (``sla_minutes``, duplicate guard, ...) and
+         *     ``subworkflows`` (pinned vs latest version of each sub-workflow step).
+         */
         get: operations["get_workflow_api_workflows__workflow_id__get"];
         put?: never;
         post?: never;
@@ -712,7 +868,14 @@ export interface paths {
         delete: operations["archive_workflow_api_workflows__workflow_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Workflow
+         * @description Edit page properties (description, owner, folder, tags, notes/runbook) without a new
+         *     version; audited as ``workflow.update`` with before/after. The name is changed by saving
+         *     a version. A later version save overwrites description/owner/tags only if the YAML
+         *     changed that field.
+         */
+        patch: operations["update_workflow_api_workflows__workflow_id__patch"];
         trace?: never;
     };
     "/api/workflows/{workflow_id}/diff": {
@@ -758,7 +921,17 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start Run */
+        /**
+         * Start Run
+         * @description Run now. Duplicate-guard feedback is structured:
+         *
+         *     - ``duplicate_guard: reject`` and a run with the same key is active: HTTP 409
+         *       ``{"error": {"code": "duplicate_run", "message": ..., "details": {"duplicate_of":
+         *       "<active run id>", "key": "<duplicate key>"}}}``.
+         *     - ``duplicate_guard: queue``: HTTP 200 with the run in status ``pending`` and
+         *       ``run.trigger_detail = {"queued": true, "duplicate_of": "<active run id>"}``; it starts
+         *       when the run ahead finishes.
+         */
         post: operations["start_run_api_workflows__workflow_id__run_post"];
         delete?: never;
         options?: never;
@@ -807,7 +980,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Version */
+        /**
+         * Get Version
+         * @description One version; ``subworkflows`` flags sub-workflow steps with a newer version.
+         */
         get: operations["get_version_api_workflows__workflow_id__versions__version_number__get"];
         put?: never;
         post?: never;
@@ -853,11 +1029,25 @@ export interface components {
             inputs?: {
                 [key: string]: unknown;
             };
+            /** Run Id */
+            run_id?: string | null;
             /**
              * Timeout Seconds
              * @default 120
              */
             timeout_seconds: number;
+        };
+        /** CommentRequest */
+        CommentRequest: {
+            /** Body */
+            body: string;
+            /** Resource Id */
+            resource_id: string;
+            /**
+             * Resource Type
+             * @enum {string}
+             */
+            resource_type: "workflow" | "run" | "task";
         };
         /**
          * Environment
@@ -928,6 +1118,22 @@ export interface components {
             };
             /** Resource */
             resource: string;
+            /**
+             * Shared
+             * @default false
+             */
+            shared: boolean;
+        };
+        /** SavedViewUpdateRequest */
+        SavedViewUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Query */
+            query?: {
+                [key: string]: unknown;
+            } | null;
+            /** Shared */
+            shared?: boolean | null;
         };
         /** ScheduleCreateRequest */
         ScheduleCreateRequest: {
@@ -984,6 +1190,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** TaskReassignRequest */
+        TaskReassignRequest: {
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            role?: components["schemas"]["Role"] | null;
+            /** User Id */
+            user_id?: string | null;
+        };
         /** UserCreateRequest */
         UserCreateRequest: {
             /**
@@ -1010,6 +1227,22 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WorkflowMetadataRequest
+         * @description Page properties; only the fields that are present change.
+         */
+        WorkflowMetadataRequest: {
+            /** Description */
+            description?: string | null;
+            /** Folder */
+            folder?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** Tags */
+            tags?: string[] | null;
         };
         /** WorkflowSaveRequest */
         WorkflowSaveRequest: {
@@ -1107,6 +1340,41 @@ export interface operations {
                 "application/json": components["schemas"]["ActivityTestRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activity_feed_api_activity_get: {
+        parameters: {
+            query: {
+                resource_type: "workflow" | "run" | "task";
+                resource_id: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -1530,6 +1798,77 @@ export interface operations {
             };
         };
     };
+    list_comments_api_comments_get: {
+        parameters: {
+            query: {
+                resource_type: "workflow" | "run" | "task";
+                resource_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_comment_api_comments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     dashboard_api_dashboard_get: {
         parameters: {
             query?: never;
@@ -1704,8 +2043,14 @@ export interface operations {
     list_runs_api_runs_get: {
         parameters: {
             query?: {
-                status?: string | null;
+                status?: string[] | null;
                 workflow_id?: string | null;
+                environment?: string | null;
+                trigger?: string | null;
+                since?: string | null;
+                until?: string | null;
+                q?: string | null;
+                sort?: string;
                 limit?: number;
                 offset?: number;
             };
@@ -1776,6 +2121,39 @@ export interface operations {
             header?: {
                 "X-CSRF-Token"?: string | null;
             };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_replay_api_runs__run_id__replay_get: {
+        parameters: {
+            query?: never;
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -1992,6 +2370,10 @@ export interface operations {
                 status?: string | null;
                 mine?: boolean;
                 overdue?: boolean;
+                role?: string | null;
+                unclaimed?: boolean;
+                type?: string | null;
+                run_id?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -2187,6 +2569,45 @@ export interface operations {
             };
         };
     };
+    reassign_task_api_tasks__task_id__reassign_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskReassignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_saved_views_api_views_get: {
         parameters: {
             query?: {
@@ -2292,10 +2713,52 @@ export interface operations {
             };
         };
     };
+    update_saved_view_api_views__view_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_workflows_api_workflows_get: {
         parameters: {
             query?: {
                 include_archived?: boolean;
+                folder?: string | null;
+                tag?: string | null;
+                q?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -2521,6 +2984,45 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_workflow_api_workflows__workflow_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workflow_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowMetadataRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

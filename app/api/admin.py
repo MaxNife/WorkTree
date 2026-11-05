@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.models import AuditLog, RoleRow, SecretMetadata
@@ -208,10 +208,12 @@ def audit_log(
             | AuditLog.resource_id.like(pattern)
             | AuditLog.correlation_id.like(pattern)
         )
+    total = int(session.execute(select(func.count()).select_from(query.subquery())).scalar_one())
     rows = list(
         session.execute(query.order_by(AuditLog.id.desc()).limit(limit).offset(offset)).scalars()
     )
     return {
+        "total": total,
         "items": [
             {
                 "id": row.id,

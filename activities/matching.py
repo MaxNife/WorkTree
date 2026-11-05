@@ -7,10 +7,12 @@ output, every pair respects the key score and the tolerances, and the result is 
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -258,32 +260,108 @@ class MatchingActivity(Activity[MatchingInputs]):
 
     def run(self, ctx: ActivityContext, inputs: MatchingInputs) -> ActivityResult:
         left = read_table(safe_path(ctx, inputs.left_path, must_exist=True), max_rows=inputs.limit)
-        right = read_table(
-            safe_path(ctx, inputs.right_path, must_exist=True), max_rows=inputs.limit
-        )
-        result = match_tables(left, right, inputs)
+        right_path = safe_path(ctx, inputs.right_path, must_exist=True)
         output = safe_path(ctx, inputs.output_path)
         fmt = output.suffix.lstrip(".").lower() or "parquet"
         unmatched_a = output.with_name(f"{output.stem}-unmatched-a{output.suffix}")
         unmatched_b = output.with_name(f"{output.stem}-unmatched-b{output.suffix}")
+        if _can_stream_right(right_path, fmt, inputs):
+            result, unmatched_right = _match_streaming_right(
+                left, right_path, unmatched_b, inputs, inputs.limit
+            )
+        else:
+            right = read_table(right_path, max_rows=inputs.limit)
+            result = match_tables(left, right, inputs)
+            write_rows(ctx, result.unmatched_right, unmatched_b, fmt=fmt)
+            unmatched_right = len(result.unmatched_right)
         write_rows(ctx, result.matched, output, fmt=fmt)
         write_rows(ctx, result.unmatched_left, unmatched_a, fmt=fmt)
-        write_rows(ctx, result.unmatched_right, unmatched_b, fmt=fmt)
         root = ctx.workspace.resolve()
         return ActivityResult.done(
             {
                 "matched": len(result.matched),
                 "groups": result.groups,
                 "unmatched_left": len(result.unmatched_left),
-                "unmatched_right": len(result.unmatched_right),
+                "unmatched_right": unmatched_right,
                 "path": output.relative_to(root).as_posix(),
                 "unmatched_left_path": unmatched_a.relative_to(root).as_posix(),
                 "unmatched_right_path": unmatched_b.relative_to(root).as_posix(),
             },
             f"{result.groups} matches, {len(result.unmatched_left)} unmatched left, "
-            f"{len(result.unmatched_right)} unmatched right",
+            f"{unmatched_right} unmatched right",
             [artifact_for(ctx, path) for path in (output, unmatched_a, unmatched_b)],
         )
+
+
+_STREAM_BATCH_ROWS = 65_536
+
+
+def _can_stream_right(path: Path, fmt: str, spec: MatchSpec) -> bool:
+    # Exact keys only: a right row whose key never occurs on the left can then never pair.
+    return path.suffix.lower() in {".parquet", ".pq"} and fmt == "parquet" and spec.threshold >= 1
+
+
+def _match_streaming_right(
+    left: list[Row], path: Path, unmatched_path: Path, spec: MatchSpec, limit: int
+) -> tuple[MatchResult, int]:
+    """Exact-key matching against a large right table that is never loaded whole.
+
+    The first pass keeps only the right rows whose key occurs on the left (in file order, so
+    ``match_tables`` picks exactly what it would pick from the whole table). The second pass
+    copies every other row, plus the candidates left unpaired, to the unmatched-B file in
+    file order. Memory is bounded by the left table, the candidates and one batch, which is
+    what keeps a 1M-row bank file under the worker memory budget.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    source = pq.ParquetFile(path)
+    schema = source.schema_arrow
+    index_columns = {
+        name
+        for name in (schema.pandas_metadata or {}).get("index_columns", [])
+        if isinstance(name, str)
+    }
+    columns = [name for name in schema.names if name not in index_columns]
+    wanted = {key for row in left if (key := _normalise(row.get(spec.left_key)))}
+    candidates: list[Row] = []
+    positions: list[int] = []
+    if spec.right_key in columns and wanted:
+        for offset, batch in _right_batches(source, columns, limit):
+            keys = batch.column(spec.right_key).to_pylist()
+            hits = [i for i, value in enumerate(keys) if _normalise(value) in wanted]
+            if hits:
+                candidates.extend(batch.take(pa.array(hits)).to_pylist())
+                positions.extend(offset + i for i in hits)
+    result = match_tables(left, candidates, spec)
+    unpaired = {id(row) for row in result.unmatched_right}
+    used = {
+        position
+        for position, row in zip(positions, candidates, strict=True)
+        if id(row) not in unpaired
+    }
+    result.unmatched_right = []
+    written = 0
+    with pq.ParquetWriter(
+        unmatched_path, pa.schema([schema.field(name) for name in columns])
+    ) as sink:
+        for offset, batch in _right_batches(source, columns, limit):
+            keep = pa.array([offset + i not in used for i in range(batch.num_rows)])
+            kept = batch.filter(keep)
+            written += kept.num_rows
+            sink.write_batch(kept)
+    return result, written
+
+
+def _right_batches(source: Any, columns: list[str], limit: int) -> Iterator[tuple[int, Any]]:
+    offset = 0
+    for batch in source.iter_batches(batch_size=_STREAM_BATCH_ROWS, columns=columns):
+        if offset >= limit:
+            return
+        if offset + batch.num_rows > limit:
+            batch = batch.slice(0, limit - offset)
+        yield offset, batch
+        offset += batch.num_rows
 
 
 __all__ = ["MatchSpec", "MatchingActivity", "match_tables"]

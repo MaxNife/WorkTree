@@ -128,10 +128,17 @@ class WorkflowService:
                 "owner": workflow.owner,
                 "tags": workflow.tags,
             }
+            # Page properties (description, owner, tags) can also be edited on the workflow
+            # page without a new version. A version save only overwrites them when the
+            # definition changed that field since the previous version: last edit wins.
+            previous = self._previous_definition(session, workflow)
             workflow.name = definition.name
-            workflow.description = definition.description
-            workflow.owner = definition.owner or workflow.owner
-            workflow.tags = definition.tags
+            if previous is None or definition.description != previous.get("description", ""):
+                workflow.description = definition.description
+            if definition.owner and (previous is None or definition.owner != previous.get("owner")):
+                workflow.owner = definition.owner
+            if previous is None or definition.tags != previous.get("tags", []):
+                workflow.tags = definition.tags
             workflow.updated_at = self.clock.now()
 
         workflow.latest_version = (workflow.latest_version or 0) + 1
@@ -167,6 +174,93 @@ class WorkflowService:
             correlation_id=correlation_id,
         )
         return workflow, version
+
+    def _previous_definition(self, session: Session, workflow: Workflow) -> dict[str, Any] | None:
+        if not workflow.latest_version:
+            return None
+        row = session.execute(
+            select(WorkflowVersion).where(
+                WorkflowVersion.workflow_id == workflow.id,
+                WorkflowVersion.version == workflow.latest_version,
+            )
+        ).scalar_one_or_none()
+        return row.definition if row is not None else None
+
+    def update_metadata(
+        self,
+        session: Session,
+        workflow_id: str,
+        changes: dict[str, Any],
+        *,
+        actor: str,
+        correlation_id: str = "",
+        source_ip: str = "",
+    ) -> Workflow:
+        """Edit page properties (description, owner, folder, tags, notes) without a version.
+
+        The name is not editable here: sub-workflow steps and runs refer to it, so a rename
+        goes through a new version.
+        """
+        workflow = self.get(session, workflow_id)
+        allowed = ("description", "owner", "folder", "tags", "notes")
+        before: dict[str, Any] = {}
+        after: dict[str, Any] = {}
+        for field in allowed:
+            if field in changes and changes[field] != getattr(workflow, field):
+                before[field] = getattr(workflow, field)
+                after[field] = changes[field]
+                setattr(workflow, field, changes[field])
+        if not after:
+            return workflow
+        workflow.updated_at = self.clock.now()
+        self.audit.write(
+            session,
+            actor=actor,
+            action="workflow.update",
+            resource_type="workflow",
+            resource_id=workflow.id,
+            source_ip=source_ip,
+            before=before,
+            after=after,
+            correlation_id=correlation_id,
+        )
+        return workflow
+
+    def subworkflow_status(
+        self, session: Session, definition: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Each sub-workflow step with its pinned and latest version, for the Studio's
+        "newer version available" flag."""
+        result: list[dict[str, Any]] = []
+        for step in definition.get("steps", []):
+            ref = step.get("workflow") if isinstance(step, dict) else None
+            if not isinstance(ref, dict) or not ref.get("name"):
+                continue
+            target = session.execute(
+                select(Workflow).where(Workflow.name == ref["name"])
+            ).scalar_one_or_none()
+            pinned = int(ref.get("version") or 0)
+            latest = target.latest_version if target is not None else None
+            result.append(
+                {
+                    "step_id": step.get("id"),
+                    "workflow_name": ref["name"],
+                    "workflow_id": target.id if target is not None else None,
+                    "pinned_version": pinned,
+                    "latest_version": latest,
+                    "newer_version_available": latest is not None and latest > pinned,
+                }
+            )
+        return result
+
+    def promoted_versions(self, session: Session, workflow: Workflow) -> dict[str, int | None]:
+        """Latest version for dev, and the most recently approved promotion for test and prod
+        (None when nothing was promoted there). Prod runs only the promoted version."""
+        result: dict[str, int | None] = {Environment.DEV.value: workflow.latest_version or None}
+        for environment in (Environment.TEST, Environment.PROD):
+            promotion = self.approved_in(session, workflow.id, environment)
+            result[environment.value] = promotion.version if promotion else None
+        return result
 
     def get(self, session: Session, workflow_id: str) -> Workflow:
         workflow = session.get(Workflow, workflow_id)

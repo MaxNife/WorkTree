@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -82,7 +82,15 @@ class SecretSetRequest(StrictModel):
 class SavedViewRequest(StrictModel):
     resource: str = Field(pattern=r"^(runs|tasks|workflows)$")
     name: str = Field(min_length=1, max_length=100)
+    # Free-form view state: filters, sort, grouping and layout ("table", "board", "gallery").
     query: dict[str, Any] = Field(default_factory=dict)
+    shared: bool = False
+
+
+class SavedViewUpdateRequest(StrictModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    query: dict[str, Any] | None = None
+    shared: bool | None = None
 
 
 class ActivityOptionsRequest(StrictModel):
@@ -94,6 +102,31 @@ class ActivityOptionsRequest(StrictModel):
 class ActivityTestRequest(StrictModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     timeout_seconds: int = Field(default=120, ge=1, le=900)
+    # Pinned upstream data: resolve {{ steps.* }}, {{ inputs.* }} and {{ run.* }} references
+    # in ``inputs`` from this past run, and copy its workspace files into the test workspace.
+    run_id: str | None = Field(default=None, max_length=32)
+
+
+class WorkflowMetadataRequest(StrictModel):
+    """Page properties; only the fields that are present change."""
+
+    description: str | None = Field(default=None, max_length=10_000)
+    owner: str | None = Field(default=None, max_length=100)
+    folder: str | None = Field(default=None, max_length=200, pattern=r"^[^\\]*$")
+    tags: list[str] | None = Field(default=None, max_length=50)
+    notes: str | None = Field(default=None, max_length=100_000)
+
+
+class TaskReassignRequest(StrictModel):
+    role: Role | None = None
+    user_id: str | None = Field(default=None, max_length=32)
+    reason: str = Field(default="", max_length=2000)
+
+
+class CommentRequest(StrictModel):
+    resource_type: Literal["workflow", "run", "task"]
+    resource_id: str = Field(min_length=1, max_length=100)
+    body: str = Field(min_length=1, max_length=10_000)
 
 
 class FileTriggerCreateRequest(StrictModel):

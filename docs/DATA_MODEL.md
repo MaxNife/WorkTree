@@ -85,6 +85,20 @@ The Alembic migrations in `app/adapters/db/migrations/versions/` create exactly 
 
 - index `ix_bus_claim` (queue, state, visible_at)
 
+### `comments`
+
+| Column | Type | Null | Key / default |
+|---|---|---|---|
+| `id` | VARCHAR(32) | no | PK |
+| `resource_type` | VARCHAR(20) | no |  |
+| `resource_id` | VARCHAR(100) | no |  |
+| `user_id` | VARCHAR(32) | no |  |
+| `author` | VARCHAR(100) | no |  |
+| `body` | TEXT | no |  |
+| `created_at` | DATETIME | no |  |
+
+- index `ix_comments_resource` (resource_type, resource_id, created_at)
+
 ### `environments`
 
 | Column | Type | Null | Key / default |
@@ -256,6 +270,7 @@ The Alembic migrations in `app/adapters/db/migrations/versions/` create exactly 
 | `resource` | VARCHAR(40) | no |  |
 | `name` | VARCHAR(100) | no |  |
 | `query` | JSON | no |  |
+| `shared` | BOOLEAN | no |  |
 | `created_at` | DATETIME | no |  |
 
 - unique `uq_saved_view_name` (user_id, resource, name)

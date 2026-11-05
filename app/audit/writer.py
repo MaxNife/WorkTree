@@ -112,7 +112,23 @@ class AuditWriter:
 
     def verify(self, session: Session) -> AuditCheck:
         rows = list(session.execute(select(AuditLog).order_by(AuditLog.id)).scalars())
-        return verify_rows(rows)
+        check = verify_rows(rows)
+        if not check.ok:
+            return check
+        # The chain alone cannot see rows cut from its end, or a forged row appended with a
+        # correctly computed hash; the audit_head counter moves with every real append.
+        head = session.get(AuditHead, 1)
+        appends = head.appends if head is not None else 0
+        if appends == len(rows):
+            return check
+        first_bad = min(appends, len(rows)) + 1
+        return AuditCheck(
+            ok=False,
+            rows=len(rows),
+            first_bad_id=first_bad,
+            message=f"audit log holds {len(rows)} rows but {appends} were appended "
+            f"(first mismatch at row {first_bad})",
+        )
 
     def count(self, session: Session) -> int:
         return int(session.execute(select(func.count(AuditLog.id))).scalar_one())

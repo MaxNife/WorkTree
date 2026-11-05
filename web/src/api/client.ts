@@ -67,11 +67,32 @@ export async function apiGet<P extends GetPath>(path: P, options: RequestOptions
   return parse<GetResponse<P>>(response)
 }
 
+// Mutating routes require the session's CSRF token in `X-CSRF-Token`. The session store sets it from
+// the login and /api/auth/me responses; the readable `uaf_csrf` cookie is the fallback.
+const CSRF_COOKIE = 'uaf_csrf'
+let csrfToken: string | null = null
+
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token
+}
+
+function currentCsrfToken(): string | null {
+  if (csrfToken) return csrfToken
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.split('; ').find((part) => part.startsWith(`${CSRF_COOKIE}=`))
+  return match ? decodeURIComponent(match.slice(CSRF_COOKIE.length + 1)) : null
+}
+
 export async function apiSend<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, body?: unknown): Promise<T> {
+  const token = currentCsrfToken()
   const response = await fetch(url, {
     method,
     credentials: 'same-origin',
-    headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    headers: {
+      Accept: 'application/json',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { 'X-CSRF-Token': token } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   return parse<T>(response)

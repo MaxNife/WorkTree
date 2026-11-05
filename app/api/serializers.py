@@ -7,6 +7,7 @@ from typing import Any
 
 from app.adapters.db.models import (
     Artifact,
+    Comment,
     Incident,
     Notification,
     Promotion,
@@ -22,6 +23,7 @@ from app.adapters.db.models import (
     WorkflowVersion,
 )
 from app.domain.enums import Role
+from app.security.masking import get_masker
 
 
 def iso(value: datetime | None) -> str | None:
@@ -97,8 +99,8 @@ def step(row: RunStep, attempts: list[StepAttempt] | None = None) -> dict[str, A
         "state": row.state,
         "outcome": row.outcome,
         "attempt": row.attempt,
-        "inputs": row.inputs,
-        "outputs": row.outputs,
+        "inputs": get_masker().mask_obj(row.inputs),
+        "outputs": get_masker().mask_obj(row.outputs),
         "message": row.message,
         "artifacts": row.artifacts,
         "child_run_id": row.child_run_id,
@@ -244,11 +246,25 @@ def notification(row: Notification) -> dict[str, Any]:
     }
 
 
-def saved_view(row: SavedView) -> dict[str, Any]:
+def saved_view(row: SavedView, *, viewer_id: str = "", owner: str = "") -> dict[str, Any]:
     return {
         "id": row.id,
         "resource": row.resource,
         "name": row.name,
         "query": row.query,
+        "shared": row.shared,
+        "owner": owner,
+        "mine": row.user_id == viewer_id,
+        "created_at": iso(row.created_at),
+    }
+
+
+def comment(row: Comment) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "resource_type": row.resource_type,
+        "resource_id": row.resource_id,
+        "author": row.author,
+        "body": row.body,
         "created_at": iso(row.created_at),
     }

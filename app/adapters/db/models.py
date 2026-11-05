@@ -400,6 +400,23 @@ class SavedView(Base):
     resource: Mapped[str] = mapped_column(String(40), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     query: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    # A shared view is listed for every user; only its owner may change or delete it.
+    shared: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class Comment(Base):
+    """A comment on a workflow, run or task page. Bodies are masked before they are stored."""
+
+    __tablename__ = "comments"
+    __table_args__ = (Index("ix_comments_resource", "resource_type", "resource_id", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    resource_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    author: Mapped[str] = mapped_column(String(100), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 

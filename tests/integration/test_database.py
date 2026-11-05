@@ -13,10 +13,12 @@ from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, update
 
 from app.adapters.db.database import Database
 from app.adapters.db.models import AuditHead, Base, Run
+from app.audit.writer import AuditWriter
+from app.domain.clock import SystemClock
 
 REPO = Path(__file__).resolve().parents[2]
 DASHBOARD_INDEXES = {
@@ -59,6 +61,34 @@ def test_upgrade_matches_models_then_downgrades_to_empty(alembic_db: tuple[Confi
         assert set(inspect(engine).get_table_names()) <= {"alembic_version"}
     finally:
         engine.dispose()
+
+
+def test_migration_counts_audit_rows_written_before_the_counter(
+    alembic_db: tuple[Config, str],
+) -> None:
+    """Regression: a3c9e41d7b20 seeds the counter at 0, so an existing log failed verification."""
+    config, url = alembic_db
+    command.upgrade(config, "a3c9e41d7b20")
+    database = Database(url)
+    audit = AuditWriter(SystemClock())
+    try:
+        with database.session() as session:
+            for number in range(3):
+                audit.write(
+                    session,
+                    actor="fixture",
+                    action="test",
+                    resource_type="t",
+                    resource_id=str(number),
+                )
+            session.execute(update(AuditHead).values(appends=0))
+        with database.session() as session:
+            assert not audit.verify(session).ok, "the old counter does not match the log"
+        command.upgrade(config, "head")
+        with database.session() as session:
+            assert audit.verify(session).ok
+    finally:
+        database.engine.dispose()
 
 
 def test_create_all_seeds_audit_head_and_round_trips_utc(tmp_path: Path) -> None:

@@ -32,6 +32,18 @@
             "title": "Inputs",
             "type": "object"
           },
+          "run_id": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
           "timeout_seconds": {
             "default": 120,
             "maximum": 900.0,
@@ -41,6 +53,39 @@
           }
         },
         "title": "ActivityTestRequest",
+        "type": "object"
+      },
+      "CommentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "resource_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "enum": [
+              "workflow",
+              "run",
+              "task"
+            ],
+            "title": "Resource Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id",
+          "body"
+        ],
+        "title": "CommentRequest",
         "type": "object"
       },
       "Environment": {
@@ -208,6 +253,11 @@
             "pattern": "^(runs|tasks|workflows)$",
             "title": "Resource",
             "type": "string"
+          },
+          "shared": {
+            "default": false,
+            "title": "Shared",
+            "type": "boolean"
           }
         },
         "required": [
@@ -215,6 +265,49 @@
           "name"
         ],
         "title": "SavedViewRequest",
+        "type": "object"
+      },
+      "SavedViewUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "shared": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared"
+          }
+        },
+        "title": "SavedViewUpdateRequest",
         "type": "object"
       },
       "ScheduleCreateRequest": {
@@ -321,6 +414,41 @@
         "title": "TaskCompleteRequest",
         "type": "object"
       },
+      "TaskReassignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Reason",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Role"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "title": "TaskReassignRequest",
+        "type": "object"
+      },
       "UserCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -388,6 +516,78 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WorkflowMetadataRequest": {
+        "additionalProperties": false,
+        "description": "Page properties; only the fields that are present change.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "pattern": "^[^\\\\]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "title": "WorkflowMetadataRequest",
         "type": "object"
       },
       "WorkflowSaveRequest": {
@@ -537,7 +737,7 @@
     },
     "/api/activities/{name}/test": {
       "post": {
-        "description": "Run one activity (\"Run this step\") exactly as a worker would: in a child process,\nwith a timeout, with secrets resolved for this call only.",
+        "description": "Run one activity (\"Run this step\") exactly as a worker would: in a child process,\nwith a timeout, with secrets resolved for this call only. Audited as ``activity.test``.\n\nWith ``run_id`` (pinned upstream data), ``{{ steps.<id>.<path> }}``, ``{{ inputs.* }}``\nand ``{{ run.* }}`` references in ``inputs`` resolve from that run's persisted step\noutputs and inputs, and the run's workspace files are copied into a fresh test workspace\n(the past run's workspace is never written to). ``resolved_inputs`` echoes the masked\ninputs that were used. Steps saved with ``persistence: none`` or ``persist: exclude``\nhave no pinned outputs; a reference to them is a 422.",
         "operationId": "test_activity_api_activities__name__test_post",
         "parameters": [
           {
@@ -601,6 +801,79 @@
           }
         },
         "summary": "Test Activity",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/activity": {
+      "get": {
+        "description": "The activity feed under a workflow, run or task page, newest first. Every item has\n``kind``, ``id``, ``ts`` and ``actor``:\n\n- ``change``: an audited action on the resource (``action``, e.g. ``workflow.update``,\n  ``task.claim``, ``run.retry``); before/after values stay in the Admin audit log.\n- ``comment``: ``body``.\n- ``run`` (workflow pages): ``status``, ``environment``, ``trigger``, ``version``.\n- ``promotion`` (workflow pages): ``status``, ``version``, ``to_environment``.\n- ``task`` (run pages): ``title``, ``status``, ``assignee_role``.",
+        "operationId": "activity_feed_api_activity_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resource_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "workflow",
+                "run",
+                "task"
+              ],
+              "title": "Resource Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Activity Feed Api Activity Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Activity Feed",
         "tags": [
           "system"
         ]
@@ -1300,8 +1573,133 @@
         ]
       }
     },
+    "/api/comments": {
+      "get": {
+        "description": "Comments on a workflow, run or task page, oldest first.",
+        "operationId": "list_comments_api_comments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resource_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "workflow",
+                "run",
+                "task"
+              ],
+              "title": "Resource Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Resource Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Comments Api Comments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Comments",
+        "tags": [
+          "system"
+        ]
+      },
+      "post": {
+        "description": "Post a comment (every role except Viewer). Known secret values are masked before the\nbody is stored; audited as ``comment.create`` on the commented resource.",
+        "operationId": "add_comment_api_comments_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Comment Api Comments Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Comment",
+        "tags": [
+          "system"
+        ]
+      }
+    },
     "/api/dashboard": {
       "get": {
+        "description": "Operations dashboard. ``running`` includes pending (queued) runs; ``overdue_tasks``\ncounts open or claimed tasks past their SLA ``due_at``.",
         "operationId": "dashboard_api_dashboard_get",
         "responses": {
           "200": {
@@ -1539,6 +1937,7 @@
     },
     "/api/runs": {
       "get": {
+        "description": "Run history. ``status`` may repeat (``?status=failed&status=cancelled``); ``since`` and\n``until`` bound ``created_at`` (until is exclusive); ``q`` matches the run id, workflow\nname, requester or correlation id; ``sort`` is a column name, ``-`` prefix for descending\n(created_at, started_at, finished_at, status, workflow_name, environment). ``total`` is\nthe count of matching runs before paging.",
         "operationId": "list_runs_api_runs_get",
         "parameters": [
           {
@@ -1548,7 +1947,10 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
                 },
                 {
                   "type": "null"
@@ -1571,6 +1973,102 @@
                 }
               ],
               "title": "Workflow Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "environment",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Environment"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 20,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "-created_at",
+              "pattern": "^-?[a-z_]+$",
+              "title": "Sort",
+              "type": "string"
             }
           },
           {
@@ -1726,6 +2224,51 @@
           }
         },
         "summary": "Cancel Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/replay": {
+      "get": {
+        "description": "Read-only replay of a run on the canvas: the exact definition the run used plus one\nnode per step with its state, outcome, attempt and iteration counts, timing and masked\ninput/output summaries (string previews are cut at 120 characters; the full values are on\n``GET /api/runs/{run_id}``). Steps the run never reached have state ``not_run``. ``path``\nlists step ids in the order they first started.",
+        "operationId": "run_replay_api_runs__run_id__replay_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Replay Api Runs  Run Id  Replay Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Replay",
         "tags": [
           "runs"
         ]
@@ -2047,6 +2590,7 @@
     },
     "/api/tasks": {
       "get": {
+        "description": "Tasks visible to the caller's roles, soonest due first.\n\nInbox filters: ``mine`` (claimed by me), ``role`` (assigned to this role, e.g. my role),\n``unclaimed`` (open and nobody has claimed it), ``overdue`` (open or claimed and past\n``due_at``, the SLA deadline), plus ``status``, ``type`` and ``run_id``.",
         "operationId": "list_tasks_api_tasks_get",
         "parameters": [
           {
@@ -2083,6 +2627,67 @@
               "default": false,
               "title": "Overdue",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unclaimed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unclaimed",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
             }
           },
           {
@@ -2402,8 +3007,80 @@
         ]
       }
     },
+    "/api/tasks/{task_id}/reassign": {
+      "post": {
+        "description": "Move a task to another role (it becomes open and unclaimed) or hand it to a user (it is\nclaimed on their behalf). Moving to a lower-ranked role is Admin-only; taking a task that\nanother user claimed needs Approver or Admin. Audited as ``task.reassign``.",
+        "operationId": "reassign_task_api_tasks__task_id__reassign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskReassignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reassign Task Api Tasks  Task Id  Reassign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reassign Task",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
     "/api/views": {
       "get": {
+        "description": "My views plus views other users shared, by name. Each item says whether it is\n``mine`` and who the ``owner`` is; ``query`` holds filters, sort, grouping and layout.",
         "operationId": "list_saved_views_api_views_get",
         "parameters": [
           {
@@ -2456,6 +3133,7 @@
         ]
       },
       "post": {
+        "description": "Create a view, or replace the query and sharing of my view with the same name.",
         "operationId": "create_saved_view_api_views_post",
         "parameters": [
           {
@@ -2517,6 +3195,7 @@
     },
     "/api/views/{view_id}": {
       "delete": {
+        "description": "Delete one of my views (an Admin may also delete a shared view).",
         "operationId": "delete_saved_view_api_views__view_id__delete",
         "parameters": [
           {
@@ -2575,10 +3254,80 @@
         "tags": [
           "system"
         ]
+      },
+      "patch": {
+        "description": "Rename, change the query of, or share/unshare one of my views.",
+        "operationId": "update_saved_view_api_views__view_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_id",
+            "required": true,
+            "schema": {
+              "title": "View Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Saved View Api Views  View Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Saved View",
+        "tags": [
+          "system"
+        ]
       }
     },
     "/api/workflows": {
       "get": {
+        "description": "Workflows by name. ``folder`` matches the folder and its sub-folders (``Finance``\nmatches ``Finance/AP``; folders are ``/``-separated paths and drive the sidebar tree),\n``tag`` an exact tag, ``q`` the name, description or owner.",
         "operationId": "list_workflows_api_workflows_get",
         "parameters": [
           {
@@ -2589,6 +3338,57 @@
               "default": false,
               "title": "Include Archived",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "folder",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Folder"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           },
           {
@@ -2865,6 +3665,7 @@
     },
     "/api/workflows/validate": {
       "post": {
+        "description": "Validate and normalise a draft, from either form. The response carries both forms so\nthe Studio can round-trip canvas/steps and YAML: ``yaml`` and ``definition`` (the same\nnormalised data; dumping ``definition`` gives ``yaml``). Schema errors are a 422 whose\ndetails carry ``step_id``; semantic issues come back as ``issues: [{code, message,\nstep_id}]``. ``subworkflows`` flags sub-workflow steps pinned to an older version.",
         "operationId": "validate_workflow_api_workflows_validate_post",
         "parameters": [
           {
@@ -2984,6 +3785,7 @@
         ]
       },
       "get": {
+        "description": "A workflow page: the workflow row (page properties), its latest version,\n``environments`` (latest version for dev, last approved promotion for test/prod, else\nnull), ``settings`` of the latest version (``sla_minutes``, duplicate guard, ...) and\n``subworkflows`` (pinned vs latest version of each sub-workflow step).",
         "operationId": "get_workflow_api_workflows__workflow_id__get",
         "parameters": [
           {
@@ -3021,6 +3823,75 @@
           }
         },
         "summary": "Get Workflow",
+        "tags": [
+          "workflows"
+        ]
+      },
+      "patch": {
+        "description": "Edit page properties (description, owner, folder, tags, notes/runbook) without a new\nversion; audited as ``workflow.update`` with before/after. The name is changed by saving\na version. A later version save overwrites description/owner/tags only if the YAML\nchanged that field.",
+        "operationId": "update_workflow_api_workflows__workflow_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkflowMetadataRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Update Workflow Api Workflows  Workflow Id  Patch",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Workflow",
         "tags": [
           "workflows"
         ]
@@ -3162,6 +4033,7 @@
     },
     "/api/workflows/{workflow_id}/run": {
       "post": {
+        "description": "Run now. Duplicate-guard feedback is structured:\n\n- ``duplicate_guard: reject`` and a run with the same key is active: HTTP 409\n  ``{\"error\": {\"code\": \"duplicate_run\", \"message\": ..., \"details\": {\"duplicate_of\":\n  \"<active run id>\", \"key\": \"<duplicate key>\"}}}``.\n- ``duplicate_guard: queue``: HTTP 200 with the run in status ``pending`` and\n  ``run.trigger_detail = {\"queued\": true, \"duplicate_of\": \"<active run id>\"}``; it starts\n  when the run ahead finishes.",
         "operationId": "start_run_api_workflows__workflow_id__run_post",
         "parameters": [
           {
@@ -3348,6 +4220,7 @@
     },
     "/api/workflows/{workflow_id}/versions/{version_number}": {
       "get": {
+        "description": "One version; ``subworkflows`` flags sub-workflow steps with a newer version.",
         "operationId": "get_version_api_workflows__workflow_id__versions__version_number__get",
         "parameters": [
           {

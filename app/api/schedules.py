@@ -82,7 +82,8 @@ def toggle_schedule(
     session: Annotated[Session, Depends(get_session)],
     _permission: Annotated[Any, require(Permission.ADMIN_SCHEDULES)],
 ) -> dict[str, Any]:
-    row = request.app.state.container.schedules.enable(
+    container = request.app.state.container
+    row = container.schedules.enable(
         session,
         schedule_id,
         body.enabled,
@@ -90,6 +91,9 @@ def toggle_schedule(
         correlation_id=correlation_id(request),
         source_ip=client_ip(request),
     )
+    # Show the next fire time straight away, as on create (the tick would set it later).
+    if row.enabled and row.kind == "cron" and row.cron:
+        row.next_run_at = next_cron_fire(row.cron, row.timezone, container.clock.now())
     return serialize_schedule(row)
 
 

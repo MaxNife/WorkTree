@@ -7,10 +7,19 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.adapters.db.models import Notification, Run, Task, TaskEvent, WorkflowVersion
+from app.adapters.db.models import (
+    Notification,
+    RoleRow,
+    Run,
+    Task,
+    TaskEvent,
+    User,
+    UserRole,
+    WorkflowVersion,
+)
 from app.audit.writer import AuditWriter
 from app.domain.clock import Clock
-from app.domain.enums import Role, TaskStatus, TaskType
+from app.domain.enums import ROLE_RANK, Role, TaskStatus, TaskType
 from app.errors import Conflict, Forbidden, NotFound, ValidationFailed
 from app.security.rbac import can_action_task
 from app.services.notifications import NotificationService
@@ -45,6 +54,10 @@ class TaskService:
         status: str | None = None,
         overdue_only: bool = False,
         mine: bool = False,
+        role: str | None = None,
+        unclaimed: bool = False,
+        task_type: str | None = None,
+        run_id: str | None = None,
     ) -> list[Task]:
         role_names = [role.value for role in roles]
         query = select(Task).order_by(Task.due_at, Task.created_at)
@@ -54,6 +67,14 @@ class TaskService:
             query = query.where(Task.claimed_by == user_id)
         elif Role.ADMIN not in roles:
             query = query.where((Task.assignee_role.in_(role_names)) | (Task.claimed_by == user_id))
+        if role:
+            query = query.where(Task.assignee_role == role)
+        if unclaimed:
+            query = query.where(Task.claimed_by.is_(None), Task.status == TaskStatus.OPEN.value)
+        if task_type:
+            query = query.where(Task.type == task_type)
+        if run_id:
+            query = query.where(Task.run_id == run_id)
         if overdue_only:
             query = query.where(
                 Task.status.in_([TaskStatus.OPEN.value, TaskStatus.CLAIMED.value]),
@@ -205,6 +226,103 @@ class TaskService:
             self.engine.complete_human_task(task.run_id, task.id, session=session)
         return task
 
+    def reassign(
+        self,
+        session: Session,
+        *,
+        task_id: str,
+        actor_id: str,
+        actor_name: str,
+        actor_roles: list[Role],
+        to_role: str | None = None,
+        to_user_id: str | None = None,
+        reason: str = "",
+        correlation_id: str = "",
+        source_ip: str = "",
+    ) -> Task:
+        """Move a task to another role, or hand it to a named user (claimed on their behalf).
+
+        Only an Admin may move a task to a lower-ranked role, so an approval cannot be routed
+        around its approver; only an Approver or Admin may take a task another user claimed.
+        """
+        if not to_role and not to_user_id:
+            raise ValidationFailed("give a role or a user to reassign the task to")
+        task = self.get(session, task_id)
+        if task.status not in {TaskStatus.OPEN.value, TaskStatus.CLAIMED.value}:
+            raise Conflict(f"task is already {task.status}")
+        if not can_action_task(actor_roles, task.assignee_role):
+            raise Forbidden(f"role cannot action tasks assigned to {task.assignee_role}")
+        is_admin = Role.ADMIN in actor_roles
+        taken_from_other = bool(task.claimed_by) and task.claimed_by != actor_id
+        if taken_from_other and not is_admin and Role.APPROVER not in actor_roles:
+            raise Forbidden("only an Approver or Admin can reassign a task claimed by another user")
+        new_role = to_role or task.assignee_role
+        if not is_admin and _rank(new_role) < _rank(task.assignee_role):
+            raise Forbidden(
+                f"only an Admin can move a task from {task.assignee_role} to the lower role "
+                f"{new_role}"
+            )
+        target: User | None = None
+        if to_user_id:
+            target = session.get(User, to_user_id)
+            if target is None or not target.is_active:
+                raise NotFound(f"active user {to_user_id} not found")
+            if not can_action_task(_user_roles(session, target.id), new_role):
+                raise ValidationFailed(
+                    f"user {target.username} cannot action tasks assigned to {new_role}"
+                )
+        before = {"assignee_role": task.assignee_role, "claimed_by": task.claimed_by}
+        now = self.clock.now()
+        task.assignee_role = new_role
+        if target is not None:
+            task.claimed_by = target.id
+            task.claimed_at = now
+            task.status = TaskStatus.CLAIMED.value
+        else:
+            task.claimed_by = None
+            task.claimed_at = None
+            task.status = TaskStatus.OPEN.value
+        after = {
+            "assignee_role": new_role,
+            "claimed_by": task.claimed_by,
+            "reason": reason[:500],
+        }
+        session.add(
+            TaskEvent(
+                task_id=task.id,
+                user_id=actor_id,
+                action="reassign",
+                payload={
+                    "from_role": before["assignee_role"],
+                    "to_role": new_role,
+                    "to_user": target.username if target else None,
+                    "reason": reason[:500],
+                },
+                created_at=now,
+            )
+        )
+        self.audit.write(
+            session,
+            actor=actor_name,
+            action="task.reassign",
+            resource_type="task",
+            resource_id=task.id,
+            source_ip=source_ip,
+            before=before,
+            after=after,
+            correlation_id=correlation_id,
+        )
+        self.notifications.notify(
+            session,
+            title=f"Task reassigned: {task.title}",
+            body=f"{actor_name} reassigned this {task.type} task.",
+            role=None if target else new_role,
+            user_id=target.id if target else None,
+            kind="task_assigned",
+            link=f"/tasks/{task.id}",
+        )
+        return task
+
     def cancel(self, session: Session, task_id: str, actor: str, role: str = "") -> Task:
         task = self.get(session, task_id)
         if task.status == TaskStatus.COMPLETED.value:
@@ -333,6 +451,21 @@ class TaskService:
             "created_at": task.created_at.isoformat(),
             "completed_at": task.completed_at.isoformat() if task.completed_at else None,
         }
+
+
+def _rank(role: str) -> int:
+    """Rank of a task's target role; unknown role names rank as operator, as in RBAC."""
+    known = Role(role) if role in Role._value2member_map_ else Role.OPERATOR
+    return ROLE_RANK[known]
+
+
+def _user_roles(session: Session, user_id: str) -> list[Role]:
+    names = session.execute(
+        select(RoleRow.name)
+        .join(UserRole, UserRole.role_id == RoleRow.id)
+        .where(UserRole.user_id == user_id)
+    ).scalars()
+    return [Role(name) for name in names if name in Role._value2member_map_]
 
 
 def _minutes(value: int) -> Any:
