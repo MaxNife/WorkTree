@@ -1,0 +1,169 @@
+# WorkTree reference workflow: the standard bank-automation pattern (acceptance A1).
+#
+#   portal login with email OTP -> download the AES ZIP -> extract the CSV -> read it to
+#   Parquet -> GL query -> match -> Excel report -> email through Graph -> archive with
+#   checksum.
+#
+# Validate:  uv run python -m app validate examples/a1_standard_pattern.yaml
+# Test:      uv run pytest tests/acceptance/test_a1_standard_pattern.py
+#
+# Environment-specific values (URLs, mailboxes, folders, period) arrive as run inputs, so the
+# same definition runs against the local fixtures and a real tenant. Credentials are only ever
+# secret references, resolved by the worker for the one call that needs them:
+#   portal_password, graph_client_secret, invoice_zip_password, gl_db_url
+schema_version: 1
+name: A1 invoice reconciliation
+description: >-
+  Log in to the supplier portal (email OTP read from Graph), download the encrypted invoice
+  export, reconcile it against the GL postings for the period, then mail and archive the report.
+owner: finance-ops
+tags: [acceptance, reconciliation, portal, gl]
+settings:
+  duplicate_guard: reject
+  duplicate_guard_key: inputs.period_end
+  sla_minutes: 60
+  persistence: summary
+steps:
+  - id: portal_login
+    activity: playwright_robot
+    notes: Form login, then the one-time code is read from the OTP mail through Graph.
+    timeout_seconds: 300
+    retries: {count: 1, delay_seconds: 30}
+    inputs: &portal_login
+      operation: form_otp
+      portal: supplier-portal
+      base_url: "{{ inputs.portal_base_url }}"
+      login_url: /portal/login/otp
+      session_check_url: /portal/report.csv
+      username: "{{ inputs.portal_username }}"
+      password: "{{ secret:portal_password }}"
+      otp_tenant_id: "{{ inputs.graph_tenant_id }}"
+      otp_client_id: "{{ inputs.graph_client_id }}"
+      otp_client_secret: "{{ secret:graph_client_secret }}"
+      otp_mailbox: "{{ inputs.ops_mailbox }}"
+      otp_sender: "{{ inputs.otp_sender }}"
+      otp_graph_base_url: "{{ inputs.graph_base_url }}"
+      otp_login_base_url: "{{ inputs.graph_login_url }}"
+      otp_timeout_seconds: 120
+      otp_poll_seconds: 2
+      screenshot_path: portal/login.png
+      steps:
+        - {action: wait_for, selector: "#verified"}
+    on_done: download_zip
+
+  - id: download_zip
+    activity: playwright_robot
+    notes: Reuses the session saved by portal_login; logs in again only if the portal expired it.
+    timeout_seconds: 600
+    inputs:
+      <<: *portal_login
+      screenshot_path: portal/statements.png
+      timeout_ms: 120000
+      steps:
+        - {action: goto, url: /portal/statements}
+        - {action: download, selector: "#download-zip", path: portal/invoices.zip}
+    on_done: extract
+
+  - id: extract
+    activity: zip
+    timeout_seconds: 600
+    inputs:
+      operation: extract
+      path: "{{ steps.download_zip.extracted.download_2 }}"
+      output_dir: extracted
+      password: "{{ secret:invoice_zip_password }}"
+      max_entries: 10
+      max_total_bytes: 500000000
+    on_done: read_invoices
+
+  - id: read_invoices
+    activity: csv
+    notes: Streams the CSV in chunks to Parquet; the table never sits in memory whole.
+    timeout_seconds: 900
+    inputs:
+      operation: read
+      path: "{{ steps.extract.extracted.0 }}"
+      encoding: utf-8
+      output_path: tables/invoices.parquet
+      output_format: parquet
+      max_rows: 5000000
+      chunk_size: 100000
+    on_done: gl_query
+
+  - id: gl_query
+    activity: gl_query
+    timeout_seconds: 300
+    inputs:
+      db_url: "{{ secret:gl_db_url }}"
+      sql: >-
+        SELECT reference, supplier, amount, posting_date
+        FROM ap_postings
+        WHERE posting_date BETWEEN :period_start AND :period_end
+        ORDER BY reference
+      params:
+        period_start: "{{ inputs.period_start }}"
+        period_end: "{{ inputs.period_end }}"
+      output_path: tables/gl-postings.parquet
+      max_rows: 1000000
+    on_done: match
+
+  - id: match
+    activity: matching
+    notes: GL postings (left) against the invoice file (right); exact reference, amount and date window.
+    timeout_seconds: 900
+    inputs:
+      left_path: "{{ steps.gl_query.path }}"
+      right_path: "{{ steps.read_invoices.path }}"
+      left_key: reference
+      right_key: invoice_id
+      left_amount: amount
+      right_amount: amount
+      amount_tolerance: "0.005"
+      left_date: posting_date
+      right_date: posted_at
+      date_tolerance_days: 3
+      mode: one_to_one
+      limit: 5000000
+      output_path: recon/matches.parquet
+    on_done: report
+
+  - id: report
+    activity: excel
+    timeout_seconds: 600
+    inputs:
+      operation: write
+      path: report/reconciliation.xlsx
+      sheet: Matched
+      source_path: "{{ steps.match.path }}"
+    on_done: email_report
+
+  - id: email_report
+    activity: email
+    timeout_seconds: 120
+    retries: {count: 2, delay_seconds: 10, backoff: 2}
+    inputs:
+      provider: graph
+      to: ["{{ inputs.report_to }}"]
+      subject: "Invoice reconciliation {{ inputs.period_start }} to {{ inputs.period_end }}"
+      body: >-
+        Matched {{ steps.match.matched }} GL postings to the portal invoice file.
+        Unmatched GL postings: {{ steps.match.unmatched_left }}.
+        Invoices with no GL posting: {{ steps.match.unmatched_right }}.
+        Run {{ run.id }}.
+      attachments: [report/reconciliation.xlsx]
+      tenant_id: "{{ inputs.graph_tenant_id }}"
+      client_id: "{{ inputs.graph_client_id }}"
+      client_secret: "{{ secret:graph_client_secret }}"
+      sender: "{{ inputs.ops_mailbox }}"
+      graph_base_url: "{{ inputs.graph_base_url }}"
+      login_base_url: "{{ inputs.graph_login_url }}"
+    on_done: archive
+
+  - id: archive
+    activity: unc_archive
+    timeout_seconds: 300
+    inputs:
+      operation: copy
+      source_path: report/reconciliation.xlsx
+      destination_dir: "{{ inputs.archive_dir }}"
+      filename: "reconciliation-{{ inputs.period_end }}-{{ run.id }}.xlsx"
