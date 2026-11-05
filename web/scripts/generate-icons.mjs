@@ -108,6 +108,8 @@ const WANTED = {
   'view-table': 'table_simple',
   'view-board': 'board_split',
   'view-gallery': 'grid',
+  board: 'board',
+  grid: 'grid',
   'zoom-in': 'zoom_in',
   'zoom-out': 'zoom_out',
   'zoom-fit': 'zoom_fit',
@@ -119,6 +121,7 @@ const WANTED = {
   database: 'database',
   server: 'server',
   contrast: 'dark_theme',
+  globe: 'globe',
 }
 
 const iconDir = fileURLToPath(new URL('../node_modules/@fluentui/svg-icons/icons/', import.meta.url))

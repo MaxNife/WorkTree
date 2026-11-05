@@ -12,7 +12,7 @@ export type GetResponse<P extends GetPath> = Json<NonNullable<paths[P]['get']>>
 
 export interface RequestOptions {
   path?: Record<string, string>
-  query?: Record<string, string | number | boolean | undefined>
+  query?: Record<string, string | number | boolean | string[] | undefined>
   signal?: AbortSignal
 }
 
@@ -37,7 +37,8 @@ export function buildUrl(template: string, options: RequestOptions = {}): string
   })
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(options.query ?? {})) {
-    if (value !== undefined) query.set(key, String(value))
+    if (Array.isArray(value)) value.forEach((item) => query.append(key, item))
+    else if (value !== undefined) query.set(key, String(value))
   }
   const text = query.toString()
   if (text) url += (url.includes('?') ? '&' : '?') + text
