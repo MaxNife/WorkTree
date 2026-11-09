@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// An inline message for a page or form (Fluent MessageBar): icon, optional title, text and actions.
+// An inline message for a page or form: icon, optional title, text and actions.
 // Errors and warnings use role="alert" so they are announced when they appear; others use "status".
 import { computed } from 'vue'
 import UIcon from '@/components/UIcon.vue'
@@ -32,9 +32,9 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
 .message-bar {
   display: flex;
   align-items: flex-start;
-  gap: var(--spacingHorizontalS);
-  padding: var(--spacingVerticalS) var(--spacingHorizontalM);
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
 }
@@ -68,12 +68,12 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
   min-width: 0;
 }
 .message-bar__title {
-  margin-right: var(--spacingHorizontalXS);
-  font-weight: var(--fontWeightSemibold);
+  margin-right: var(--space-4);
+  font-weight: var(--weight-semibold);
 }
 .message-bar__actions {
   display: flex;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
 }
 .message-bar__dismiss {
   display: inline-flex;

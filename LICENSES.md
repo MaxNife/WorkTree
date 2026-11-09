@@ -48,8 +48,6 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | Pinia | MIT | client state |
 | @tanstack/vue-query | MIT | server state |
 | @vue-flow/core | MIT | Studio canvas |
-| @fluentui/web-components | MIT | base component set |
-| @microsoft/fast-element, @microsoft/focusgroup-polyfill | MIT | required peers of Fluent |
 | Vite | MIT | bundler |
 | TypeScript | Apache-2.0 | type system |
 | vue-tsc | MIT | type check |
@@ -59,7 +57,7 @@ where noted. If a dependency is added or replaced, update this file in the same 
 | @vitejs/plugin-vue | MIT | Vite Vue plugin |
 | typescript-eslint, eslint-plugin-vue, vue-eslint-parser, globals | MIT | ESLint rules |
 | openapi-typescript | MIT | generated API types |
-| @fluentui/svg-icons | MIT | source of the copied icon paths (dev only) |
+| @phosphor-icons/core | MIT | source of the copied icon paths (dev only); Phosphor Icons by Helena Zhang and Tobias Fried |
 | @types/node | MIT | build-script types |
 | @playwright/test | Apache-2.0 | E2E tests |
 

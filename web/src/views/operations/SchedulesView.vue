@@ -121,14 +121,14 @@ const toggle = useMutation({
   white-space: nowrap;
 }
 .schedule-name {
-  margin-inline-start: var(--spacingHorizontalS);
+  margin-inline-start: var(--space-8);
 }
 .cron {
   font-family: var(--uaf-font-mono);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .quiet {
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 </style>

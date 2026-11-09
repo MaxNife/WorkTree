@@ -32,13 +32,13 @@ defineProps<{ title: string; subtitle?: string; commandsLabel?: string }>()
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
   padding-bottom: var(--uaf-gap);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .app-page__messages {
   display: grid;
-  gap: var(--spacingVerticalS);
+  gap: var(--space-8);
 }
 .app-page__body {
   min-width: 0;

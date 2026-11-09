@@ -1,147 +1,151 @@
-// Copy the Fluent System Icons we use (MIT, @fluentui/svg-icons) into src/icons/paths.ts.
+// Copy the Phosphor icons we use (MIT, @phosphor-icons/core) into src/icons/paths.ts.
 //   npm run icons:generate   write the file
 //   npm run icons:check      fail when the committed file is stale
 // To use another icon, add it to WANTED, run the generator and commit the result. The package is a
-// dev dependency only: nothing from it ships except the paths copied here.
+// dev dependency only: nothing from it ships except the paths copied here. Each icon is copied in two
+// weights: regular for the interface, fill for small spaces and coloured canvas nodes.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-// our name -> Fluent icon base name (regular style, 20px grid)
+// our name -> Phosphor icon name (256px grid)
 const WANTED = {
   operations: 'pulse',
-  inbox: 'mail_inbox',
-  studio: 'flowchart',
+  inbox: 'tray',
+  studio: 'flow-arrow',
   data: 'table',
-  admin: 'shield_checkmark',
-  search: 'search',
-  'chevron-right': 'chevron_right',
-  'chevron-down': 'chevron_down',
-  check: 'checkmark',
-  close: 'dismiss',
+  admin: 'shield-check',
+  search: 'magnifying-glass',
+  'chevron-right': 'caret-right',
+  'chevron-down': 'caret-down',
+  check: 'check',
+  close: 'x',
   alert: 'warning',
   info: 'info',
   clock: 'clock',
   play: 'play',
-  retry: 'arrow_sync',
-  skip: 'subtract_circle',
+  retry: 'arrows-clockwise',
+  skip: 'minus-circle',
   pending: 'circle',
-  sun: 'weather_sunny',
-  moon: 'weather_moon',
-  menu: 'navigation',
-  branch: 'branch_fork',
-  more: 'more_horizontal',
-  // Navigation and layout
-  'chevron-left': 'chevron_left',
-  'chevron-up': 'chevron_up',
-  'arrow-left': 'arrow_left',
-  'arrow-right': 'arrow_right',
-  'panel-collapse': 'panel_left_contract',
-  'panel-expand': 'panel_left_expand',
-  'full-screen': 'full_screen_maximize',
-  open: 'open',
-  home: 'home',
-  // Commands
-  add: 'add',
-  edit: 'edit',
-  save: 'save',
+  sun: 'sun',
+  moon: 'moon',
+  menu: 'list',
+  branch: 'git-branch',
+  more: 'dots-three',
+  'chevron-left': 'caret-left',
+  'chevron-up': 'caret-up',
+  'arrow-left': 'arrow-left',
+  'arrow-right': 'arrow-right',
+  'panel-collapse': 'sidebar-simple',
+  'panel-expand': 'sidebar',
+  'full-screen': 'arrows-out',
+  open: 'arrow-square-out',
+  home: 'house',
+  add: 'plus',
+  edit: 'pencil-simple',
+  save: 'floppy-disk',
   copy: 'copy',
-  delete: 'delete',
+  delete: 'trash',
   archive: 'archive',
-  undo: 'arrow_undo',
-  redo: 'arrow_redo',
-  filter: 'filter',
-  'filter-clear': 'filter_dismiss',
-  sort: 'arrow_sort',
-  refresh: 'arrow_clockwise',
+  undo: 'arrow-u-up-left',
+  redo: 'arrow-u-up-right',
+  filter: 'funnel',
+  'filter-clear': 'funnel-x',
+  sort: 'arrows-down-up',
+  refresh: 'arrows-clockwise',
   stop: 'stop',
   pause: 'pause',
-  download: 'arrow_download',
-  upload: 'arrow_upload',
-  send: 'send',
-  pin: 'pin',
+  download: 'download-simple',
+  upload: 'upload-simple',
+  send: 'paper-plane-tilt',
+  pin: 'push-pin',
   link: 'link',
-  'drag-handle': 're_order_dots_vertical',
-  'sign-out': 'sign_out',
+  'drag-handle': 'dots-six-vertical',
+  'sign-out': 'sign-out',
   keyboard: 'keyboard',
-  // Status and messages
   warning: 'warning',
-  error: 'error_circle',
-  'check-circle': 'checkmark_circle',
-  'dismiss-circle': 'dismiss_circle',
-  question: 'question_circle',
-  bell: 'alert',
+  error: 'warning-circle',
+  'check-circle': 'check-circle',
+  'dismiss-circle': 'x-circle',
+  question: 'question',
+  bell: 'bell',
   timer: 'timer',
-  calendar: 'calendar_ltr',
-  schedule: 'calendar_clock',
-  trigger: 'flash',
-  // People and access
-  person: 'person',
-  'person-add': 'person_add',
-  claim: 'person_arrow_left',
-  assign: 'person_arrow_right',
-  reassign: 'person_swap',
-  people: 'people',
-  team: 'people_team',
+  calendar: 'calendar-blank',
+  schedule: 'calendar-dots',
+  trigger: 'lightning',
+  person: 'user',
+  'person-add': 'user-plus',
+  claim: 'hand-arrow-down',
+  assign: 'hand-arrow-up',
+  reassign: 'user-switch',
+  people: 'users',
+  team: 'users-three',
   key: 'key',
-  secret: 'key_multiple',
-  lock: 'lock_closed',
+  secret: 'vault',
+  lock: 'lock',
   shield: 'shield',
-  audit: 'shield_task',
-  settings: 'settings',
+  audit: 'shield-check',
+  settings: 'gear-six',
   eye: 'eye',
-  'eye-off': 'eye_off',
-  // Content and versions
-  history: 'history',
-  compare: 'branch_compare',
+  'eye-off': 'eye-slash',
+  history: 'clock-counter-clockwise',
+  compare: 'git-diff',
   code: 'code',
-  yaml: 'code_block',
-  document: 'document',
-  'document-text': 'document_text',
+  yaml: 'brackets-curly',
+  document: 'file',
+  'document-text': 'file-text',
   notes: 'note',
-  comment: 'comment',
+  comment: 'chat-text',
   tag: 'tag',
   folder: 'folder',
-  'folder-open': 'folder_open',
-  mail: 'mail',
-  list: 'text_bullet_list_ltr',
-  // Views and canvas
-  'view-table': 'table_simple',
-  'view-board': 'board_split',
-  'view-gallery': 'grid',
-  board: 'board',
-  grid: 'grid',
-  'zoom-in': 'zoom_in',
-  'zoom-out': 'zoom_out',
-  'zoom-fit': 'zoom_fit',
-  'auto-arrange': 'organization_horizontal',
-  // Objects
-  workflow: 'flow',
-  task: 'task_list_ltr',
-  dashboard: 'board',
+  'folder-open': 'folder-open',
+  mail: 'envelope',
+  list: 'list-bullets',
+  'view-table': 'table',
+  'view-board': 'kanban',
+  'view-gallery': 'squares-four',
+  board: 'layout',
+  grid: 'squares-four',
+  'zoom-in': 'magnifying-glass-plus',
+  'zoom-out': 'magnifying-glass-minus',
+  'zoom-fit': 'corners-out',
+  'auto-arrange': 'tree-view',
+  workflow: 'tree-structure',
+  task: 'check-square',
+  dashboard: 'gauge',
   database: 'database',
-  server: 'server',
-  contrast: 'dark_theme',
+  server: 'hard-drives',
+  contrast: 'circle-half',
   globe: 'globe',
+  leaf: 'leaf',
+  plant: 'plant',
+  tree: 'tree',
 }
 
-const iconDir = fileURLToPath(new URL('../node_modules/@fluentui/svg-icons/icons/', import.meta.url))
+const assets = fileURLToPath(new URL('../node_modules/@phosphor-icons/core/assets/', import.meta.url))
 const target = fileURLToPath(new URL('../src/icons/paths.ts', import.meta.url))
 
-const entries = Object.entries(WANTED).map(([name, base]) => {
-  const svg = readFileSync(`${iconDir}${base}_20_regular.svg`, 'utf8')
-  const paths = [...svg.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1])
-  if (paths.length === 0) throw new Error(`no path found in ${base}`)
-  const markup = paths.map((d) => `<path d="${d}"/>`).join('')
-  return `  '${name}': '${markup}',`
-})
+function paths(weight, base) {
+  const file = weight === 'fill' ? `${assets}fill/${base}-fill.svg` : `${assets}regular/${base}.svg`
+  const svg = readFileSync(file, 'utf8')
+  const found = [...svg.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1])
+  if (found.length === 0) throw new Error(`no path found in ${file}`)
+  return found.map((d) => `<path d="${d}"/>`).join('')
+}
 
-const generated = `// Generated by scripts/generate-icons.mjs from Fluent System Icons (MIT, Microsoft). Do not edit.
-// 20x20 grid, filled paths drawn in currentColor. The product logo is separate (WorkTreeLogo.vue).
+const entries = (weight) =>
+  Object.entries(WANTED).map(([name, base]) => `  '${name}': '${paths(weight, base)}',`)
+
+const generated = `// Generated by scripts/generate-icons.mjs from Phosphor Icons (MIT, Phosphor Icons). Do not edit.
+// 256x256 grid, filled paths drawn in currentColor. The product logo is separate (WorkTreeLogo.vue).
 export const ICONS = {
-${entries.join('\n')}
+${entries('regular').join('\n')}
 } as const
 
 export type IconName = keyof typeof ICONS
+
+export const ICONS_FILL: Record<IconName, string> = {
+${entries('fill').join('\n')}
+}
 `
 
 if (process.argv.includes('--check')) {

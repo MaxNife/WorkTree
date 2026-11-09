@@ -30,7 +30,7 @@ defineSlots<{ default(props: { item: T }): unknown }>()
 .board__column {
   flex: 0 0 280px;
   padding: var(--uaf-gap);
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
 }
@@ -41,7 +41,7 @@ defineSlots<{ default(props: { item: T }): unknown }>()
   margin-bottom: var(--uaf-gap);
 }
 .board__title {
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 .board__count {
   color: var(--uaf-text-muted);

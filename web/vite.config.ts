@@ -2,12 +2,9 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
-// Fluent web components are custom elements (<fluent-*>); only our wrappers use them.
 export default defineConfig({
   plugins: [
-    vue({
-      template: { compilerOptions: { isCustomElement: (tag) => tag.startsWith('fluent-') } },
-    }),
+    vue(),
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // /api carries REST and the live-event WebSocket; /health is the unauthenticated probe.
@@ -21,6 +18,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/setup.ts'],
     globals: false,
     restoreMocks: true,
   },

@@ -59,6 +59,6 @@ onBeforeUnmount(() => clearTimeout(timer))
   gap: var(--uaf-gap);
 }
 .filter-bar__search {
-  margin-right: var(--spacingHorizontalS);
+  margin-right: var(--space-8);
 }
 </style>

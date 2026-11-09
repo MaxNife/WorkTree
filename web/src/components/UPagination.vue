@@ -34,11 +34,11 @@ function next(): void {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
 }
 .pagination__range {
-  margin-right: var(--spacingHorizontalS);
+  margin-right: var(--space-8);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 </style>

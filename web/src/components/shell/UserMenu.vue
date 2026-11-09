@@ -156,10 +156,10 @@ function signOut(): void {
 .user-menu__trigger {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   max-width: 220px;
   height: var(--uaf-control-height);
-  padding: 0 var(--spacingHorizontalS);
+  padding: 0 var(--space-8);
   border: 0;
   border-radius: var(--uaf-radius);
   background: none;
@@ -178,28 +178,28 @@ function signOut(): void {
 }
 .user-menu__panel {
   position: absolute;
-  top: calc(100% + var(--spacingVerticalXS));
+  top: calc(100% + var(--space-4));
   right: 0;
   z-index: 20;
   min-width: 220px;
-  padding: var(--spacingVerticalXS);
-  border: var(--strokeWidthThin) solid var(--uaf-border-strong);
+  padding: var(--space-4);
+  border: var(--stroke-1) solid var(--uaf-border-strong);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-raised);
 }
 .user-menu__heading {
   margin: 0;
-  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  padding: var(--space-4) var(--space-8);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .user-menu__item {
   display: flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   width: 100%;
   min-height: var(--uaf-control-height);
-  padding: 0 var(--spacingHorizontalS);
+  padding: 0 var(--space-8);
   border: 0;
   border-radius: var(--uaf-radius);
   background: none;
@@ -217,7 +217,7 @@ function signOut(): void {
   width: 16px;
 }
 .user-menu__separator {
-  margin: var(--spacingVerticalXS) 0;
-  border-top: var(--strokeWidthThin) solid var(--uaf-border);
+  margin: var(--space-4) 0;
+  border-top: var(--stroke-1) solid var(--uaf-border);
 }
 </style>

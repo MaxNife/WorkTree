@@ -26,7 +26,7 @@ defineSlots<{ [K: `cell-${string}`]: (props: { row: T; value: unknown }) => unkn
 
 // A click on one of these inside a row belongs to that control, not to the row.
 const NESTED_CONTROLS =
-  'a, button, input, select, textarea, label, summary, [role="button"], [role="link"], [tabindex], fluent-button, fluent-checkbox, fluent-switch, fluent-text-input, fluent-textarea, fluent-dropdown'
+  'a, button, input, select, textarea, label, summary, [role="button"], [role="link"], [tabindex]'
 
 const body = ref<HTMLElement>()
 const focusedKey = ref<string>()
@@ -141,7 +141,7 @@ th,
 td {
   height: var(--uaf-row-height);
   padding: var(--uaf-cell-padding);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
   text-align: start;
 }
 th {
@@ -150,8 +150,8 @@ th {
   z-index: 1;
   background: var(--uaf-surface);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
-  font-weight: var(--fontWeightSemibold);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
 }
 .data-table__cell--end {
   text-align: end;
@@ -159,7 +159,7 @@ th {
 .data-table__sort {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
   padding: 0;
   border: 0;
   background: none;
@@ -181,7 +181,7 @@ th {
   cursor: pointer;
 }
 .data-table__row:focus-visible {
-  outline: var(--strokeWidthThick) solid var(--uaf-focus);
-  outline-offset: calc(var(--strokeWidthThick) * -1);
+  outline: var(--stroke-2) solid var(--uaf-focus);
+  outline-offset: calc(var(--stroke-2) * -1);
 }
 </style>

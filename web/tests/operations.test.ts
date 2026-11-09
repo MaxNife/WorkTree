@@ -18,22 +18,6 @@ import { contrastRatio, THEMES } from '@/theme/tokens'
 import { readRunFilters, sinceFor, writeRunFilters } from '@/views/operations/filters'
 import { stepLog, readRunDetail } from '@/views/operations/model'
 
-// What Fluent gives these tests: a <dialog> in a shadow root and the <textarea> it exposes.
-const backdropClick = vi.fn()
-class StubDialog extends HTMLElement {
-  inner = document.createElement('dialog')
-  constructor() {
-    super()
-    this.attachShadow({ mode: 'open' }).append(this.inner)
-    this.inner.addEventListener('click', backdropClick)
-  }
-}
-class StubTextArea extends HTMLElement {
-  controlEl = document.createElement('textarea')
-}
-customElements.define('fluent-dialog', StubDialog)
-customElements.define('fluent-textarea', StubTextArea)
-
 class FakeSocket {
   static instances: FakeSocket[] = []
   onopen: (() => void) | null = null
@@ -201,12 +185,12 @@ function select(label: string) {
 }
 
 async function button(text: string): Promise<void> {
-  const target = wrapper!.findAll('fluent-button').find((item) => item.text() === text)
+  const target = wrapper!.findAll('button.u-button').find((item) => item.text() === text)
   if (!target) throw new Error(`no button "${text}"`)
   await target.trigger('click')
 }
 
-const hasButton = (text: string): boolean => wrapper!.findAll('fluent-button').some((item) => item.text() === text)
+const hasButton = (text: string): boolean => wrapper!.findAll('button.u-button').some((item) => item.text() === text)
 
 const socket = (): FakeSocket => FakeSocket.instances.at(-1)!
 
@@ -215,7 +199,6 @@ beforeEach(() => {
   document.body.innerHTML = ''
   document.cookie = 'uaf_csrf=tok-1'
   FakeSocket.instances = []
-  backdropClick.mockClear()
   vi.stubGlobal('WebSocket', FakeSocket)
 })
 
@@ -297,7 +280,7 @@ describe('run history', () => {
 
   it('pages through the URL', async () => {
     const { router, fetchMock } = await mountApp('/operations/runs', { roles: ['viewer'], runs, total: 60 })
-    const next = wrapper!.findAll('nav[aria-label="Pagination"] fluent-button').at(-1)!
+    const next = wrapper!.findAll('nav[aria-label="Pagination"] button.u-button').at(-1)!
     await next.trigger('click')
     await settle()
     expect(router.currentRoute.value.query.offset).toBe('25')
@@ -556,7 +539,7 @@ describe('run now', () => {
 
   const startCalls = (fetchMock: FetchMock) => calls(fetchMock, (url, init) => url.pathname === '/api/workflows/w1/run' && init?.method === 'POST')
   const keyOf = (call: [string, RequestInit?]) => (call[1]?.headers as Record<string, string>)['Idempotency-Key']
-  const dialogButton = (text: string) => wrapper!.findAll('[slot="action"] fluent-button').find((item) => item.text() === text)!
+  const dialogButton = (text: string) => wrapper!.findAll('.u-dialog__footer button.u-button').find((item) => item.text() === text)!
 
   it('hides Run now from those who cannot trigger runs', async () => {
     await mountApp('/operations?run=1', { roles: ['viewer'] })
@@ -777,11 +760,9 @@ describe('schedules', () => {
 describe('shared component gaps', () => {
   const options = [{ value: 'a', label: 'A' }]
 
-  it('USelect ties its help and error text to the combobox', async () => {
+  it('USelect ties its help and error text to the select', async () => {
     const select = mount(USelect, { props: { label: 'State', options, description: 'Help', error: 'Wrong' } })
-    const dropdown = select.get('fluent-dropdown').element
-    const control = dropdown.appendChild(document.createElement('div'))
-    control.setAttribute('role', 'combobox')
+    const control = select.get('select').element
     await select.setProps({ error: 'Still wrong' })
     expect(select.text()).toContain('Help')
     expect(select.text()).toContain('Still wrong')
@@ -793,35 +774,34 @@ describe('shared component gaps', () => {
     expect(control.hasAttribute('aria-describedby')).toBe(false)
   })
 
-  it('USelect leaves the same room above its control as a text input', () => {
-    const source = readFileSync(resolve(__dirname, '../src/components/USelect.vue'), 'utf8')
-    expect(source).toMatch(/\.u-field__label \{[^}]*line-height: var\(--lineHeightBase200\)[^}]*margin-bottom: var\(--spacingVerticalXXS\)/)
-    expect(source).toMatch(/\.u-field \{[^}]*gap: var\(--spacingVerticalXXS\)/)
+  it('USelect, UTextInput and UTextArea share one field layout, so their controls line up in a row', () => {
+    for (const name of ['USelect', 'UTextInput', 'UTextArea']) {
+      const source = readFileSync(resolve(__dirname, `../src/components/${name}.vue`), 'utf8')
+      expect(source, name).toContain('class="u-field__label"')
+      expect(source, name).toMatch(/class="u-control/)
+    }
   })
 
-  it('UTextArea gives its help and error text to the inner textarea', async () => {
+  it('UTextArea ties its help and error text to the textarea', async () => {
     const area = mount(UTextArea, { props: { label: 'Inputs', description: 'Help', error: 'Wrong' } })
-    const inner = (area.get('fluent-textarea').element as StubTextArea).controlEl
+    const inner = area.get('textarea').element
     expect(area.text()).toContain('Wrong')
     expect(inner.getAttribute('aria-invalid')).toBe('true')
-    expect(inner.getAttribute('aria-description')).toBe('Wrong Help')
+    const ids = inner.getAttribute('aria-describedby')!.split(' ')
+    expect(ids.map((id) => area.element.querySelector(`[id="${id}"]`)?.textContent?.trim())).toEqual(['Wrong', 'Help'])
     await area.setProps({ error: undefined, description: undefined })
     expect(inner.hasAttribute('aria-invalid')).toBe(false)
-    expect(inner.hasAttribute('aria-description')).toBe(false)
+    expect(inner.hasAttribute('aria-describedby')).toBe(false)
   })
 
-  function clickBackdrop(dialog: VueWrapper): void {
-    ;(dialog.get('fluent-dialog').element as StubDialog).inner.click()
-  }
-
-  it('UDialog stops a backdrop click only when persistent', () => {
-    const persistent = mount(UDialog, { props: { title: 'Edit', persistent: true }, attachTo: document.body })
-    clickBackdrop(persistent)
-    expect(backdropClick).not.toHaveBeenCalled()
+  it('UDialog closes on a backdrop click only when not persistent', async () => {
+    const persistent = mount(UDialog, { props: { title: 'Edit', persistent: true, open: true }, attachTo: document.body })
+    await persistent.get('dialog').trigger('click')
+    expect(persistent.emitted('update:open')).toBeUndefined()
     persistent.unmount()
-    const plain = mount(UDialog, { props: { title: 'Edit' }, attachTo: document.body })
-    clickBackdrop(plain)
-    expect(backdropClick).toHaveBeenCalledOnce()
+    const plain = mount(UDialog, { props: { title: 'Edit', open: true }, attachTo: document.body })
+    await plain.get('dialog').trigger('click')
+    expect(plain.emitted('update:open')?.[0]).toEqual([false])
     plain.unmount()
   })
 
@@ -835,7 +815,7 @@ describe('shared component gaps', () => {
     dialog.get('#inner').element.addEventListener('click', heard)
     await dialog.get('#inner').trigger('click')
     expect(heard).toHaveBeenCalledOnce()
-    await dialog.get('[slot="close"]').trigger('click')
+    await dialog.get('[aria-label="Close dialog"]').trigger('click')
     expect(dialog.emitted('update:open')?.at(-1)).toEqual([false])
     dialog.unmount()
   })
@@ -844,7 +824,7 @@ describe('shared component gaps', () => {
     const source = readFileSync(resolve(__dirname, '../src/components/UTabs.vue'), 'utf8')
     expect(source).toContain('border-bottom-color: var(--uaf-accent-text)')
     for (const theme of Object.values(THEMES)) {
-      expect(contrastRatio(String(theme.colorBrandForeground1), String(theme.colorNeutralBackground1))).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(String(theme['color-accent-text']), String(theme['color-surface']))).toBeGreaterThanOrEqual(3)
     }
   })
 })

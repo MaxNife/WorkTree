@@ -29,14 +29,14 @@ async function copy(): Promise<void> {
 }
 .code-block__text {
   margin: 0;
-  padding: var(--spacingVerticalS) var(--spacingHorizontalM);
-  padding-inline-end: calc(var(--uaf-control-height) + var(--spacingHorizontalS));
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  padding: var(--space-8) var(--space-12);
+  padding-inline-end: calc(var(--uaf-control-height) + var(--space-8));
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
   color: var(--uaf-text);
   font-family: var(--uaf-font-mono, monospace);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
   overflow: auto;
 }
 .code-block__text--wrap {
@@ -45,7 +45,7 @@ async function copy(): Promise<void> {
 }
 .code-block__copy {
   position: absolute;
-  top: var(--spacingVerticalXS);
-  right: var(--spacingHorizontalXS);
+  top: var(--space-4);
+  right: var(--space-4);
 }
 </style>

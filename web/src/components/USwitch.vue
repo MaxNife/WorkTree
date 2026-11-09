@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Thin wrapper over <fluent-switch> with v-model support.
+// A switch with v-model support: a checkbox announced as a switch.
 import ToggleControl from './ToggleControl.vue'
 
 const model = defineModel<boolean>({ default: false })
@@ -9,7 +9,7 @@ defineProps<{ label: string; disabled?: boolean; description?: string; error?: s
 <template>
   <ToggleControl
     v-model="model"
-    control="fluent-switch"
+    control="switch"
     :label="label"
     :disabled="disabled"
     :description="description"

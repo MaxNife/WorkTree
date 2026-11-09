@@ -27,23 +27,23 @@ withDefaults(defineProps<{ size?: number; markOnly?: boolean }>(), { size: 20 })
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
 }
 .logo__trunk {
-  stroke: var(--wordmarkTree);
+  stroke: var(--wordmark-tree);
 }
 .logo__leaf {
-  stroke: var(--wordmarkWork);
+  stroke: var(--wordmark-work);
 }
 .logo__word {
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
   line-height: 1;
   letter-spacing: -0.01em;
 }
 .logo__work {
-  color: var(--wordmarkWork);
+  color: var(--wordmark-work);
 }
 .logo__tree {
-  color: var(--wordmarkTree);
+  color: var(--wordmark-tree);
 }
 </style>

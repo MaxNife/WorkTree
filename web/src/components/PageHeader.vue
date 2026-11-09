@@ -20,24 +20,24 @@ defineProps<{ title: string; subtitle?: string }>()
 <style scoped>
 .page-header {
   display: grid;
-  gap: var(--spacingVerticalXS);
+  gap: var(--space-4);
   padding-bottom: var(--uaf-gap);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .page-header__row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--spacingVerticalS) var(--spacingHorizontalL);
+  gap: var(--space-8) var(--space-16);
 }
 .page-header__titles {
   flex: 1 1 32ch;
   min-width: 0;
 }
 .page-header__title {
-  font-size: var(--fontSizeBase600);
-  line-height: var(--lineHeightBase600);
+  font-size: var(--font-size-24);
+  line-height: var(--line-height-32);
   overflow-wrap: anywhere;
 }
 .page-header__subtitle {
@@ -50,7 +50,7 @@ defineProps<{ title: string; subtitle?: string }>()
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   max-width: 100%;
 }
 </style>

@@ -40,7 +40,7 @@ Example:
 ```
 feat(web): add the frontend foundation and design tokens
 
-Vite, Vue 3 and strict TypeScript scaffold with Fluent wrappers, three
+Vite, Vue 3 and strict TypeScript scaffold with our own controls, three
 themes that follow the OS, a typed API client generated from the
 OpenAPI file, and the shared components. Locked UI decisions are in
 docs/design-language.md.

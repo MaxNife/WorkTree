@@ -166,13 +166,13 @@ watch(
 <style scoped>
 .dashboard {
   display: grid;
-  gap: var(--spacingVerticalXXL);
+  gap: var(--space-24);
   min-width: 0;
 }
 .numbers {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacingVerticalM) var(--spacingHorizontalXXXL);
+  gap: var(--space-12) var(--space-32);
   margin: 0;
 }
 .numbers__item {
@@ -181,18 +181,18 @@ watch(
 }
 .numbers__item dt {
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
-  line-height: var(--lineHeightBase200);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
 }
 .numbers__item dd {
   margin: 0;
 }
 .numbers__value {
   color: var(--uaf-text);
-  font-size: var(--fontSizeBase600);
-  font-weight: var(--fontWeightSemibold);
+  font-size: var(--font-size-24);
+  font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
-  line-height: var(--lineHeightBase600);
+  line-height: var(--line-height-32);
   text-decoration: none;
 }
 .numbers__value:hover {
@@ -203,33 +203,33 @@ watch(
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--spacingHorizontalM);
-  margin-bottom: var(--spacingVerticalS);
+  gap: var(--space-12);
+  margin-bottom: var(--space-8);
 }
 .section-head h2 {
-  font-size: var(--fontSizeBase400);
-  line-height: var(--lineHeightBase400);
+  font-size: var(--font-size-16);
+  line-height: var(--line-height-22);
 }
 .quiet {
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
   white-space: nowrap;
 }
 .attention {
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: var(--strokeWidthThin) solid var(--uaf-border);
+  border-top: var(--stroke-1) solid var(--uaf-border);
 }
 /* Each row is its own grid, so the columns are fixed to line up. */
 .attention__item {
   display: grid;
   grid-template-columns: 12ch minmax(0, 2fr) minmax(0, 3fr) 9ch;
   align-items: center;
-  gap: var(--spacingHorizontalM);
+  gap: var(--space-12);
   min-height: var(--uaf-row-height);
   padding: var(--uaf-cell-padding);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .attention__name {
   overflow-wrap: anywhere;

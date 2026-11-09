@@ -51,14 +51,14 @@ function onKeydown(event: KeyboardEvent, index: number): void {
 <style scoped>
 .tabs {
   display: flex;
-  gap: var(--spacingHorizontalL);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  gap: var(--space-16);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .tabs__tab {
   display: inline-flex;
-  gap: var(--spacingHorizontalXS);
-  margin-bottom: calc(var(--strokeWidthThin) * -1);
-  padding: var(--spacingVerticalS) 0;
+  gap: var(--space-4);
+  margin-bottom: calc(var(--stroke-1) * -1);
+  padding: var(--space-8) 0;
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
@@ -72,7 +72,7 @@ function onKeydown(event: KeyboardEvent, index: number): void {
 .tabs__tab--selected {
   border-bottom-color: var(--uaf-accent-text);
   color: var(--uaf-text);
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 .tabs__count {
   color: var(--uaf-text-muted);

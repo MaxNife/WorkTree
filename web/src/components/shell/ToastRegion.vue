@@ -42,24 +42,24 @@ const regions = computed(() => [
 <style scoped>
 .toasts {
   position: fixed;
-  right: var(--spacingHorizontalL);
-  bottom: var(--spacingVerticalL);
+  right: var(--space-16);
+  bottom: var(--space-16);
   z-index: 40;
   display: grid;
-  gap: var(--spacingVerticalS);
-  width: min(360px, calc(100vw - 2 * var(--spacingHorizontalL)));
+  gap: var(--space-8);
+  width: min(360px, calc(100vw - 2 * var(--space-16)));
   pointer-events: none;
 }
 .toasts__region {
   display: grid;
-  gap: var(--spacingVerticalS);
+  gap: var(--space-8);
 }
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: var(--spacingHorizontalS);
-  padding: var(--spacingVerticalS) var(--spacingHorizontalM);
-  border: var(--strokeWidthThin) solid var(--uaf-border-strong);
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border: var(--stroke-1) solid var(--uaf-border-strong);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-raised);
   pointer-events: auto;

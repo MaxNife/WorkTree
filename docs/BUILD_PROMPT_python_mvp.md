@@ -68,6 +68,8 @@ An activity has a name, `category`, a pydantic input schema, and `run(ctx, input
 Workers are plain Python processes that pull jobs from the bus, resolve the job's secret refs from the secret store for that one call only (passed by stdin/env to the child, never written to the workspace, run records or logs), run the activity, and return the result envelope. Support several workers in parallel on one machine, and a per-run workspace that is a normal folder (so it could later be a shared path). Keep the envelope documented and language-neutral (JSON schema in `docs/ENVELOPE.md`) so a .NET or other worker could implement it later.
 
 ### 4. Experience layer (a blend of Microsoft, n8n and Notion)
+> **Superseded on 2026-11-06 (DECISIONS 13.1):** the Fluent UI Web Components, Fluent System Icons and the "Microsoft look" below were replaced by WorkTree's own design language: our own Vue components on native elements, warm tokens and Phosphor icons. `docs/design-language.md` is the current source; the rest of this prompt is kept as written.
+
 One **Vue 3 + TypeScript (strict)** single-page app using the Composition API and `<script setup>`, built with Vite and served by FastAPI (commit the built bundle so running the platform doesn't need Node). Stack: Vue Router, Pinia for client state, TanStack Query for Vue (`@tanstack/vue-query`) for server state, `vue-tsc` for type checks, Vitest for unit tests, and **Vue Flow** (`@vue-flow/core`, MIT) for the Studio canvas. For the Microsoft look use Microsoft's **Fluent UI Web Components** (`@fluentui/web-components`, MIT, framework-agnostic so they work in Vue) as the base component set, wrapped in our own thin Vue components; if a needed component is missing there (for example a full-featured data grid), build it ourselves on the same design tokens rather than adding a second UI kit.
 
 **Design direction: take the best of three, copy none of them.** Build our own design tokens, icons and wording; do not reuse any assets, branding or code from n8n, Notion or Microsoft beyond the Fluent UI library itself.
@@ -187,5 +189,5 @@ Evidence: `docs/research/research-14`, `research-15`, https://docs.n8n.io.
 `docs/UI_reference_list.md` names reference products for 9 areas: app shell, operations dashboard, run detail, Studio canvas, node properties, Task Inbox, data views, page-like detail, and admin/audit.
 - Use each product only for the area it is listed under.
 - Resolve conflicts with the order in section 4: Microsoft for dense operational data and accessibility, n8n for the canvas, Notion for navigation, page layout and feel.
-- Take patterns only. Use no assets, branding, icons, code or wording from any listed product. Fluent UI Web Components remains the only UI library.
+- Take patterns only. Use no assets, branding, icons, code or wording from any listed product. (Superseded 2026-11-06, DECISIONS 13.1: no UI library is used; icons are Phosphor, MIT, copied by a generator.)
 - Record the chosen pattern per area in `docs/design-language.md`.

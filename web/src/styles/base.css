@@ -1,59 +1,75 @@
-/* Semantic variables built on the theme tokens (src/theme/tokens.ts writes --colorNeutral*, etc.).
-   Components use --uaf-* only; they never hard-code colours. */
+/* Semantic variables built on the theme tokens (src/theme/tokens.ts writes --color-*, etc.).
+   Components use --uaf-* for colour and the token scale for sizes; they never hard-code colours. */
 :root {
-  --uaf-surface: var(--colorNeutralBackground1);
-  --uaf-surface-raised: var(--colorNeutralBackground1);
-  --uaf-surface-sunken: var(--colorNeutralBackground3);
-  --uaf-surface-hover: var(--colorSubtleBackgroundHover);
-  --uaf-surface-selected: var(--colorSubtleBackgroundSelected);
-  --uaf-text: var(--colorNeutralForeground1);
-  --uaf-text-muted: var(--colorNeutralForeground3);
-  --uaf-text-disabled: var(--colorNeutralForegroundDisabled);
-  --uaf-border: var(--colorNeutralStroke2);
-  --uaf-border-strong: var(--colorNeutralStroke1);
+  --uaf-page: var(--color-page);
+  --uaf-surface: var(--color-surface);
+  --uaf-surface-raised: var(--color-surface);
+  --uaf-surface-sunken: var(--color-surface-sunken);
+  --uaf-surface-hover: var(--color-surface-hover);
+  --uaf-surface-pressed: var(--color-surface-pressed);
+  --uaf-surface-selected: var(--color-surface-selected);
+  --uaf-surface-disabled: var(--color-surface-disabled);
+  --uaf-text: var(--color-text);
+  --uaf-text-secondary: var(--color-text-secondary);
+  --uaf-text-muted: var(--color-text-muted);
+  --uaf-text-disabled: var(--color-text-disabled);
+  --uaf-border: var(--color-border);
+  --uaf-border-strong: var(--color-border-strong);
+  /* The edge of something you can type in or tick: 3:1 against the surface. */
+  --uaf-border-control: var(--color-border-control);
   /* --uaf-accent is a fill with --uaf-on-accent on top. A small mark on a surface (a dot, an
      underline) uses --uaf-accent-text, which keeps 3:1 against the page in every theme. */
-  --uaf-accent: var(--colorBrandBackground);
-  --uaf-accent-text: var(--colorBrandForeground1);
-  --uaf-on-accent: var(--colorNeutralForegroundOnBrand);
-  --uaf-link: var(--colorBrandForegroundLink);
-  --uaf-link-hover: var(--colorBrandForegroundLinkHover);
-  --uaf-focus: var(--colorStrokeFocus2);
-  --uaf-focus-width: var(--strokeWidthThick);
-  --uaf-radius: var(--borderRadiusMedium); /* controls */
-  --uaf-radius-container: var(--borderRadiusSmall); /* panels, cards, tables */
-  --uaf-font: var(--fontFamilyBase);
-  --uaf-font-mono: var(--fontFamilyMonospace);
+  --uaf-accent: var(--color-accent);
+  --uaf-accent-hover: var(--color-accent-hover);
+  --uaf-accent-pressed: var(--color-accent-pressed);
+  --uaf-accent-tint: var(--color-accent-tint);
+  --uaf-accent-text: var(--color-accent-text);
+  --uaf-on-accent: var(--color-text-on-accent);
+  /* A ticked checkbox or an on switch: the mark on top is --uaf-surface. */
+  --uaf-control: var(--color-control);
+  --uaf-control-hover: var(--color-control-hover);
+  --uaf-control-pressed: var(--color-control-pressed);
+  --uaf-link: var(--color-link);
+  --uaf-link-hover: var(--color-link-hover);
+  --uaf-focus: var(--color-focus);
+  --uaf-focus-width: var(--stroke-2);
+  --uaf-radius: var(--radius-control); /* controls */
+  --uaf-radius-container: var(--radius-container); /* panels, cards, tables */
+  --uaf-shadow-float: var(--shadow-float); /* menus, popovers, toasts */
+  --uaf-shadow-overlay: var(--shadow-overlay); /* dialogs */
+  --uaf-overlay: var(--color-overlay);
+  --uaf-font: var(--font-family-base);
+  --uaf-font-mono: var(--font-family-mono);
 
   /* Status colours always come with an icon and text; colour is never the only signal. */
-  --uaf-ok: var(--colorPaletteGreenForeground1);
-  --uaf-ok-bg: var(--colorPaletteGreenBackground1);
-  --uaf-ok-border: var(--colorPaletteGreenBorder1);
-  --uaf-danger: var(--colorPaletteRedForeground1);
-  --uaf-danger-bg: var(--colorPaletteRedBackground1);
-  --uaf-danger-border: var(--colorPaletteRedBorder1);
-  --uaf-warn: var(--colorPaletteYellowForeground1);
-  --uaf-warn-bg: var(--colorPaletteYellowBackground1);
-  --uaf-warn-border: var(--colorPaletteYellowBorder1);
-  --uaf-attention: var(--colorPaletteDarkOrangeForeground1);
-  --uaf-attention-bg: var(--colorPaletteDarkOrangeBackground1);
-  --uaf-attention-border: var(--colorPaletteDarkOrangeBorder1);
+  --uaf-ok: var(--color-ok);
+  --uaf-ok-bg: var(--color-ok-bg);
+  --uaf-ok-border: var(--color-ok-border);
+  --uaf-danger: var(--color-danger);
+  --uaf-danger-bg: var(--color-danger-bg);
+  --uaf-danger-border: var(--color-danger-border);
+  --uaf-warn: var(--color-warn);
+  --uaf-warn-bg: var(--color-warn-bg);
+  --uaf-warn-border: var(--color-warn-border);
+  --uaf-attention: var(--color-attention);
+  --uaf-attention-bg: var(--color-attention-bg);
+  --uaf-attention-border: var(--color-attention-border);
   --uaf-dot-size: 8px;
 
   /* Density: compact by default (docs/design-language.md), comfortable on request. */
   --uaf-row-height: 32px;
-  --uaf-cell-padding: var(--spacingVerticalXS) var(--spacingHorizontalM);
-  --uaf-control-height: 28px;
-  --uaf-gap: var(--spacingHorizontalS);
-  --uaf-page-padding: var(--spacingHorizontalL);
+  --uaf-cell-padding: var(--space-4) var(--space-12);
+  --uaf-control-height: 30px;
+  --uaf-gap: var(--space-8);
+  --uaf-page-padding: var(--space-16);
 }
 
 :root[data-density='comfortable'] {
   --uaf-row-height: 44px;
-  --uaf-cell-padding: var(--spacingVerticalMNudge) var(--spacingHorizontalL);
+  --uaf-cell-padding: var(--space-10) var(--space-16);
   --uaf-control-height: 36px;
-  --uaf-gap: var(--spacingHorizontalM);
-  --uaf-page-padding: var(--spacingHorizontalXXL);
+  --uaf-gap: var(--space-12);
+  --uaf-page-padding: var(--space-24);
 }
 
 *,
@@ -69,46 +85,78 @@ body {
 }
 
 body {
-  background: var(--uaf-surface);
+  background: var(--uaf-page);
   color: var(--uaf-text);
   font-family: var(--uaf-font);
-  font-size: var(--fontSizeBase300);
-  line-height: var(--lineHeightBase300);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
 }
 
-/* Fluent controls draw their own ring; an outline here would add a second one. The dropdown's is
-   drawn around the button slotted inside it, which is why that button is listed. */
-:focus-visible:not(
-    fluent-button,
-    fluent-checkbox,
-    fluent-switch,
-    fluent-text-input,
-    fluent-textarea,
-    fluent-dropdown [role='combobox']
-  ) {
+:focus-visible {
   outline: var(--uaf-focus-width) solid var(--uaf-focus);
   outline-offset: var(--uaf-focus-width);
 }
 
-/* Fluent marks a focused text field with an underline only; the design language asks for a ring. */
-fluent-text-input:focus-within::part(root),
-fluent-textarea:focus-within::part(root) {
-  outline: var(--uaf-focus-width) solid var(--uaf-focus);
+/* The box shared by UTextInput, UTextArea and USelect, and the label above each one. */
+.u-control {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--uaf-control-height);
+  margin: 0;
+  padding: var(--space-4) var(--space-10);
+  border: var(--stroke-1) solid var(--uaf-border-control);
+  border-radius: var(--uaf-radius);
+  background: var(--uaf-surface);
+  color: var(--uaf-text);
+  font: inherit;
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-20);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
-
-/* The dropdown's box has no part to size, but its padding reads this token, so a local value sets
-   its height: the control height less Fluent's 20px line and the border. */
-fluent-dropdown {
-  --spacingVerticalSNudge: calc(
-    (var(--uaf-control-height) - var(--lineHeightBase300) - 2 * var(--strokeWidthThin)) / 2
-  );
+.u-control::placeholder {
+  color: var(--uaf-text-muted);
+  opacity: 1;
+}
+.u-control:hover:not(:disabled) {
+  border-color: var(--uaf-text-muted);
+}
+.u-control:focus-visible {
+  border-color: var(--uaf-accent-text);
+  outline-offset: 1px;
+}
+.u-control:disabled {
+  border-color: var(--uaf-border);
+  background: var(--uaf-surface-disabled);
+  color: var(--uaf-text-disabled);
+  cursor: not-allowed;
+}
+.u-control[aria-invalid='true'] {
+  border-color: var(--uaf-danger);
+}
+.u-field {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.u-field__label {
+  color: var(--uaf-text-secondary);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-16);
+  overflow-wrap: anywhere;
+}
+.u-field__required {
+  color: var(--uaf-danger);
+}
+.u-field--disabled .u-field__label {
+  color: var(--uaf-text-disabled);
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 
 a {
@@ -119,20 +167,7 @@ a:hover {
   color: var(--uaf-link-hover);
 }
 
-/* The duration tokens are inline on the root, and !important is what outranks them. Fluent's
-   shadow DOM is out of reach of the * rule below, but it reads these tokens. */
 @media (prefers-reduced-motion: reduce) {
-  :root {
-    --durationUltraFast: 0.01ms !important;
-    --durationFaster: 0.01ms !important;
-    --durationFast: 0.01ms !important;
-    --durationNormal: 0.01ms !important;
-    --durationGentle: 0.01ms !important;
-    --durationSlow: 0.01ms !important;
-    --durationSlower: 0.01ms !important;
-    --durationUltraSlow: 0.01ms !important;
-  }
-
   *,
   *::before,
   *::after {

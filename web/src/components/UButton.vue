@@ -1,7 +1,7 @@
 <script setup lang="ts">
-// Thin wrapper over <fluent-button>: screens never use Fluent elements directly. With an icon and no
-// text it becomes a square icon button, which needs `label` for its name. While `loading` it keeps
-// focus and refuses clicks, so a keyboard user does not lose their place during the work.
+// Our button: a native <button>. With an icon and no text it becomes a square icon button, which needs
+// `label` for its name. While `loading` it keeps focus (aria-disabled, not disabled) and refuses clicks,
+// so a keyboard user does not lose their place during the work.
 import { computed, useSlots } from 'vue'
 import type { IconName } from '@/icons/paths'
 import UIcon from './UIcon.vue'
@@ -23,7 +23,6 @@ const slots = useSlots()
 const shownIcon = computed(() => (props.loading ? 'retry' : props.icon))
 const iconOnly = computed(() => Boolean(shownIcon.value) && !slots.default)
 
-// Our listener runs before Fluent's, so Fluent's own block on a disabled-focusable click is too late.
 function onClick(event: MouseEvent): void {
   if (props.disabled || props.loading) event.preventDefault()
   else emit('click', event)
@@ -31,39 +30,104 @@ function onClick(event: MouseEvent): void {
 </script>
 
 <template>
-  <fluent-button
+  <button
     class="u-button"
-    :appearance="appearance"
-    :disabled="disabled || undefined"
-    :disabled-focusable="(loading && !disabled) || undefined"
-    :icon-only="iconOnly || undefined"
+    :class="[`u-button--${appearance}`, { 'u-button--icon-only': iconOnly }]"
     :type="type"
+    :disabled="disabled || undefined"
+    :aria-disabled="(loading && !disabled) || undefined"
     :aria-label="label"
     :aria-busy="loading || undefined"
     :title="iconOnly ? label : undefined"
-    size="small"
+    :data-appearance="appearance"
+    :data-icon-only="iconOnly || undefined"
     @click="onClick"
   >
-    <!-- eslint-disable-next-line vue/no-deprecated-slot-attribute -- native custom-element slot -->
-    <UIcon v-if="shownIcon" :slot="iconOnly ? undefined : 'start'" :class="{ 'u-button__spinner': loading }" :name="shownIcon" />
+    <UIcon v-if="shownIcon" :class="{ 'u-button__spinner': loading }" :name="shownIcon" :size="iconOnly ? 18 : 16" />
     <slot />
-  </fluent-button>
+  </button>
 </template>
 
 <style scoped>
 .u-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
   min-height: var(--uaf-control-height);
-  padding-inline: var(--spacingHorizontalM);
-  font-size: var(--fontSizeBase300);
-  line-height: var(--lineHeightBase300);
+  padding: 0 var(--space-12);
+  border: var(--stroke-1) solid transparent;
+  border-radius: var(--uaf-radius);
+  background: transparent;
+  color: var(--uaf-text);
+  font: inherit;
+  font-size: var(--font-size-14);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-20);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
 }
-.u-button[icon-only] {
-  min-width: var(--uaf-control-height);
-  max-width: var(--uaf-control-height);
+.u-button--primary {
+  background: var(--uaf-accent);
+  color: var(--uaf-on-accent);
+}
+.u-button--primary:hover {
+  background: var(--uaf-accent-hover);
+}
+.u-button--primary:active {
+  background: var(--uaf-accent-pressed);
+}
+.u-button--secondary {
+  background: var(--uaf-surface);
+  border-color: var(--uaf-border-strong);
+}
+.u-button--outline {
+  border-color: var(--uaf-border-strong);
+}
+.u-button--secondary:hover,
+.u-button--outline:hover,
+.u-button--subtle:hover {
+  background: var(--uaf-surface-hover);
+}
+.u-button--secondary:active,
+.u-button--outline:active,
+.u-button--subtle:active {
+  background: var(--uaf-surface-pressed);
+}
+.u-button--subtle {
+  font-weight: var(--weight-regular);
+}
+.u-button:disabled,
+.u-button[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+.u-button[aria-busy='true'] {
+  opacity: 0.8;
+}
+.u-button:disabled {
+  background: var(--uaf-surface-disabled);
+  border-color: transparent;
+  color: var(--uaf-text-disabled);
+}
+/* Windows High Contrast: every button gets a visible edge, and disabled reads as GrayText. */
+@media (forced-colors: active) {
+  .u-button {
+    border-color: ButtonText;
+  }
+  .u-button:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
+.u-button--icon-only {
+  width: var(--uaf-control-height);
   padding: 0;
 }
 .u-button__spinner {
-  animation: u-button-spin calc(2 * var(--durationUltraSlow)) linear infinite;
+  animation: u-button-spin calc(2 * var(--duration-slow)) linear infinite;
 }
 @keyframes u-button-spin {
   to {

@@ -64,20 +64,20 @@ async function submit(): Promise<void> {
   display: grid;
   place-items: center;
   min-height: 100%;
-  padding: var(--spacingVerticalXXL) var(--spacingHorizontalL);
+  padding: var(--space-24) var(--space-16);
   background: var(--uaf-surface-sunken);
 }
 .login__card {
   display: grid;
-  gap: var(--spacingVerticalM);
+  gap: var(--space-12);
   width: min(360px, 100%);
-  padding: var(--spacingVerticalXXL) var(--spacingHorizontalXXL);
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  padding: var(--space-24) var(--space-24);
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface);
 }
 .login__title {
-  font-size: var(--fontSizeBase500);
-  line-height: var(--lineHeightBase500);
+  font-size: var(--font-size-20);
+  line-height: var(--line-height-28);
 }
 </style>

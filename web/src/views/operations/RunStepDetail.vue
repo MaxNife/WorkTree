@@ -34,14 +34,14 @@ const log = computed(() => stepLog(props.step))
 .facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacingVerticalXXS) var(--spacingHorizontalM);
+  gap: var(--space-2) var(--space-12);
   margin: 0;
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .incidents {
   display: grid;
-  gap: var(--spacingVerticalXS);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;

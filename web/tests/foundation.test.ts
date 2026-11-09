@@ -143,7 +143,7 @@ describe('UPagination', () => {
   it('shows the range and disables previous on the first page', async () => {
     const pager = mountPager(0)
     expect(pager.text()).toContain('1-50 of 230')
-    const [previous, next] = pager.findAll('fluent-button')
+    const [previous, next] = pager.findAll('button')
     expect(previous?.attributes('aria-label')).toBe('Previous page')
     expect(previous?.attributes('disabled')).toBeDefined()
     expect(next?.attributes('aria-label')).toBe('Next page')
@@ -157,7 +157,7 @@ describe('UPagination', () => {
   it('caps the range and disables next on the last page', async () => {
     const pager = mountPager(200)
     expect(pager.text()).toContain('201-230 of 230')
-    const [previous, next] = pager.findAll('fluent-button')
+    const [previous, next] = pager.findAll('button')
     expect(next?.attributes('disabled')).toBeDefined()
     await next?.trigger('click')
     expect(pager.emitted('update:offset')).toBeUndefined()
@@ -175,74 +175,71 @@ describe('USelect', () => {
   it('renders the options and marks the selected one', () => {
     const select = mount(USelect, { props: { label: 'State', options, modelValue: 'b', placeholder: 'Pick one' } })
     expect(select.text()).toContain('State')
-    expect(select.get('fluent-dropdown').attributes('placeholder')).toBe('Pick one')
-    const items = select.findAll('fluent-listbox fluent-option')
+    const placeholder = select.get('option[value=""]')
+    expect(placeholder.text()).toBe('Pick one')
+    expect(placeholder.attributes('disabled')).toBeDefined()
+    const items = select.findAll('option:not([value=""])')
     expect(items.map((item) => item.attributes('value'))).toEqual(['a', 'b'])
-    expect(items[0]?.attributes('selected')).toBeUndefined()
-    expect(items[1]?.attributes('selected')).toBeDefined()
+    expect((items[0]?.element as HTMLOptionElement).selected).toBe(false)
+    expect((items[1]?.element as HTMLOptionElement).selected).toBe(true)
   })
 
-  it('is not wrapped in a label, which would reopen it after a pick', () => {
-    expect(mount(USelect, { props: { label: 'State', options } }).find('label').exists()).toBe(false)
+  it('names the select with its own label', () => {
+    const select = mount(USelect, { props: { label: 'State', options } })
+    expect(select.get('label').attributes('for')).toBe(select.get('select').attributes('id'))
   })
 
   it('updates the model from the change event', async () => {
     const select = mount(USelect, { props: { label: 'State', options, modelValue: 'a' } })
-    const dropdown = select.get('fluent-dropdown')
-    ;(dropdown.element as HTMLInputElement).value = 'b'
-    await dropdown.trigger('change')
+    const control = select.get('select')
+    ;(control.element as HTMLSelectElement).value = 'b'
+    await control.trigger('change')
     expect(select.emitted('update:modelValue')?.[0]).toEqual(['b'])
   })
 
-  it('names the combobox Fluent renders after mount and passes disabled', async () => {
-    const select = mount(USelect, { props: { label: 'State', options, disabled: true } })
-    const dropdown = select.get('fluent-dropdown')
-    expect(dropdown.attributes('disabled')).toBeDefined()
-    const control = document.createElement('button')
-    control.setAttribute('role', 'combobox')
-    dropdown.element.prepend(control)
-    await flushPromises()
-    expect(control.getAttribute('aria-labelledby')).toBe(select.get('.u-field__label').attributes('id'))
+  it('shows nothing as chosen while the model is empty, without a placeholder', async () => {
+    const select = mount(USelect, { props: { label: 'State', options, modelValue: '' } })
+    const control = select.get('select').element as HTMLSelectElement
+    expect(control.value).toBe('')
+    expect(select.get('option[value=""]').attributes('hidden')).toBeDefined()
+    control.value = 'a'
+    await select.get('select').trigger('change')
+    expect(select.emitted('update:modelValue')?.[0]).toEqual(['a'])
+    const withEmpty = mount(USelect, { props: { label: 'State', options: [{ value: '', label: 'Any' }, ...options], modelValue: '' } })
+    expect(withEmpty.findAll('option[value=""]')).toHaveLength(1)
   })
 
-  it('keeps Escape from reaching a dialog only while the list is open', async () => {
-    const select = mount(USelect, { props: { label: 'State', options } })
-    const dropdown = select.get('fluent-dropdown')
-    const press = () => {
-      const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-      dropdown.element.dispatchEvent(event)
-      return event.defaultPrevented
-    }
-    expect(press()).toBe(false)
-    ;(dropdown.element as HTMLElement & { open: boolean }).open = true
-    expect(press()).toBe(true)
+  it('passes disabled', () => {
+    const select = mount(USelect, { props: { label: 'State', options, disabled: true } })
+    expect(select.get('select').attributes('disabled')).toBeDefined()
+    expect(select.classes()).toContain('u-field--disabled')
   })
 })
 
 describe('UTextArea', () => {
-  it('updates its model, labels itself through the Fluent slot and sizes by rows', async () => {
+  it('updates its model, labels itself and sizes by rows', async () => {
     const area = mount(UTextArea, { props: { label: 'Notes', modelValue: '', rows: 5, required: true } })
-    const element = area.get('fluent-textarea')
-    expect(area.get('[slot="label"]').text()).toBe('Notes')
+    const element = area.get('textarea')
+    expect(area.get('label').attributes('for')).toBe(element.attributes('id'))
+    expect(area.get('label').text()).toContain('Notes')
     expect(element.attributes('required')).toBeDefined()
-    expect(element.attributes('style')).toContain('calc(5 *')
+    expect(element.attributes('rows')).toBe('5')
     ;(element.element as HTMLTextAreaElement).value = 'hello'
     await element.trigger('input')
     expect(area.emitted('update:modelValue')?.[0]).toEqual(['hello'])
   })
 
-  it('passes the first value as default-slot text, which Fluent keeps once connected', async () => {
+  it('follows the model from outside', async () => {
     const area = mount(UTextArea, { props: { label: 'Notes', modelValue: 'first' } })
-    const element = area.get('fluent-textarea')
-    expect(element.element.childNodes[element.element.childNodes.length - 1]?.textContent?.trim()).toBe('first')
+    const element = area.get('textarea').element as HTMLTextAreaElement
+    expect(element.value).toBe('first')
     await area.setProps({ modelValue: 'second' })
-    expect((element.element as HTMLTextAreaElement).value ?? element.attributes('value')).toBe('second')
-    expect(element.text()).not.toContain('second')
+    expect(element.value).toBe('second')
   })
 
   it('defaults to three rows', () => {
     const area = mount(UTextArea, { props: { label: 'Notes' } })
-    expect(area.get('fluent-textarea').attributes('style')).toContain('calc(3 *')
+    expect(area.get('textarea').attributes('rows')).toBe('3')
   })
 })
 
@@ -253,26 +250,25 @@ describe('UDialog', () => {
       props: { title: 'Edit', ...props },
       slots: { default: '<p>Body</p>', footer: '<button>Save</button>' },
     })
-    const element = dialog.get('fluent-dialog').element as HTMLElement & { show: () => void; hide: () => void }
-    element.show = vi.fn()
-    element.hide = vi.fn()
+    const element = dialog.get('dialog').element as HTMLDialogElement
+    vi.spyOn(element, 'showModal')
+    vi.spyOn(element, 'close')
     return { dialog, element }
   }
 
   it('names the dialog, sizes it and places the body and footer', () => {
     const dialog = mount(UDialog, { props: { title: 'Edit', size: 'large' }, slots: { default: '<p>Body</p>', footer: '<button>Save</button>' } })
-    const element = dialog.get('fluent-dialog')
-    expect(element.attributes('aria-label')).toBe('Edit')
+    const element = dialog.get('dialog')
+    expect(dialog.get(`[id="${element.attributes('aria-labelledby')}"]`).text()).toBe('Edit')
     expect(element.classes()).toContain('u-dialog--large')
-    expect(dialog.get('[slot="title"]').text()).toBe('Edit')
-    expect(dialog.get('fluent-dialog-body').text()).toContain('Body')
-    expect(dialog.get('[slot="action"]').text()).toBe('Save')
+    expect(dialog.get('.u-dialog__content').text()).toContain('Body')
+    expect(dialog.get('.u-dialog__footer').text()).toBe('Save')
   })
 
   it('uses the medium size and leaves out an empty footer by default', () => {
     const dialog = mount(UDialog, { props: { title: 'Edit' } })
-    expect(dialog.get('fluent-dialog').classes()).toContain('u-dialog--medium')
-    expect(dialog.find('[slot="action"]').exists()).toBe(false)
+    expect(dialog.get('dialog').classes()).toContain('u-dialog--medium')
+    expect(dialog.find('.u-dialog__footer').exists()).toBe(false)
   })
 
   it('shows on open and hides on close, returning focus', async () => {
@@ -280,58 +276,63 @@ describe('UDialog', () => {
     trigger.focus()
     const { dialog, element } = stubbedDialog()
     await dialog.setProps({ open: true })
-    expect(element.show).toHaveBeenCalledOnce()
-    ;(dialog.get('fluent-dialog-body').element as HTMLElement).tabIndex = -1
-    ;(dialog.get('fluent-dialog-body').element as HTMLElement).focus()
+    expect(element.showModal).toHaveBeenCalledOnce()
+    expect(element.hasAttribute('open')).toBe(true)
+    ;(dialog.get('.u-dialog__body').element as HTMLElement).tabIndex = -1
+    ;(dialog.get('.u-dialog__body').element as HTMLElement).focus()
     await dialog.setProps({ open: false })
-    expect(element.hide).toHaveBeenCalledOnce()
+    expect(element.close).toHaveBeenCalledOnce()
+    expect(element.hasAttribute('open')).toBe(false)
     expect(document.activeElement).toBe(trigger)
   })
 
   it('opens at mount when open is already true', () => {
-    const show = vi.fn()
-    const original = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'show')
-    Object.defineProperty(HTMLElement.prototype, 'show', { configurable: true, value: show })
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal')
     mount(UDialog, { props: { title: 'Edit', open: true } })
-    expect(show).toHaveBeenCalledOnce()
-    if (original) Object.defineProperty(HTMLElement.prototype, 'show', original)
-    else delete (HTMLElement.prototype as unknown as { show?: unknown }).show
+    expect(showModal).toHaveBeenCalledOnce()
   })
 
   it('sets open to false from the close button and Escape', async () => {
     const closing = stubbedDialog({ open: false })
     await closing.dialog.setProps({ open: true })
-    await closing.dialog.get('[slot="close"]').trigger('click')
+    await closing.dialog.get('[aria-label="Close dialog"]').trigger('click')
     expect(closing.dialog.emitted('update:open')?.[0]).toEqual([false])
 
     const escaping = stubbedDialog()
     await escaping.dialog.setProps({ open: true })
-    await escaping.dialog.get('fluent-dialog').trigger('keydown', { key: 'Escape' })
+    await escaping.dialog.get('dialog').trigger('keydown', { key: 'Escape' })
     expect(escaping.dialog.emitted('update:open')?.[0]).toEqual([false])
   })
 
   it('does not close on an Escape a child already handled', async () => {
     const { dialog } = stubbedDialog()
     await dialog.setProps({ open: true })
-    dialog.get('fluent-dialog-body').element.addEventListener('keydown', (event) => event.preventDefault())
-    await dialog.get('fluent-dialog-body').trigger('keydown', { key: 'Escape' })
+    dialog.get('.u-dialog__body').element.addEventListener('keydown', (event) => event.preventDefault())
+    await dialog.get('.u-dialog__body').trigger('keydown', { key: 'Escape' })
     expect(dialog.emitted('update:open')).toBeUndefined()
   })
 
-  it('follows a close made by Fluent without hiding twice', async () => {
+  it('turns the browser cancel (Escape) into a close through the model', async () => {
     const { dialog, element } = stubbedDialog()
     await dialog.setProps({ open: true })
-    element.dispatchEvent(new CustomEvent('toggle', { detail: { newState: 'closed' } }))
+    const cancel = new Event('cancel', { cancelable: true })
+    element.dispatchEvent(cancel)
+    expect(cancel.defaultPrevented).toBe(true)
     expect(dialog.emitted('update:open')?.[0]).toEqual([false])
-    await dialog.setProps({ open: false })
-    expect(element.hide).not.toHaveBeenCalled()
   })
 
-  it('ignores a toggle bubbling up from something inside', async () => {
-    const { dialog } = stubbedDialog()
-    await dialog.setProps({ open: true })
-    dialog.get('fluent-dialog-body').element.dispatchEvent(new CustomEvent('toggle', { bubbles: true, detail: { newState: 'closed' } }))
-    expect(dialog.emitted('update:open')).toBeUndefined()
+  it('closes on a backdrop click unless persistent, and never on a click inside', async () => {
+    const plain = stubbedDialog()
+    await plain.dialog.setProps({ open: true })
+    await plain.dialog.get('.u-dialog__content').trigger('click')
+    expect(plain.dialog.emitted('update:open')).toBeUndefined()
+    await plain.dialog.get('dialog').trigger('click')
+    expect(plain.dialog.emitted('update:open')?.[0]).toEqual([false])
+
+    const persistent = stubbedDialog({ persistent: true })
+    await persistent.dialog.setProps({ open: true })
+    await persistent.dialog.get('dialog').trigger('click')
+    expect(persistent.dialog.emitted('update:open')).toBeUndefined()
   })
 
   it('returns focus when unmounted while open', async () => {
@@ -339,8 +340,8 @@ describe('UDialog', () => {
     trigger.focus()
     const { dialog } = stubbedDialog()
     await dialog.setProps({ open: true })
-    ;(dialog.get('fluent-dialog-body').element as HTMLElement).tabIndex = -1
-    ;(dialog.get('fluent-dialog-body').element as HTMLElement).focus()
+    ;(dialog.get('.u-dialog__body').element as HTMLElement).tabIndex = -1
+    ;(dialog.get('.u-dialog__body').element as HTMLElement).focus()
     dialog.unmount()
     expect(document.activeElement).toBe(trigger)
   })
@@ -350,11 +351,11 @@ describe('ConfirmDialog', () => {
   const base = { title: 'Reject task', message: 'This cannot be undone.', confirmLabel: 'Reject task', open: true }
 
   function confirmButton(dialog: VueWrapper) {
-    return dialog.get('[appearance="primary"]')
+    return dialog.get('.u-button--primary')
   }
 
   async function typeReason(dialog: VueWrapper, text: string) {
-    const area = dialog.get('fluent-textarea')
+    const area = dialog.get('textarea')
     ;(area.element as HTMLTextAreaElement).value = text
     await area.trigger('input')
   }
@@ -362,7 +363,7 @@ describe('ConfirmDialog', () => {
   it('confirms with an empty reason when none is asked for and does not close itself', async () => {
     const dialog = mount(ConfirmDialog, { props: base })
     expect(dialog.text()).toContain('This cannot be undone.')
-    expect(dialog.find('fluent-textarea').exists()).toBe(false)
+    expect(dialog.find('textarea').exists()).toBe(false)
     await confirmButton(dialog).trigger('click')
     expect(dialog.emitted('confirm')?.[0]).toEqual([''])
     expect(dialog.emitted('update:open')).toBeUndefined()
@@ -399,7 +400,7 @@ describe('ConfirmDialog', () => {
   it('cancels and starts blank when reopened', async () => {
     const dialog = mount(ConfirmDialog, { props: { ...base, reasonLabel: 'Reason', reasonRequired: true } })
     await typeReason(dialog, 'first')
-    await dialog.findAll('fluent-dialog-body [slot="action"] fluent-button')[0]?.trigger('click')
+    await dialog.findAll('.u-dialog__footer button.u-button')[0]?.trigger('click')
     expect(dialog.emitted('update:open')?.[0]).toEqual([false])
     await dialog.setProps({ open: false })
     await dialog.setProps({ open: true })
@@ -465,15 +466,15 @@ describe('FilterBar', () => {
   })
 
   async function type(bar: VueWrapper, text: string) {
-    const input = bar.get('fluent-text-input')
+    const input = bar.get('input.u-control')
     ;(input.element as HTMLInputElement).value = text
     await input.trigger('input')
   }
 
   it('leaves out the search field without a label and the clear button unless active', () => {
     const bar = mount(FilterBar, { slots: { default: '<span class="control" />' } })
-    expect(bar.find('fluent-text-input').exists()).toBe(false)
-    expect(bar.find('fluent-button').exists()).toBe(false)
+    expect(bar.find('input.u-control').exists()).toBe(false)
+    expect(bar.find('button.u-button').exists()).toBe(false)
     expect(bar.find('.control').exists()).toBe(true)
   })
 
@@ -491,12 +492,12 @@ describe('FilterBar', () => {
   it('emits clear, drops pending input and follows the model from outside', async () => {
     const bar = mount(FilterBar, { props: { searchLabel: 'Search', active: true, search: 'old' } })
     await type(bar, 'pending')
-    await bar.get('fluent-button').trigger('click')
+    await bar.get('button.u-button').trigger('click')
     expect(bar.emitted('clear')).toHaveLength(1)
     vi.advanceTimersByTime(1_000)
     expect(bar.emitted('update:search')).toEqual([['']])
     await bar.setProps({ search: 'fresh' })
-    expect((bar.get('fluent-text-input').element as HTMLInputElement).value).toBe('fresh')
+    expect((bar.get('input.u-control').element as HTMLInputElement).value).toBe('fresh')
   })
 
   it('cancels the debounce on unmount', async () => {
@@ -523,7 +524,7 @@ describe('LoadState', () => {
     const state = mountState({ error: new Error('Boom'), empty: true, emptyTitle: 'None' })
     expect(state.get('[role="alert"]').text()).toContain('Boom')
     expect(state.text()).not.toContain('None')
-    await state.get('fluent-button').trigger('click')
+    await state.get('button.u-button').trigger('click')
     expect(state.emitted('retry')).toHaveLength(1)
   })
 
@@ -613,7 +614,7 @@ describe('CodeBlock', () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
     const block = mount(CodeBlock, { props: { text: 'copy me', label: 'Output' } })
-    await block.get('fluent-button').trigger('click')
+    await block.get('button.u-button').trigger('click')
     await flushPromises()
     expect(writeText).toHaveBeenCalledWith('copy me')
     expect(useToastStore().toasts[0]).toMatchObject({ intent: 'success' })
@@ -622,7 +623,7 @@ describe('CodeBlock', () => {
   it('reports a failed copy, including when the clipboard is unavailable', async () => {
     vi.stubGlobal('navigator', {})
     const block = mount(CodeBlock, { props: { text: 'copy me', label: 'Output' } })
-    await block.get('fluent-button').trigger('click')
+    await block.get('button.u-button').trigger('click')
     await flushPromises()
     expect(useToastStore().toasts[0]).toMatchObject({ intent: 'error' })
   })

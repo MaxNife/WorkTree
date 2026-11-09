@@ -94,8 +94,8 @@ function toggle(): void {
 .nav-item__row {
   display: flex;
   align-items: center;
-  gap: var(--spacingHorizontalXXS);
-  padding-left: calc(var(--depth) * var(--spacingHorizontalM));
+  gap: var(--space-2);
+  padding-left: calc(var(--depth) * var(--space-12));
   border-radius: var(--uaf-radius);
 }
 .nav-item__row:hover {
@@ -105,7 +105,7 @@ function toggle(): void {
   background: var(--uaf-surface-selected);
 }
 .nav-item__row.is-active > .nav-item__link {
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 .nav-item__toggle,
 .nav-item__spacer {
@@ -130,15 +130,15 @@ function toggle(): void {
 }
 .nav-item__link {
   flex: 1;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   min-width: 0;
   min-height: var(--uaf-control-height);
-  padding: 0 var(--spacingHorizontalS) 0 var(--spacingHorizontalXS);
+  padding: 0 var(--space-8) 0 var(--space-4);
   text-align: left;
   text-decoration: none;
 }
 .nav-item__link--group {
-  padding-left: var(--spacingHorizontalXXS);
+  padding-left: var(--space-2);
 }
 .nav-item__chevron {
   color: var(--uaf-text-muted);
@@ -158,8 +158,8 @@ function toggle(): void {
 }
 .nav-item__note {
   list-style: none;
-  padding: var(--spacingVerticalXS) 0 var(--spacingVerticalXS) calc(var(--depth) * var(--spacingHorizontalM) + 24px);
+  padding: var(--space-4) 0 var(--space-4) calc(var(--depth) * var(--space-12) + 24px);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 </style>

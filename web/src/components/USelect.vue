@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Thin wrapper over <fluent-dropdown> with v-model support. The selection is bound on the options:
-// the dropdown's own `value` setter throws until its listbox has been slotted.
-import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+// A labelled native <select> with v-model support. Native on purpose: the browser gives it keyboard
+// use, type-ahead and screen-reader support that a drawn list box would have to rebuild.
+import { computed } from 'vue'
+import UIcon from './UIcon.vue'
 import FieldMessages from './FieldMessages.vue'
 import { useFieldMessages } from './field'
 
@@ -18,95 +19,58 @@ const props = defineProps<{
 }>()
 
 const { fieldId, describedBy } = useFieldMessages(props)
-const labelId = useId()
-const dropdown = ref<HTMLElement & { open?: boolean }>()
-let observer: MutationObserver | undefined
-
-// Fluent renders its combobox button after mount and gives it no label. A wrapping <label> is not an
-// option here: a click on an option would be re-dispatched to the dropdown and reopen it.
-function nameControl(): void {
-  const control = dropdown.value?.querySelector('[role="combobox"]')
-  if (!control) return
-  control.setAttribute('aria-labelledby', labelId)
-  setOrRemove(control, 'aria-describedby', describedBy.value)
-  setOrRemove(control, 'aria-invalid', props.error ? 'true' : undefined)
-}
-
-function setOrRemove(element: Element, name: string, value: string | undefined): void {
-  if (value) element.setAttribute(name, value)
-  else element.removeAttribute(name)
-}
+const hasEmptyOption = computed(() => props.options.some((option) => option.value === ''))
 
 function onChange(event: Event): void {
-  model.value = (event.currentTarget as HTMLInputElement).value ?? ''
+  model.value = (event.target as HTMLSelectElement).value
 }
-
-// Escape closes only the open list, not a dialog around it.
-function onEscape(event: KeyboardEvent): void {
-  if (dropdown.value?.open) event.preventDefault()
-}
-
-onMounted(() => {
-  if (!dropdown.value) return
-  nameControl()
-  observer = new MutationObserver(nameControl)
-  observer.observe(dropdown.value, { childList: true })
-})
-onBeforeUnmount(() => observer?.disconnect())
-watch(() => [describedBy.value, props.error], nameControl, { flush: 'post' })
 </script>
 
 <template>
   <div class="u-field" :class="{ 'u-field--invalid': error, 'u-field--disabled': disabled }">
-    <span :id="labelId" class="u-field__label">{{ label }}</span>
-    <fluent-dropdown
-      ref="dropdown"
-      :placeholder="placeholder"
-      :disabled="disabled || undefined"
-      @change="onChange"
-      @keydown.esc.capture="onEscape"
-    >
-      <fluent-listbox>
-        <fluent-option
-          v-for="option in options"
-          :key="option.value"
-          :value="option.value"
-          :selected="option.value === model || undefined"
-        >
+    <label :for="fieldId" class="u-field__label">{{ label }}</label>
+    <span class="u-select">
+      <select
+        :id="fieldId"
+        class="u-control u-select__control"
+        :value="model"
+        :disabled="disabled"
+        :aria-describedby="describedBy"
+        :aria-invalid="error ? 'true' : undefined"
+        @change="onChange"
+      >
+        <option v-if="placeholder" value="" disabled :selected="!model">{{ placeholder }}</option>
+        <!-- Without this, the browser would show the first option as chosen while nothing is, and
+             picking it would fire no change. -->
+        <option v-else-if="!model && !hasEmptyOption" value="" disabled hidden selected />
+
+        <option v-for="option in options" :key="option.value" :value="option.value" :selected="option.value === model">
           {{ option.label }}
-        </fluent-option>
-      </fluent-listbox>
-    </fluent-dropdown>
+        </option>
+      </select>
+      <UIcon class="u-select__caret" name="chevron-down" :size="14" />
+    </span>
     <FieldMessages :field-id="fieldId" :description="description" :error="error" />
   </div>
 </template>
 
 <style scoped>
-.u-field {
+.u-select {
+  position: relative;
   display: grid;
-  gap: var(--spacingVerticalXXS);
   min-width: 0;
 }
-.u-field__label {
+.u-select__control {
+  appearance: none;
+  padding-right: var(--space-32);
+  cursor: pointer;
+}
+.u-select__caret {
+  position: absolute;
+  right: var(--space-10);
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
-  line-height: var(--lineHeightBase200);
-  overflow-wrap: anywhere;
-  /* With the grid gap, the 20px Fluent gives the label of a text input: the controls line up in a row. */
-  margin-bottom: var(--spacingVerticalXXS);
-}
-.u-field--disabled .u-field__label {
-  color: var(--uaf-text-disabled);
-}
-/* Fluent sets its border colour inside the shadow root, so the ring goes on the host. */
-.u-field--invalid fluent-dropdown {
-  border-radius: var(--uaf-radius);
-  outline: var(--strokeWidthThin) solid var(--uaf-danger);
-  outline-offset: calc(-1 * var(--strokeWidthThin));
-}
-fluent-listbox {
-  border: var(--strokeWidthThin) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  box-shadow: none;
+  pointer-events: none;
 }
 </style>

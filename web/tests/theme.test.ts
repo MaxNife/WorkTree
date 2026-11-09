@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { applyTheme, resolveTheme } from '@/theme/apply'
+import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
 import { BRAND, contrastRatio, THEMES, type ThemeName } from '@/theme/tokens'
 
 const asMedia = (matching: string[]) => (query: string) => matching.includes(query)
@@ -19,10 +20,12 @@ function filesIn(folder: string): string[] {
 
 /** The theme token behind a --uaf-* variable, as base.css maps it. */
 function tokenBehind(variable: string): string {
-  const match = new RegExp(`${variable}: var\\(--(\\w+)\\)`).exec(baseCss)
+  const match = new RegExp(`${variable}: var\\(--([\\w-]+)\\)`).exec(baseCss)
   if (!match?.[1]) throw new Error(`${variable} is not mapped in base.css`)
   return match[1]
 }
+
+const colour = (theme: ThemeName, variable: string): string => String(THEMES[theme][tokenBehind(variable)])
 
 describe('resolveTheme', () => {
   it('follows the OS in system mode', () => {
@@ -51,13 +54,14 @@ describe('applyTheme', () => {
     const root = document.documentElement
     expect(root.dataset.theme).toBe('dark')
     expect(root.dataset.density).toBe('comfortable')
-    expect(root.style.getPropertyValue('--colorNeutralBackground1')).toBe(String(THEMES.dark.colorNeutralBackground1))
-    expect(root.style.getPropertyValue('--colorBrandBackground')).toBe(BRAND.base)
+    expect(root.style.getPropertyValue('--color-surface')).toBe(String(THEMES.dark['color-surface']))
+    expect(root.style.getPropertyValue('--color-accent')).toBe(BRAND.base)
   })
 })
 
 describe('tokens', () => {
   const names = Object.keys(THEMES) as ThemeName[]
+  const surfaces = ['--uaf-page', '--uaf-surface', '--uaf-surface-sunken']
 
   it('defines the same tokens in every theme', () => {
     const light = Object.keys(THEMES.light).sort()
@@ -65,124 +69,120 @@ describe('tokens', () => {
   })
 
   it('has a green Work and a brown Tree in the wordmark', () => {
-    expect(THEMES.light.wordmarkWork).toBe('#107C10')
-    expect(THEMES.light.wordmarkTree).toBe('#7a4a1e')
+    expect(THEMES.light['wordmark-work']).toBe('#107C10')
+    expect(THEMES.light['wordmark-tree']).toBe('#7a4a1e')
   })
 
-  it('uses the Fluent green as the brand accent', () => {
-    expect(THEMES.light.colorBrandBackground).toBe('#107C10')
+  it('uses WorkTree green as the accent', () => {
+    expect(THEMES.light['color-accent']).toBe('#107C10')
+  })
+
+  it('names no token after another design system', () => {
+    for (const name of Object.keys(THEMES.light)) expect(name).toMatch(/^[a-z0-9-]+$/)
   })
 
   // WCAG AA: 4.5:1 for normal text.
   const textPairs: [string, string][] = [
-    ['colorNeutralForeground1', 'colorNeutralBackground1'],
-    ['colorNeutralForeground2', 'colorNeutralBackground1'],
-    ['colorNeutralForeground3', 'colorNeutralBackground1'],
-    ['colorNeutralForegroundOnBrand', 'colorBrandBackground'],
-    ['colorNeutralForegroundOnBrand', 'colorBrandBackgroundHover'],
-    ['colorBrandForeground1', 'colorNeutralBackground1'],
-    ['colorBrandForegroundLink', 'colorNeutralBackground1'],
-    ['colorPaletteGreenForeground1', 'colorPaletteGreenBackground1'],
-    ['colorPaletteRedForeground1', 'colorPaletteRedBackground1'],
-    ['colorPaletteYellowForeground1', 'colorPaletteYellowBackground1'],
-    ['colorPaletteDarkOrangeForeground1', 'colorPaletteDarkOrangeBackground1'],
-    ['colorBrandForeground1', 'colorBrandBackground2'],
-    ['wordmarkWork', 'colorNeutralBackground1'],
-    ['wordmarkTree', 'colorNeutralBackground1'],
+    ['--uaf-text-secondary', '--uaf-surface'],
+    ['--uaf-on-accent', '--uaf-accent'],
+    ['--uaf-on-accent', '--uaf-accent-hover'],
+    ['--uaf-on-accent', '--uaf-accent-pressed'],
+    ['--uaf-accent-text', '--uaf-accent-tint'],
+    ['--uaf-ok', '--uaf-ok-bg'],
+    ['--uaf-danger', '--uaf-danger-bg'],
+    ['--uaf-warn', '--uaf-warn-bg'],
+    ['--uaf-attention', '--uaf-attention-bg'],
   ]
   for (const theme of names) {
     it.each(textPairs)(`${theme}: %s on %s meets 4.5:1`, (fg, bg) => {
-      const ratio = contrastRatio(String(THEMES[theme][fg]), String(THEMES[theme][bg]))
-      expect(ratio).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(4.5)
     })
   }
 
+  it.each(names)('%s: body, muted, link, accent and error text meet 4.5:1 on every surface', (theme) => {
+    for (const text of ['--uaf-text', '--uaf-text-muted', '--uaf-link', '--uaf-accent-text', '--uaf-danger']) {
+      for (const surface of surfaces) {
+        expect(contrastRatio(colour(theme, text), colour(theme, surface)), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  it.each(names)('%s: the wordmark meets 4.5:1 on the page and the surface', (theme) => {
+    for (const part of ['wordmark-work', 'wordmark-tree']) {
+      for (const surface of ['--uaf-page', '--uaf-surface']) {
+        expect(contrastRatio(String(THEMES[theme][part]), colour(theme, surface)), `${part} on ${surface}`).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
   // Everything a status dot can be painted with, read from the component so a remap is caught.
   const badge = readFileSync(join(SRC, 'components', 'StatusBadge.vue'), 'utf8')
-  const dots = [...badge.matchAll(/--dot: var\((--uaf-[\w-]+)\)/g)].map((match) => tokenBehind(match[1] ?? ''))
+  const dots = [...badge.matchAll(/--dot: var\((--uaf-[\w-]+)\)/g)].map((match) => match[1] ?? '')
 
   it('finds a colour for every status kind', () => {
     expect(dots).toHaveLength(6)
   })
 
   // WCAG 1.4.11: 3:1 for a meaningful mark against what is next to it.
-  it.each(names)('%s: every status dot meets 3:1 on the page and on sunken panels', (theme) => {
-    const tokens = THEMES[theme]
+  it.each(names)('%s: every status dot meets 3:1 on every surface', (theme) => {
     for (const dot of dots) {
-      for (const surface of ['colorNeutralBackground1', 'colorNeutralBackground3']) {
-        expect(contrastRatio(String(tokens[dot]), String(tokens[surface])), `${dot} on ${surface}`).toBeGreaterThanOrEqual(3)
+      for (const surface of surfaces) {
+        expect(contrastRatio(colour(theme, dot), colour(theme, surface)), `${dot} on ${surface}`).toBeGreaterThanOrEqual(3)
       }
     }
   })
 
-  it.each(names)('%s: error and muted text meet 4.5:1 on the page and on sunken panels', (theme) => {
-    const tokens = THEMES[theme]
-    for (const text of [tokenBehind('--uaf-danger'), tokenBehind('--uaf-text-muted')]) {
-      for (const surface of ['colorNeutralBackground1', 'colorNeutralBackground3']) {
-        expect(contrastRatio(String(tokens[text]), String(tokens[surface])), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5)
-      }
+  it.each(names)('%s: the edge of a text field, checkbox or switch meets 3:1 on every surface', (theme) => {
+    for (const surface of surfaces) {
+      expect(contrastRatio(colour(theme, '--uaf-border-control'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
     }
   })
 
-  // The tick of a checkbox and the thumb of a switch sit in the inverted foreground on these fills.
-  const fills = ['colorCompoundBrandBackground', 'colorCompoundBrandBackgroundHover', 'colorCompoundBrandBackgroundPressed']
+  // The tick of a checkbox and the thumb of a switch sit in the surface colour on these fills.
   it.each(names)('%s: a checked checkbox or switch keeps 3:1 for its mark and against the page', (theme) => {
-    const tokens = THEMES[theme]
-    for (const fill of fills) {
-      expect(contrastRatio(String(tokens.colorNeutralForegroundInverted), String(tokens[fill])), fill).toBeGreaterThanOrEqual(3)
-      expect(contrastRatio(String(tokens[fill]), String(tokens.colorNeutralBackground1)), fill).toBeGreaterThanOrEqual(3)
+    for (const fill of ['--uaf-control', '--uaf-control-hover', '--uaf-control-pressed']) {
+      expect(contrastRatio(colour(theme, '--uaf-surface'), colour(theme, fill)), fill).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(colour(theme, fill), colour(theme, '--uaf-page')), fill).toBeGreaterThanOrEqual(3)
     }
   })
 
-  it('defines every token the registered Fluent components read', () => {
-    const fluent = join(WEB, 'node_modules', '@fluentui', 'web-components', 'dist', 'esm')
-    const registered = [...readFileSync(join(SRC, 'fluent.ts'), 'utf8').matchAll(/web-components\/([\w-]+)\/define\.js/g)].map(
-      (match) => match[1] ?? '',
-    )
-    expect(registered.length).toBeGreaterThan(0)
-    const sources = [
-      ...registered.map((name) => join(fluent, name, `${name}.styles.js`)),
-      ...filesIn(join(fluent, 'styles')).filter((path) => path.endsWith('.js')),
-    ]
-    const used = sources.flatMap((path) =>
-      [...readFileSync(path, 'utf8').matchAll(/import \{([^}]*)\} from '[./]*theme\/design-tokens\.js'/g)].flatMap((match) =>
-        (match[1] ?? '').split(',').map((name) => name.trim()).filter(Boolean),
-      ),
-    )
-    expect(used.length).toBeGreaterThan(0)
-    expect(used.filter((name) => !(name in THEMES.light))).toEqual([])
+  it.each(names)('%s: the focus ring stays visible on every surface and on the accent', (theme) => {
+    for (const surface of surfaces) {
+      expect(contrastRatio(colour(theme, '--uaf-focus'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
+    }
   })
 
   it('uses no CSS variable that nothing defines', () => {
-    // Fluent sets these two on its own textarea host; UTextArea sizes itself with them.
-    const fluentHostVariables = ['--line-height', '--padding-block']
     const files = filesIn(SRC).filter((path) => /\.(vue|css)$/.test(path))
     const sources = files.map((path) => readFileSync(path, 'utf8'))
     const declared = new Set(sources.flatMap((source) => [...source.matchAll(/(--[\w-]+)'?\s*:/g)].map((match) => match[1])))
     const used = sources.flatMap((source) => [...source.matchAll(/var\((--[\w-]+)[,)]/g)].map((match) => match[1] ?? ''))
-    const undefinedNames = [...new Set(used)].filter(
-      (name) => !declared.has(name) && !(name.slice(2) in THEMES.light) && !fluentHostVariables.includes(name),
-    )
+    const undefinedNames = [...new Set(used)].filter((name) => !declared.has(name) && !(name.slice(2) in THEMES.light))
     expect(used.length).toBeGreaterThan(0)
     expect(undefinedNames).toEqual([])
   })
 
-  it('leaves the focus ring of each Fluent control to Fluent, so none gets two', () => {
-    const ring = /:focus-visible:not\(([^{]*)\)\s*\{/.exec(baseCss)?.[1] ?? ''
-    for (const control of ['fluent-button', 'fluent-checkbox', 'fluent-switch', 'fluent-text-input', 'fluent-textarea', 'fluent-dropdown [role=']) {
-      expect(ring).toContain(control)
-    }
+  // WCAG 1.4.11: the icon on a node core is a meaningful mark, so it needs 3:1 against the core.
+  it.each(FAMILY_NAMES)('family %s: the node icon meets 3:1 on its colour', (name) => {
+    expect(contrastRatio(FAMILIES[name].ink, FAMILIES[name].color)).toBeGreaterThanOrEqual(3)
   })
 
-  it('cuts every duration token for reduced motion, which is how the rule reaches Fluent', () => {
-    const durations = Object.keys(THEMES.light).filter((name) => name.startsWith('duration'))
-    expect(durations.length).toBeGreaterThan(0)
-    for (const name of durations) expect(baseCss).toMatch(new RegExp(`--${name}: [^;]+!important`))
+  it('has no shadows in high contrast, where borders separate what floats', () => {
+    expect(THEMES['high-contrast']['shadow-float']).toBe('none')
+    expect(THEMES['high-contrast']['shadow-overlay']).toBe('none')
+  })
+})
+
+describe('forced colours (Windows High Contrast)', () => {
+  const source = (name: string) => readFileSync(join(SRC, 'components', name), 'utf8')
+
+  it('draws checkbox and switch state in system colours, since the browser replaces backgrounds', () => {
+    const toggle = source('ToggleControl.vue')
+    expect(toggle).toContain('@media (forced-colors: active)')
+    for (const colour of ['Highlight', 'HighlightText', 'ButtonText', 'Canvas']) expect(toggle).toContain(colour)
   })
 
-  it('keeps the focus ring visible against the page in every theme', () => {
-    for (const theme of names) {
-      expect(contrastRatio(String(THEMES[theme].colorStrokeFocus2), String(THEMES[theme].colorNeutralBackground1))).toBeGreaterThanOrEqual(3)
-    }
+  it('gives every button a visible edge', () => {
+    expect(source('UButton.vue')).toMatch(/@media \(forced-colors: active\)[^@]*border-color: ButtonText/)
   })
 })

@@ -318,8 +318,8 @@ Abbreviations: `BP` = `docs/BUILD_PROMPT_python_mvp.md`; `SD` = `docs/SYSTEM_DES
 
 ### CP-27 Frontend foundation and design language
 - **Build:**
-  - `web/` with Vite, Vue 3 + TypeScript strict, `<script setup>`, Vue Router, Pinia, `@tanstack/vue-query`, `@vue-flow/core` and `@fluentui/web-components` wrapped in our own thin Vue components.
-  - Design tokens, light/dark/high-contrast themes, our own icons.
+  - `web/` with Vite, Vue 3 + TypeScript strict, `<script setup>`, Vue Router, Pinia, `@tanstack/vue-query`, `@vue-flow/core`, and our own Vue components on native HTML elements (Fluent UI Web Components until 2026-11-06; DECISIONS 13.1).
+  - Design tokens, light/dark/high-contrast themes, Phosphor icons copied by a generator.
   - Shared components: page header, property list, status badge, empty state, run timeline, node card.
   - A TS client generated from the OpenAPI file, with a freshness check script.
   - `docs/design-language.md`, recording the chosen pattern per area from `docs/UI_reference_list.md`.

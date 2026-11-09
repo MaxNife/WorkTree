@@ -32,6 +32,7 @@ import { ICONS, type IconName } from '@/icons/paths'
 import { STATUS_NAMES } from '@/status'
 import { usePreferences } from '@/stores/preferences'
 import { DENSITIES, THEME_MODES, type Density, type ThemeMode } from '@/theme/apply'
+import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
 import { THEME_LABELS } from '@/theme/tokens'
 
 const LONG_TEXT =
@@ -48,39 +49,99 @@ const densityOptions = DENSITIES.map((density) => ({
   label: density === 'compact' ? 'Compact' : 'Comfortable',
 }))
 
+const sections = [
+  ['d-colour', 'Colour'],
+  ['d-type', 'Type, spacing and radius'],
+  ['d-logo', 'Logo'],
+  ['d-icons', 'Icons'],
+  ['d-canvas', 'Canvas nodes'],
+  ['d-status', 'Status'],
+  ['d-buttons', 'Buttons'],
+  ['d-fields', 'Text fields'],
+  ['d-choices', 'Choices'],
+  ['d-filter', 'Filter bar'],
+  ['d-tabs', 'Tabs'],
+  ['d-header', 'Page header'],
+  ['d-table', 'Table and pagination'],
+  ['d-states', 'Load states'],
+  ['d-messages', 'Messages'],
+  ['d-detail', 'Property list and empty state'],
+  ['d-timeline', 'Run timeline'],
+  ['d-board', 'Board'],
+  ['d-code', 'Code and time'],
+  ['d-dialogs', 'Dialogs'],
+] as const
+
+const principles: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'leaf', title: 'Calm by default', text: 'Warm neutrals, soft corners and dense tables. Nothing competes with the work.' },
+  { icon: 'plant', title: 'Colour grows on the canvas', text: 'Vivid family colours belong to workflow nodes. Everywhere else, green marks the one main action.' },
+  { icon: 'tree', title: 'Every state in words', text: 'A dot always comes with its word, every control has a visible focus ring, and contrast passes in all themes.' },
+]
+
 const appearances = ['primary', 'secondary', 'outline', 'subtle'] as const
-const colours = [
-  '--uaf-surface',
-  '--uaf-surface-sunken',
-  '--uaf-surface-hover',
-  '--uaf-surface-selected',
-  '--uaf-text',
-  '--uaf-text-muted',
-  '--uaf-text-disabled',
-  '--uaf-border',
-  '--uaf-border-strong',
-  '--uaf-accent',
-  '--uaf-accent-text',
-  '--uaf-link',
-  '--uaf-focus',
-  '--uaf-ok',
-  '--uaf-warn',
-  '--uaf-attention',
-  '--uaf-danger',
+const colourGroups: { title: string; tokens: [string, string][] }[] = [
+  {
+    title: 'Surfaces',
+    tokens: [
+      ['--uaf-page', 'Page'],
+      ['--uaf-surface', 'Surface'],
+      ['--uaf-surface-sunken', 'Sunken'],
+      ['--uaf-surface-hover', 'Hover'],
+      ['--uaf-surface-selected', 'Selected'],
+      ['--uaf-border', 'Border'],
+      ['--uaf-border-strong', 'Strong border'],
+      ['--uaf-border-control', 'Control edge'],
+    ],
+  },
+  {
+    title: 'Text',
+    tokens: [
+      ['--uaf-text', 'Text'],
+      ['--uaf-text-secondary', 'Secondary'],
+      ['--uaf-text-muted', 'Muted'],
+      ['--uaf-text-disabled', 'Disabled'],
+      ['--uaf-link', 'Link'],
+      ['--uaf-focus', 'Focus ring'],
+    ],
+  },
+  {
+    title: 'Accent',
+    tokens: [
+      ['--uaf-accent', 'Accent fill'],
+      ['--uaf-accent-hover', 'Accent hover'],
+      ['--uaf-accent-tint', 'Accent tint'],
+      ['--uaf-accent-text', 'Accent mark'],
+    ],
+  },
+  {
+    title: 'Status',
+    tokens: [
+      ['--uaf-ok', 'Done'],
+      ['--uaf-warn', 'Waiting'],
+      ['--uaf-attention', 'Attention'],
+      ['--uaf-danger', 'Failed'],
+    ],
+  },
 ]
 const typeScale = [
-  ['Base200', 'Secondary text and labels'],
-  ['Base300', 'Body text and controls'],
-  ['Base400', 'Empty state title'],
-  ['Base500', 'Section title'],
-  ['Base600', 'Page title'],
+  ['12', '16', 'Secondary text and labels'],
+  ['14', '20', 'Body text and controls'],
+  ['16', '22', 'Empty state title'],
+  ['20', '28', 'Section title'],
+  ['24', '32', 'Page title'],
 ] as const
-const spacing = ['XXS', 'XS', 'SNudge', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+const spacing = ['2', '4', '6', '8', '10', '12', '16', '20', '24', '32']
 const radii = [
-  ['--uaf-radius-container', 'Containers'],
-  ['--uaf-radius', 'Controls'],
+  ['--uaf-radius', 'Controls, 8px'],
+  ['--uaf-radius-container', 'Containers, 12px'],
 ] as const
 const icons = Object.keys(ICONS) as IconName[]
+const iconWeight = ref<'regular' | 'fill'>('regular')
+const iconTabs = [
+  { id: 'regular', label: 'Regular' },
+  { id: 'fill', label: 'Fill' },
+]
+
 
 const text = ref('')
 const filled = ref('Month-end close')
@@ -178,286 +239,397 @@ const rejectOpen = ref(false)
       />
     </template>
 
-    <section class="block" aria-labelledby="d-colour">
-      <h2 id="d-colour">Colour</h2>
-      <ul class="swatches">
-        <li v-for="colour in colours" :key="colour">
-          <span class="swatch" :style="{ background: `var(${colour})` }" />
-          <code>{{ colour }}</code>
-        </li>
-      </ul>
-    </section>
+    <div class="design">
+      <nav class="design__nav" aria-label="Design language sections">
+        <a v-for="[id, title] in sections" :key="id" :href="`#${id}`" class="design__nav-link">{{ title }}</a>
+      </nav>
 
-    <section class="block" aria-labelledby="d-type">
-      <h2 id="d-type">Type, spacing and radius</h2>
-      <p
-        v-for="[size, use] in typeScale"
-        :key="size"
-        class="type-sample"
-        :style="{ fontSize: `var(--fontSize${size})`, lineHeight: `var(--lineHeight${size})` }"
-      >
-        {{ use }}
-      </p>
-      <div class="row row--end">
-        <div v-for="step in spacing" :key="step" class="spacing">
-          <span class="spacing__bar" :style="{ width: `var(--spacingHorizontal${step})` }" />
-          <code>{{ step }}</code>
-        </div>
+      <div class="design__content">
+        <section class="intro" aria-label="Principles">
+          <WorkTreeLogo :size="28" />
+          <ul class="principles">
+            <li v-for="principle in principles" :key="principle.title" class="principle">
+              <UIcon class="principle__icon" :name="principle.icon" :size="22" weight="fill" />
+              <div>
+                <h3 class="principle__title">{{ principle.title }}</h3>
+                <p class="principle__text">{{ principle.text }}</p>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <section id="d-colour" class="block" aria-labelledby="d-colour-title">
+          <h2 id="d-colour-title">Colour</h2>
+          <div v-for="group in colourGroups" :key="group.title" class="colour-group">
+            <h3 class="spec">{{ group.title }}</h3>
+            <ul class="swatches">
+              <li v-for="[token, name] in group.tokens" :key="token" class="swatch-card">
+                <span class="swatch" :style="{ background: `var(${token})` }" />
+                <span class="swatch-card__name">{{ name }}</span>
+                <code>{{ token }}</code>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="d-type" class="block" aria-labelledby="d-type-title">
+          <h2 id="d-type-title">Type, spacing and radius</h2>
+          <p
+            v-for="[size, line, use] in typeScale"
+            :key="size"
+            class="type-sample"
+            :style="{ fontSize: `var(--font-size-${size})`, lineHeight: `var(--line-height-${line})` }"
+          >
+            {{ use }} <code>{{ size }}/{{ line }}</code>
+          </p>
+          <div class="row row--end">
+            <div v-for="step in spacing" :key="step" class="spacing">
+              <span class="spacing__bar" :style="{ width: `var(--space-${step})` }" />
+              <code>{{ step }}</code>
+            </div>
+          </div>
+          <div class="row">
+            <span v-for="[token, use] in radii" :key="token" class="radius" :style="{ borderRadius: `var(${token})` }">
+              {{ use }}
+            </span>
+            <span class="radius radius--float">Floating panel shadow</span>
+          </div>
+        </section>
+
+        <section id="d-logo" class="block" aria-labelledby="d-logo-title">
+          <h2 id="d-logo-title">Logo</h2>
+          <div class="row"><WorkTreeLogo :size="28" /><WorkTreeLogo :size="20" /><WorkTreeLogo mark-only :size="20" /></div>
+        </section>
+
+        <section id="d-icons" class="block" aria-labelledby="d-icons-title">
+          <h2 id="d-icons-title">Icons</h2>
+          <p class="note">Phosphor Icons. Regular in the interface; fill on coloured shapes and in tight spaces.</p>
+          <UTabs v-model="iconWeight" :tabs="iconTabs" label="Icon weight" />
+          <ul class="icons">
+            <li v-for="icon in icons" :key="icon">
+              <UIcon :name="icon" :size="20" :weight="iconWeight" /><span>{{ icon }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section id="d-canvas" class="block" aria-labelledby="d-canvas-title">
+          <h2 id="d-canvas-title">Canvas nodes</h2>
+          <p class="note">Rings and Bloom: one colour per activity family, the run state on the outer ring.</p>
+          <div class="canvas">
+            <NodeCard title="Nightly start" activity="schedule" family="trigger" status="done" :duration-ms="12" />
+            <NodeCard title="Fetch bank file" activity="sftp" family="files" status="done" :duration-ms="42_000" />
+            <NodeCard title="Match ledger" activity="matching" family="matching" status="running" selected />
+            <NodeCard title="Review exceptions" activity="human_task" family="human" status="waiting" />
+            <NodeCard title="Post journal" activity="http_request" family="network" status="failed" :duration-ms="420" />
+            <NodeCard title="Email summary" activity="email" family="messages" />
+          </div>
+          <ul class="families">
+            <li v-for="name in FAMILY_NAMES" :key="name">
+              <span class="family-dot" :style="{ background: FAMILIES[name].color }" />{{ FAMILIES[name].label }}
+            </li>
+          </ul>
+        </section>
+
+        <section id="d-status" class="block" aria-labelledby="d-status-title">
+          <h2 id="d-status-title">Status</h2>
+          <div class="row">
+            <StatusBadge v-for="status in STATUS_NAMES" :key="status" :status="status" />
+          </div>
+          <div class="row">
+            <StatusBadge status="needs_review" />
+            <StatusBadge status="open" label="3 open" />
+          </div>
+        </section>
+
+        <section id="d-buttons" class="block" aria-labelledby="d-buttons-title">
+          <h2 id="d-buttons-title">Buttons</h2>
+          <div v-for="appearance in appearances" :key="appearance" class="row">
+            <span class="spec">{{ appearance }}</span>
+            <UButton :appearance="appearance">Button</UButton>
+            <UButton :appearance="appearance" icon="play">With icon</UButton>
+            <UButton :appearance="appearance" icon="edit" label="Edit" />
+            <UButton :appearance="appearance" disabled>Disabled</UButton>
+            <UButton :appearance="appearance" icon="edit" label="Edit, disabled" disabled />
+            <UButton :appearance="appearance" loading>Saving</UButton>
+          </div>
+        </section>
+
+        <section id="d-fields" class="block" aria-labelledby="d-fields-title">
+          <h2 id="d-fields-title">Text fields</h2>
+          <div class="fields">
+            <UTextInput v-model="text" label="Default" placeholder="Month-end close" />
+            <UTextInput v-model="filled" label="Required" required description="Shown in the run history." />
+            <UTextInput v-model="text" label="Invalid" error="Enter a name for this workflow." />
+            <UTextInput v-model="text" label="Invalid with help" description="Letters and numbers only." error="Remove the slash." />
+            <UTextInput v-model="filled" label="Disabled" disabled />
+            <UTextInput v-model="filled" label="Read only" readonly />
+            <UTextInput v-model="secret" label="Password" type="password" />
+            <UTextInput v-model="text" label="Search" type="search" placeholder="Search runs" />
+            <UTextInput :model-value="LONG_TEXT" :label="LONG_TEXT" :description="UNBROKEN_TEXT" :error="LONG_TEXT" />
+            <UTextArea v-model="notes" label="Notes" placeholder="Add a note" />
+            <UTextArea v-model="notes" label="Required, five rows" required :rows="5" />
+            <UTextArea :model-value="LONG_TEXT" label="Disabled" disabled />
+            <UTextArea v-model="notes" label="With help" description="Shown under the field." />
+            <UTextArea v-model="notes" label="With an error" error="Inputs must be a JSON object." />
+          </div>
+        </section>
+
+        <section id="d-choices" class="block" aria-labelledby="d-choices-title">
+          <h2 id="d-choices-title">Choices</h2>
+          <div class="fields">
+            <USelect v-model="choice" label="Owner" :options="choices" />
+            <USelect v-model="owner" label="With placeholder" :options="choices" placeholder="Any owner" />
+            <USelect v-model="choice" label="Disabled" :options="choices" disabled />
+            <USelect v-model="choice" label="With help" :options="choices" description="Shown under the field." />
+            <USelect v-model="owner" label="With an error" :options="choices" placeholder="Any owner" error="Choose an owner." />
+          </div>
+          <div class="fields">
+            <UCheckbox v-model="on" label="Checked" />
+            <UCheckbox v-model="off" label="Unchecked" />
+            <UCheckbox v-model="on" label="Checked, disabled" disabled />
+            <UCheckbox v-model="off" label="Unchecked, disabled" disabled />
+            <UCheckbox v-model="off" label="With help" description="Email the owner when a run fails." />
+            <UCheckbox v-model="off" label="Invalid" error="Accept the terms to continue." />
+            <USwitch v-model="on" label="On" />
+            <USwitch v-model="off" label="Off" />
+            <USwitch v-model="on" label="On, disabled" disabled />
+            <USwitch v-model="off" label="Off, disabled" disabled />
+            <USwitch v-model="on" label="With help" description="Runs start on schedule." />
+            <USwitch v-model="off" :label="LONG_TEXT" error="Publish the workflow first." />
+          </div>
+        </section>
+
+        <section id="d-filter" class="block" aria-labelledby="d-filter-title">
+          <h2 id="d-filter-title">Filter bar</h2>
+          <p class="note">Search, select and button sit on one line and share the control height of the density.</p>
+          <FilterBar v-model:search="search" search-label="Search runs" :active="filtersActive" @clear="filtersActive = false">
+            <USelect v-model="owner" label="Owner" :options="choices" placeholder="Any owner" />
+            <UButton icon="filter">More filters</UButton>
+          </FilterBar>
+        </section>
+
+        <section id="d-tabs" class="block" aria-labelledby="d-tabs-title">
+          <h2 id="d-tabs-title">Tabs</h2>
+          <UTabs v-model="tab" :tabs="tabs" label="Workflow sections" />
+        </section>
+
+        <section id="d-header" class="block" aria-labelledby="d-header-title">
+          <h2 id="d-header-title">Page header</h2>
+          <PageHeader :title="LONG_TEXT" :subtitle="UNBROKEN_TEXT">
+            <template #actions>
+              <UButton>Edit</UButton>
+              <UButton appearance="primary" icon="play">Run now</UButton>
+            </template>
+          </PageHeader>
+          <PageHeader title="Title only" />
+        </section>
+
+        <section id="d-table" class="block" aria-labelledby="d-table-title">
+          <h2 id="d-table-title">Table and pagination</h2>
+          <DataTable
+            v-model:sort="sort"
+            :columns="columns"
+            :rows="rows"
+            :row-key="(row) => row.id"
+            :row-label="(row) => row.name"
+            :selected-key="selectedRun"
+            caption="Recent runs"
+            @row-open="selectedRun = $event.id"
+          >
+            <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
+          </DataTable>
+          <UPagination v-model:offset="offset" :total="128" :limit="25" />
+          <DataTable :columns="columns" :rows="rows.slice(0, 2)" :row-key="(row) => row.id" caption="Read-only runs">
+            <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
+          </DataTable>
+        </section>
+
+        <section id="d-states" class="block" aria-labelledby="d-states-title">
+          <h2 id="d-states-title">Load states</h2>
+          <p class="spec">Loading</p>
+          <LoadState loading />
+          <p class="spec">Error</p>
+          <LoadState error="The runs could not be loaded." />
+          <p class="spec">Empty</p>
+          <LoadState empty empty-title="No runs yet" empty-description="Run the workflow to see its history here." />
+          <p class="spec">Content</p>
+          <LoadState>The list goes here.</LoadState>
+        </section>
+
+        <section id="d-messages" class="block" aria-labelledby="d-messages-title">
+          <h2 id="d-messages-title">Messages</h2>
+          <MessageBar>Scheduled maintenance starts at 18:00.</MessageBar>
+          <MessageBar intent="success" title="Published">Version 12 is live.</MessageBar>
+          <MessageBar intent="warning" dismissible>Two tasks are close to their deadline.</MessageBar>
+          <MessageBar intent="error" title="Run failed">
+            {{ LONG_TEXT }}
+            <template #actions><UButton>Retry</UButton></template>
+          </MessageBar>
+        </section>
+
+        <section id="d-detail" class="block" aria-labelledby="d-detail-title">
+          <h2 id="d-detail-title">Property list and empty state</h2>
+          <div class="split">
+            <PropertyList :items="properties">
+              <template #status><StatusBadge status="running" /></template>
+            </PropertyList>
+            <div>
+              <EmptyState title="No runs yet" description="Run the workflow to see its history here." :heading-level="3" />
+              <EmptyState title="No matching runs" description="Clear the filters to see every run." :heading-level="3">
+                <UButton>Clear filters</UButton>
+              </EmptyState>
+            </div>
+          </div>
+        </section>
+
+        <section id="d-timeline" class="block" aria-labelledby="d-timeline-title">
+          <h2 id="d-timeline-title">Run timeline</h2>
+          <RunTimeline :steps="steps" />
+          <RunTimeline :steps="steps.slice(0, 2)" label="Run steps with logs">
+            <template #detail="{ step }"><CodeBlock :text="logText" :label="`Log for ${step.name}`" /></template>
+          </RunTimeline>
+          <RunTimeline :steps="[]" />
+        </section>
+
+        <section id="d-board" class="block" aria-labelledby="d-board-title">
+          <h2 id="d-board-title">Board</h2>
+          <BoardView :columns="boardColumns" :item-key="(item) => item.id">
+            <template #default="{ item }">{{ item.name }}</template>
+          </BoardView>
+        </section>
+
+        <section id="d-code" class="block" aria-labelledby="d-code-title">
+          <h2 id="d-code-title">Code and time</h2>
+          <CodeBlock :text="logText" label="Run log" />
+          <CodeBlock :text="`${LONG_TEXT} ${UNBROKEN_TEXT}`" label="Long line, scrolled" />
+          <CodeBlock :text="`${LONG_TEXT} ${UNBROKEN_TEXT}`" label="Long line, wrapped" wrap />
+          <div class="row">
+            <RelativeTime :value="minutesAgo(0)" />
+            <RelativeTime :value="minutesAgo(3)" />
+            <RelativeTime :value="minutesAgo(180)" />
+            <RelativeTime :value="minutesAgo(4320)" />
+            <RelativeTime :value="minutesAgo(90 * 1440)" />
+            <RelativeTime :value="null" />
+          </div>
+        </section>
+
+        <section id="d-dialogs" class="block" aria-labelledby="d-dialogs-title">
+          <h2 id="d-dialogs-title">Dialogs</h2>
+          <div class="row">
+            <UButton @click="dialogOpen = true">Open dialog</UButton>
+            <UButton @click="confirmOpen = true">Open confirmation</UButton>
+            <UButton @click="rejectOpen = true">Open required reason</UButton>
+          </div>
+          <UDialog v-model:open="dialogOpen" title="Rename workflow" persistent>
+            <UTextInput v-model="filled" label="Name" required />
+            <template #footer>
+              <UButton @click="dialogOpen = false">Cancel</UButton>
+              <UButton appearance="primary" @click="dialogOpen = false">Save</UButton>
+            </template>
+          </UDialog>
+          <ConfirmDialog
+            v-model:open="confirmOpen"
+            title="Archive this workflow?"
+            message="Its runs stay in the history."
+            confirm-label="Archive"
+            @confirm="confirmOpen = false"
+          />
+          <ConfirmDialog
+            v-model:open="rejectOpen"
+            title="Reject this task?"
+            message="The requester sees your reason."
+            confirm-label="Reject"
+            reason-label="Reason"
+            reason-required
+            danger
+            @confirm="rejectOpen = false"
+          />
+        </section>
       </div>
-      <div class="row">
-        <span v-for="[token, use] in radii" :key="token" class="radius" :style="{ borderRadius: `var(${token})` }">
-          {{ use }}
-        </span>
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-logo">
-      <h2 id="d-logo">Logo</h2>
-      <div class="row"><WorkTreeLogo :size="28" /><WorkTreeLogo :size="20" /><WorkTreeLogo mark-only :size="20" /></div>
-    </section>
-
-    <section class="block" aria-labelledby="d-icons">
-      <h2 id="d-icons">Icons (Fluent System Icons)</h2>
-      <ul class="icons">
-        <li v-for="icon in icons" :key="icon"><UIcon :name="icon" :size="20" /><span>{{ icon }}</span></li>
-      </ul>
-    </section>
-
-    <section class="block" aria-labelledby="d-status">
-      <h2 id="d-status">Status</h2>
-      <div class="row">
-        <StatusBadge v-for="status in STATUS_NAMES" :key="status" :status="status" />
-      </div>
-      <div class="row">
-        <StatusBadge status="needs_review" />
-        <StatusBadge status="open" label="3 open" />
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-buttons">
-      <h2 id="d-buttons">Buttons</h2>
-      <div v-for="appearance in appearances" :key="appearance" class="row">
-        <span class="spec">{{ appearance }}</span>
-        <UButton :appearance="appearance">Button</UButton>
-        <UButton :appearance="appearance" icon="play">With icon</UButton>
-        <UButton :appearance="appearance" icon="edit" label="Edit" />
-        <UButton :appearance="appearance" disabled>Disabled</UButton>
-        <UButton :appearance="appearance" icon="edit" label="Edit, disabled" disabled />
-        <UButton :appearance="appearance" loading>Saving</UButton>
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-fields">
-      <h2 id="d-fields">Text fields</h2>
-      <div class="fields">
-        <UTextInput v-model="text" label="Default" placeholder="Month-end close" />
-        <UTextInput v-model="filled" label="Required" required description="Shown in the run history." />
-        <UTextInput v-model="text" label="Invalid" error="Enter a name for this workflow." />
-        <UTextInput v-model="text" label="Invalid with help" description="Letters and numbers only." error="Remove the slash." />
-        <UTextInput v-model="filled" label="Disabled" disabled />
-        <UTextInput v-model="filled" label="Read only" readonly />
-        <UTextInput v-model="secret" label="Password" type="password" />
-        <UTextInput v-model="text" label="Search" type="search" placeholder="Search runs" />
-        <UTextInput :model-value="LONG_TEXT" :label="LONG_TEXT" :description="UNBROKEN_TEXT" :error="LONG_TEXT" />
-        <UTextArea v-model="notes" label="Notes" placeholder="Add a note" />
-        <UTextArea v-model="notes" label="Required, five rows" required :rows="5" />
-        <UTextArea :model-value="LONG_TEXT" label="Disabled" disabled />
-        <UTextArea v-model="notes" label="With help" description="Shown under the field." />
-        <UTextArea v-model="notes" label="With an error" error="Inputs must be a JSON object." />
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-choices">
-      <h2 id="d-choices">Choices</h2>
-      <div class="fields">
-        <USelect v-model="choice" label="Owner" :options="choices" />
-        <USelect v-model="owner" label="With placeholder" :options="choices" placeholder="Any owner" />
-        <USelect v-model="choice" label="Disabled" :options="choices" disabled />
-        <USelect v-model="choice" label="With help" :options="choices" description="Shown under the field." />
-        <USelect v-model="owner" label="With an error" :options="choices" placeholder="Any owner" error="Choose an owner." />
-      </div>
-      <div class="fields">
-        <UCheckbox v-model="on" label="Checked" />
-        <UCheckbox v-model="off" label="Unchecked" />
-        <UCheckbox v-model="on" label="Checked, disabled" disabled />
-        <UCheckbox v-model="off" label="Unchecked, disabled" disabled />
-        <UCheckbox v-model="off" label="With help" description="Email the owner when a run fails." />
-        <UCheckbox v-model="off" label="Invalid" error="Accept the terms to continue." />
-        <USwitch v-model="on" label="On" />
-        <USwitch v-model="off" label="Off" />
-        <USwitch v-model="on" label="On, disabled" disabled />
-        <USwitch v-model="off" label="Off, disabled" disabled />
-        <USwitch v-model="on" label="With help" description="Runs start on schedule." />
-        <USwitch v-model="off" :label="LONG_TEXT" error="Publish the workflow first." />
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-filter">
-      <h2 id="d-filter">Filter bar</h2>
-      <p class="note">Search, select and button sit on one line and share the control height of the density.</p>
-      <FilterBar v-model:search="search" search-label="Search runs" :active="filtersActive" @clear="filtersActive = false">
-        <USelect v-model="owner" label="Owner" :options="choices" placeholder="Any owner" />
-        <UButton icon="filter">More filters</UButton>
-      </FilterBar>
-    </section>
-
-    <section class="block" aria-labelledby="d-tabs">
-      <h2 id="d-tabs">Tabs</h2>
-      <UTabs v-model="tab" :tabs="tabs" label="Workflow sections" />
-    </section>
-
-    <section class="block" aria-labelledby="d-header">
-      <h2 id="d-header">Page header</h2>
-      <PageHeader :title="LONG_TEXT" :subtitle="UNBROKEN_TEXT">
-        <template #actions>
-          <UButton>Edit</UButton>
-          <UButton appearance="primary" icon="play">Run now</UButton>
-        </template>
-      </PageHeader>
-      <PageHeader title="Title only" />
-    </section>
-
-    <section class="block" aria-labelledby="d-table">
-      <h2 id="d-table">Table and pagination</h2>
-      <DataTable
-        v-model:sort="sort"
-        :columns="columns"
-        :rows="rows"
-        :row-key="(row) => row.id"
-        :row-label="(row) => row.name"
-        :selected-key="selectedRun"
-        caption="Recent runs"
-        @row-open="selectedRun = $event.id"
-      >
-        <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
-      </DataTable>
-      <UPagination v-model:offset="offset" :total="128" :limit="25" />
-      <DataTable :columns="columns" :rows="rows.slice(0, 2)" :row-key="(row) => row.id" caption="Read-only runs">
-        <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
-      </DataTable>
-    </section>
-
-    <section class="block" aria-labelledby="d-states">
-      <h2 id="d-states">Load states</h2>
-      <p class="spec">Loading</p>
-      <LoadState loading />
-      <p class="spec">Error</p>
-      <LoadState error="The runs could not be loaded." />
-      <p class="spec">Empty</p>
-      <LoadState empty empty-title="No runs yet" empty-description="Run the workflow to see its history here." />
-      <p class="spec">Content</p>
-      <LoadState>The list goes here.</LoadState>
-    </section>
-
-    <section class="block" aria-labelledby="d-messages">
-      <h2 id="d-messages">Messages</h2>
-      <MessageBar>Scheduled maintenance starts at 18:00.</MessageBar>
-      <MessageBar intent="success" title="Published">Version 12 is live.</MessageBar>
-      <MessageBar intent="warning" dismissible>Two tasks are close to their deadline.</MessageBar>
-      <MessageBar intent="error" title="Run failed">
-        {{ LONG_TEXT }}
-        <template #actions><UButton>Retry</UButton></template>
-      </MessageBar>
-    </section>
-
-    <section class="block" aria-labelledby="d-detail">
-      <h2 id="d-detail">Property list and empty state</h2>
-      <div class="split">
-        <PropertyList :items="properties">
-          <template #status><StatusBadge status="running" /></template>
-        </PropertyList>
-        <div>
-          <EmptyState title="No runs yet" description="Run the workflow to see its history here." :heading-level="3" />
-          <EmptyState title="No matching runs" description="Clear the filters to see every run." :heading-level="3">
-            <UButton>Clear filters</UButton>
-          </EmptyState>
-        </div>
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-timeline">
-      <h2 id="d-timeline">Run timeline</h2>
-      <RunTimeline :steps="steps" />
-      <RunTimeline :steps="steps.slice(0, 2)" label="Run steps with logs">
-        <template #detail="{ step }"><CodeBlock :text="logText" :label="`Log for ${step.name}`" /></template>
-      </RunTimeline>
-      <RunTimeline :steps="[]" />
-    </section>
-
-    <section class="block" aria-labelledby="d-board">
-      <h2 id="d-board">Board</h2>
-      <BoardView :columns="boardColumns" :item-key="(item) => item.id">
-        <template #default="{ item }">{{ item.name }}</template>
-      </BoardView>
-    </section>
-
-    <section class="block" aria-labelledby="d-code">
-      <h2 id="d-code">Code and time</h2>
-      <CodeBlock :text="logText" label="Run log" />
-      <CodeBlock :text="`${LONG_TEXT} ${UNBROKEN_TEXT}`" label="Long line, scrolled" />
-      <CodeBlock :text="`${LONG_TEXT} ${UNBROKEN_TEXT}`" label="Long line, wrapped" wrap />
-      <div class="row">
-        <RelativeTime :value="minutesAgo(0)" />
-        <RelativeTime :value="minutesAgo(3)" />
-        <RelativeTime :value="minutesAgo(180)" />
-        <RelativeTime :value="minutesAgo(4320)" />
-        <RelativeTime :value="minutesAgo(90 * 1440)" />
-        <RelativeTime :value="null" />
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-node">
-      <h2 id="d-node">Node card</h2>
-      <div class="row">
-        <NodeCard title="Match ledger" activity="matching" status="done" :duration-ms="1840" />
-        <NodeCard title="Post journal" activity="rest_call" status="failed" :duration-ms="420" selected />
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="d-dialogs">
-      <h2 id="d-dialogs">Dialogs</h2>
-      <div class="row">
-        <UButton @click="dialogOpen = true">Open dialog</UButton>
-        <UButton @click="confirmOpen = true">Open confirmation</UButton>
-        <UButton @click="rejectOpen = true">Open required reason</UButton>
-      </div>
-      <UDialog v-model:open="dialogOpen" title="Rename workflow" persistent>
-        <UTextInput v-model="filled" label="Name" required />
-        <template #footer>
-          <UButton @click="dialogOpen = false">Cancel</UButton>
-          <UButton appearance="primary" @click="dialogOpen = false">Save</UButton>
-        </template>
-      </UDialog>
-      <ConfirmDialog
-        v-model:open="confirmOpen"
-        title="Archive this workflow?"
-        message="Its runs stay in the history."
-        confirm-label="Archive"
-        @confirm="confirmOpen = false"
-      />
-      <ConfirmDialog
-        v-model:open="rejectOpen"
-        title="Reject this task?"
-        message="The requester sees your reason."
-        confirm-label="Reject"
-        reason-label="Reason"
-        reason-required
-        danger
-        @confirm="rejectOpen = false"
-      />
-    </section>
+    </div>
   </AppPage>
 </template>
 
 <style scoped>
+.design {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-24);
+}
+.design__nav {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-8);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface);
+}
+.design__nav-link {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--uaf-radius);
+  color: var(--uaf-text-secondary);
+  font-size: var(--font-size-12);
+  text-decoration: none;
+}
+.design__nav-link:hover {
+  background: var(--uaf-surface-hover);
+  color: var(--uaf-text);
+}
+.design__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-16);
+  min-width: 0;
+}
+.intro,
 .block {
   display: grid;
   gap: var(--uaf-gap);
-  margin-top: var(--spacingVerticalXXL);
+  min-width: 0;
+  padding: var(--space-20) var(--space-24);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface);
+  scroll-margin-top: var(--space-16);
+}
+.intro {
+  gap: var(--space-16);
+  background: var(--uaf-surface-sunken);
+}
+.principles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.principle {
+  display: flex;
+  gap: var(--space-12);
+}
+.principle__icon {
+  margin-top: 1px;
+  color: var(--uaf-accent-text);
+}
+.principle__title {
+  font-size: var(--font-size-14);
+}
+.principle__text {
+  margin: var(--space-2) 0 0;
+  color: var(--uaf-text-secondary);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
+}
+.block > * {
+  min-width: 0;
 }
 .block h2 {
-  font-size: var(--fontSizeBase500);
-  line-height: var(--lineHeightBase500);
+  font-size: var(--font-size-20);
+  line-height: var(--line-height-28);
 }
 .row {
   display: flex;
@@ -472,7 +644,8 @@ const rejectOpen = ref(false)
   min-width: 10ch;
   margin: 0;
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
 }
 .note,
 .type-sample {
@@ -485,18 +658,23 @@ const rejectOpen = ref(false)
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   align-items: start;
-  gap: var(--spacingVerticalM) var(--spacingHorizontalL);
+  gap: var(--space-12) var(--space-16);
 }
 .split {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--spacingHorizontalXXL);
+  gap: var(--space-24);
 }
 .switcher {
   min-width: 160px;
 }
+.colour-group {
+  display: grid;
+  gap: var(--space-8);
+}
 .swatches,
-.icons {
+.icons,
+.families {
   display: grid;
   gap: var(--uaf-gap);
   margin: 0;
@@ -504,44 +682,96 @@ const rejectOpen = ref(false)
   list-style: none;
 }
 .swatches {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
-.icons {
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-}
-.swatches li,
-.icons li {
-  display: flex;
-  align-items: center;
-  gap: var(--spacingHorizontalS);
+.swatch-card {
+  display: grid;
+  gap: var(--space-2);
   min-width: 0;
-  color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  padding: var(--space-8);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius);
 }
 .swatch {
-  flex: none;
-  width: var(--spacingHorizontalXL);
-  height: var(--spacingVerticalXL);
-  border: var(--strokeWidthThin) solid var(--uaf-border-strong);
+  height: 40px;
+  margin-bottom: var(--space-4);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: 6px;
+}
+.swatch-card__name {
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
+}
+.swatch-card code {
+  overflow: hidden;
+  color: var(--uaf-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.icons {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.icons li,
+.families li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+  color: var(--uaf-text-secondary);
+  font-size: var(--font-size-12);
+}
+.canvas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-24) var(--space-8);
+  padding: var(--space-24) var(--space-16);
   border-radius: var(--uaf-radius-container);
+  background-color: var(--uaf-page);
+  background-image: radial-gradient(var(--uaf-border-strong) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.families {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.family-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--stroke-1) var(--uaf-border-strong);
 }
 code {
   font-family: var(--uaf-font-mono);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .spacing {
   display: grid;
   justify-items: start;
-  gap: var(--spacingVerticalXS);
-  min-width: 6ch;
+  gap: var(--space-4);
+  min-width: 5ch;
   color: var(--uaf-text-muted);
 }
 .spacing__bar {
-  height: var(--spacingVerticalS);
-  background: var(--uaf-text-muted);
+  height: var(--space-8);
+  border-radius: 2px;
+  background: var(--uaf-accent-text);
 }
 .radius {
   padding: var(--uaf-cell-padding);
-  border: var(--strokeWidthThin) solid var(--uaf-border-strong);
+  border: var(--stroke-1) solid var(--uaf-border-strong);
+}
+.radius--float {
+  border-color: var(--uaf-border);
+  border-radius: var(--uaf-radius-container);
+  box-shadow: var(--uaf-shadow-float);
+}
+@media (max-width: 900px) {
+  .design {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .design__nav {
+    position: static;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
 }
 </style>

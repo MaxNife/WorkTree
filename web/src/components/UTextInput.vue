@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// Thin wrapper over <fluent-text-input> with v-model support. The label goes in Fluent's default
-// slot: that is the only one tied to the <input> inside its shadow root.
-import { onMounted, ref, watch } from 'vue'
+// A labelled native <input> with v-model support. Help and error text are tied to it by id.
 import FieldMessages from './FieldMessages.vue'
 import { useFieldMessages } from './field'
 
@@ -21,73 +19,32 @@ const props = defineProps<{
   error?: string
 }>()
 
-const { fieldId } = useFieldMessages(props)
-const field = ref<HTMLElement & { control?: HTMLInputElement }>()
-
-function setOrRemove(element: HTMLElement, name: string, value: string): void {
-  if (value) element.setAttribute(name, value)
-  else element.removeAttribute(name)
-}
-
-// An id cannot reach into a shadow root, so the text is set on the <input> Fluent exposes.
-function describeControl(): void {
-  const control = field.value?.control
-  if (!control) return
-  setOrRemove(control, 'aria-description', [props.error, props.description].filter(Boolean).join(' '))
-  setOrRemove(control, 'aria-invalid', props.error ? 'true' : '')
-}
+const { fieldId, describedBy } = useFieldMessages(props)
 
 function onInput(event: Event): void {
   model.value = (event.target as HTMLInputElement).value
 }
-
-onMounted(describeControl)
-watch(() => [props.error, props.description], describeControl, { flush: 'post' })
 </script>
 
 <template>
   <div class="u-field" :class="{ 'u-field--invalid': error, 'u-field--disabled': disabled }">
-    <fluent-text-input
-      ref="field"
+    <label :for="fieldId" class="u-field__label">
+      {{ label }}<span v-if="required" class="u-field__required" aria-hidden="true"> *</span>
+    </label>
+    <input
+      :id="fieldId"
+      class="u-control"
       :value="model"
       :placeholder="placeholder"
-      :disabled="disabled || undefined"
-      :readonly="readonly || undefined"
-      :required="required || undefined"
+      :disabled="disabled"
+      :readonly="readonly"
+      :required="required"
       :type="type ?? 'text'"
       :autocomplete="autocomplete"
+      :aria-describedby="describedBy"
+      :aria-invalid="error ? 'true' : undefined"
       @input="onInput"
-    >
-      <span class="u-field__label">
-        {{ label }}<span v-if="required" class="u-field__required" aria-hidden="true"> *</span>
-      </span>
-    </fluent-text-input>
+    />
     <FieldMessages :field-id="fieldId" :description="description" :error="error" />
   </div>
 </template>
-
-<style scoped>
-.u-field {
-  display: grid;
-  gap: var(--spacingVerticalXXS);
-  min-width: 0;
-}
-.u-field__label {
-  color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
-  line-height: var(--lineHeightBase200);
-  overflow-wrap: anywhere;
-}
-.u-field__required {
-  color: var(--uaf-danger);
-}
-.u-field--disabled .u-field__label {
-  color: var(--uaf-text-disabled);
-}
-fluent-text-input::part(root) {
-  height: var(--uaf-control-height);
-}
-.u-field--invalid fluent-text-input::part(root) {
-  border-color: var(--uaf-danger);
-}
-</style>

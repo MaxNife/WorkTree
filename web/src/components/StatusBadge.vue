@@ -20,16 +20,16 @@ const text = computed(() => props.label ?? style.value.label)
 .status {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalSNudge);
+  gap: var(--space-6);
   white-space: nowrap;
 }
 .status__dot {
   flex: none;
   width: var(--uaf-dot-size);
   height: var(--uaf-dot-size);
-  border-radius: var(--borderRadiusCircular);
+  border-radius: var(--radius-full);
   background: var(--dot);
-  border: var(--strokeWidthThin) solid var(--dot);
+  border: var(--stroke-1) solid var(--dot);
 }
 .status--ok {
   --dot: var(--uaf-ok);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Ctrl/Cmd+K command palette: a modal dialog with an ARIA combobox and listbox. Arrow keys move,
 // Enter runs, Escape closes; Tab stays inside the dialog and focus returns to where it was.
-// A native <input> is used on purpose: aria-activedescendant cannot reach into a Fluent shadow root.
+// A native <input> is used on purpose: aria-activedescendant needs the options in the same document.
 import { computed, nextTick, ref, watch } from 'vue'
 import UIcon from '@/components/UIcon.vue'
 import type { PaletteCommand } from '@/router/types'
@@ -136,15 +136,15 @@ function onKeydown(event: KeyboardEvent): void {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 12vh var(--spacingHorizontalL) 0;
-  background: var(--colorBackgroundOverlay);
+  padding: 12vh var(--space-16) 0;
+  background: var(--uaf-overlay);
 }
 .palette {
   display: flex;
   flex-direction: column;
   width: min(640px, 100%);
   max-height: 70vh;
-  border: var(--strokeWidthThin) solid var(--uaf-border-strong);
+  border: var(--stroke-1) solid var(--uaf-border-strong);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-raised);
   color: var(--uaf-text);
@@ -152,9 +152,9 @@ function onKeydown(event: KeyboardEvent): void {
 .palette__search {
   display: flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
-  padding: 0 var(--spacingHorizontalM);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  gap: var(--space-8);
+  padding: 0 var(--space-12);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .palette__search-icon {
   color: var(--uaf-text-muted);
@@ -167,34 +167,34 @@ function onKeydown(event: KeyboardEvent): void {
   background: none;
   color: inherit;
   font: inherit;
-  font-size: var(--fontSizeBase400);
+  font-size: var(--font-size-16);
 }
 .palette__input:focus-visible {
   outline: none;
 }
 .palette__search:focus-within {
-  box-shadow: inset 0 calc(-1 * var(--strokeWidthThick)) 0 var(--uaf-focus);
+  box-shadow: inset 0 calc(-1 * var(--stroke-2)) 0 var(--uaf-focus);
 }
 .palette__list {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: var(--spacingVerticalXS);
+  padding: var(--space-4);
   overflow-y: auto;
   list-style: none;
 }
 .palette__option {
   display: flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   min-height: var(--uaf-row-height);
-  padding: 0 var(--spacingHorizontalS);
+  padding: 0 var(--space-8);
   border-radius: var(--uaf-radius);
   cursor: pointer;
 }
 .palette__option.is-active {
   background: var(--uaf-surface-selected);
-  box-shadow: inset var(--strokeWidthThick) 0 0 var(--uaf-focus);
+  box-shadow: inset var(--stroke-2) 0 0 var(--uaf-focus);
 }
 .palette__icon {
   flex: none;
@@ -210,11 +210,11 @@ function onKeydown(event: KeyboardEvent): void {
 }
 .palette__group {
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .palette__empty {
   margin: 0;
-  padding: var(--spacingVerticalM) var(--spacingHorizontalM);
+  padding: var(--space-12) var(--space-12);
   color: var(--uaf-text-muted);
 }
 .palette__count {
@@ -227,13 +227,13 @@ function onKeydown(event: KeyboardEvent): void {
 }
 .palette__hint {
   margin: 0;
-  padding: var(--spacingVerticalXS) var(--spacingHorizontalM);
-  border-top: var(--strokeWidthThin) solid var(--uaf-border);
+  padding: var(--space-4) var(--space-12);
+  border-top: var(--stroke-1) solid var(--uaf-border);
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 kbd {
   font-family: var(--uaf-font);
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 </style>

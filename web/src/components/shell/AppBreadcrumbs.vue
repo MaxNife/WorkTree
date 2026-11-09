@@ -24,7 +24,7 @@ const crumbs = useBreadcrumbs()
 .crumbs__list {
   display: flex;
   align-items: center;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -34,7 +34,7 @@ const crumbs = useBreadcrumbs()
 .crumbs__item {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
   min-width: 0;
 }
 .crumbs__sep {
@@ -52,6 +52,6 @@ const crumbs = useBreadcrumbs()
 .crumbs__current {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
 }
 </style>

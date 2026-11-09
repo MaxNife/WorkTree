@@ -175,13 +175,13 @@ watch([workflowId, environment], () => {
 <style scoped>
 .run-now {
   display: grid;
-  gap: var(--spacingVerticalM);
+  gap: var(--space-12);
   min-width: 0;
 }
 .run-now__row {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   align-items: start;
-  gap: var(--spacingHorizontalM);
+  gap: var(--space-12);
 }
 </style>

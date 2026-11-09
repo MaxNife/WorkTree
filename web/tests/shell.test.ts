@@ -333,7 +333,7 @@ describe('toasts and message bars', () => {
 
 describe('login', () => {
   async function fill(username: string, password: string): Promise<void> {
-    const [user, pass] = wrapper!.findAll('fluent-text-input')
+    const [user, pass] = wrapper!.findAll('input.u-control')
     for (const [field, value] of [
       [user, username],
       [pass, password],
@@ -349,7 +349,7 @@ describe('login', () => {
       login: (body) => (body.password === 'pw' ? json(200, me(['viewer'])) : json(401, { error: { code: 'unauthorized', message: 'x' } })),
     })
     expect(router.currentRoute.value.name).toBe('login')
-    const [user, pass] = wrapper!.findAll('fluent-text-input')
+    const [user, pass] = wrapper!.findAll('input.u-control')
     expect(user!.attributes('autocomplete')).toBe('username')
     expect(pass!.attributes('autocomplete')).toBe('current-password')
     await fill('ada', 'pw')
@@ -365,7 +365,7 @@ describe('login', () => {
     await wrapper!.get('form').trigger('submit')
     await settle()
     expect(wrapper!.get('[role="alert"].message-bar').text()).toBe('The username or password is incorrect.')
-    expect((wrapper!.findAll('fluent-text-input')[1]!.element as HTMLInputElement).value).toBe('')
+    expect((wrapper!.findAll('input.u-control')[1]!.element as HTMLInputElement).value).toBe('')
   })
 
   it('asks for both fields before calling the server', async () => {

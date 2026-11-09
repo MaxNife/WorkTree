@@ -14,21 +14,21 @@ withDefaults(defineProps<{ title: string; description?: string; headingLevel?: 2
 <style scoped>
 .empty {
   display: grid;
-  gap: var(--spacingVerticalXS);
+  gap: var(--space-4);
   max-width: 52ch;
-  padding: var(--spacingVerticalXXL) 0;
+  padding: var(--space-24) 0;
 }
 .empty__title {
   margin: 0;
-  font-size: var(--fontSizeBase400);
-  font-weight: var(--fontWeightSemibold);
-  line-height: var(--lineHeightBase400);
+  font-size: var(--font-size-16);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-22);
 }
 .empty__text {
   margin: 0;
   color: var(--uaf-text-muted);
 }
 .empty__action {
-  margin-top: var(--spacingVerticalS);
+  margin-top: var(--space-8);
 }
 </style>

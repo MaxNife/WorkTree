@@ -203,7 +203,7 @@ Sources: `docs/HANDOFF.md:26-34,57-66,98`.
 
 ### 3.4 Experience layer: pages and UI references [SPEC]
 
-The pages come from `BUILD_PROMPT:78-81`. The base component set is Fluent UI Web Components wrapped in our own Vue components, plus our own design tokens (`BUILD_PROMPT:71`). Reference products per area come from `docs/UI_reference_list.md` (line numbers in brackets).
+The pages come from `BUILD_PROMPT:78-81`. The base components are our own Vue components on native HTML elements, styled by our own design tokens (`docs/design-language.md`; this replaced the Fluent UI Web Components of `BUILD_PROMPT:71` on 2026-11-06, DECISIONS 13.1). Reference products per area come from `docs/UI_reference_list.md` (line numbers in brackets).
 
 | UI area | Page(s) it serves (`BUILD_PROMPT`) | Reference products and what to study (`UI_reference_list.md`) | Style that wins a conflict (`BUILD_PROMPT:77`) |
 |---|---|---|---|
@@ -218,7 +218,7 @@ The pages come from `BUILD_PROMPT:78-81`. The base component set is Fluent UI We
 | Admin, roles and audit log | Users and roles, environments, secrets metadata, audit viewer with chain verification (`:81`) | Microsoft Entra admin center: roles, groups, access reviews. GitHub org settings and audit log: searchable, filterable event log. HashiCorp Vault UI: secrets metadata, never values. (`:41-44`) | Microsoft |
 
 Rules for using these references:
-- Take ideas and interaction patterns only. Build our own design tokens, icons and wording. `BUILD_PROMPT:73` forbids reusing assets, branding or code from n8n, Notion or Microsoft beyond the Fluent UI library itself. [INFERRED] Apply the same rule to every product in `docs/UI_reference_list.md` (Linear, Temporal, GitHub, Airflow, Make, Power Automate, Camunda, Airtable, Entra, Vault, Azure/Fabric).
+- Take ideas and interaction patterns only. Build our own design tokens, icons and wording. `BUILD_PROMPT:73` forbids reusing assets, branding or code from n8n, Notion or Microsoft. No UI library is used; icons are Phosphor (MIT), copied by a generator. [INFERRED] Apply the same rule to every product in `docs/UI_reference_list.md` (Linear, Temporal, GitHub, Airflow, Make, Power Automate, Camunda, Airtable, Entra, Vault, Azure/Fabric).
 - `BUILD_PROMPT:77` gives a conflict order for only three styles: Microsoft, n8n, Notion. For the other products, use each one only in the area it is listed under, and resolve conflicts with the style named in the last column (adopted in `BUILD_PROMPT:186-191`).
 - Record the chosen patterns and tokens in `docs/design-language.md` (`BUILD_PROMPT:77`).
 
@@ -495,7 +495,7 @@ Current team practice: secrets live in "encrypted env vars + config.json". Who d
 ### 9.2 Libraries named by Track B [SPEC] (`BUILD_PROMPT:32-98`)
 
 Backend: Python 3.11+, FastAPI, SQLAlchemy 2.x, Alembic, pydantic, python-oracledb (thin), APScheduler, aio-pika (optional), hvac (optional), structlog, OpenTelemetry (hooks), argon2 or bcrypt (argon2id named in standards), Playwright (Python), pyzipper, python-calamine, openpyxl, XlsxWriter, pandas/polars, `read_fwf`, Parquet (library [UNKNOWN]; pyarrow per `research-06:6` [INFERRED]). Tooling: uv, ruff, mypy `--strict`, pytest, Hypothesis, pip-audit, pre-commit.
-Frontend: Vue 3 + TypeScript strict, Vite, Vue Router, Pinia, `@tanstack/vue-query`, `@vue-flow/core`, `@fluentui/web-components`, vue-tsc, ESLint, Vitest, Playwright (E2E), npm audit. A generated TS API client from OpenAPI; CI fails if it is stale.
+Frontend: Vue 3 + TypeScript strict, Vite, Vue Router, Pinia, `@tanstack/vue-query`, `@vue-flow/core`, vue-tsc, ESLint, Vitest, Playwright (E2E), npm audit. A generated TS API client from OpenAPI; CI fails if it is stale.
 
 ### 9.3 Licence flags recorded in research [RESEARCH]
 

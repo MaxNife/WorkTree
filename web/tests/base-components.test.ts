@@ -14,12 +14,6 @@ import WorkTreeLogo from '@/components/WorkTreeLogo.vue'
 import { formatDuration, STATUS_NAMES, statusStyle } from '@/status'
 import DesignView from '@/views/DesignView.vue'
 
-// The one Fluent behaviour these tests need: the <input> it renders, exposed as `control`.
-class StubTextInput extends HTMLElement {
-  control = document.createElement('input')
-}
-customElements.define('fluent-text-input', StubTextInput)
-
 afterEach(() => vi.unstubAllGlobals())
 
 describe('status helpers', () => {
@@ -48,23 +42,24 @@ describe('status helpers', () => {
 describe('UButton', () => {
   it('becomes an icon button when it has an icon and no text', () => {
     const button = mount(UButton, { props: { icon: 'copy', label: 'Copy' } })
-    const element = button.get('fluent-button')
-    expect(element.attributes('icon-only')).toBeDefined()
+    const element = button.get('button')
+    expect(element.classes()).toContain('u-button--icon-only')
     expect(element.attributes('aria-label')).toBe('Copy')
     expect(element.attributes('title')).toBe('Copy')
-    expect(button.get('svg').attributes('slot')).toBeUndefined()
+    expect(element.attributes('type')).toBe('button')
   })
 
-  it('keeps the icon in the start slot beside text', () => {
+  it('puts the icon before the text', () => {
     const button = mount(UButton, { props: { icon: 'play' }, slots: { default: 'Run' } })
-    expect(button.get('fluent-button').attributes('icon-only')).toBeUndefined()
-    expect(button.get('svg').attributes('slot')).toBe('start')
+    expect(button.get('button').classes()).not.toContain('u-button--icon-only')
+    expect(button.get('button').element.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+    expect(button.text()).toBe('Run')
   })
 
   it('stays focusable and busy while loading, and refuses clicks', async () => {
     const button = mount(UButton, { props: { loading: true }, slots: { default: 'Save' } })
-    const element = button.get('fluent-button')
-    expect(element.attributes('disabled-focusable')).toBeDefined()
+    const element = button.get('button')
+    expect(element.attributes('aria-disabled')).toBe('true')
     expect(element.attributes('disabled')).toBeUndefined()
     expect(element.attributes('aria-busy')).toBe('true')
     expect(button.find('.u-button__spinner').exists()).toBe(true)
@@ -74,43 +69,47 @@ describe('UButton', () => {
 
   it('does not emit a click when disabled', async () => {
     const button = mount(UButton, { props: { disabled: true } })
-    await button.get('fluent-button').trigger('click')
+    expect(button.get('button').attributes('disabled')).toBeDefined()
+    await button.get('button').trigger('click')
     expect(button.emitted('click')).toBeUndefined()
   })
 })
 
 describe('UTextInput', () => {
-  const inner = (wrapper: ReturnType<typeof mount>) => (wrapper.get('fluent-text-input').element as StubTextInput).control
+  const inner = (wrapper: ReturnType<typeof mount>) => wrapper.get('input').element
 
-  it('puts the label in the Fluent slot that names the inner input', () => {
+  it('names the input with its own label', () => {
     const input = mount(UTextInput, { props: { label: 'Name' } })
-    expect(input.get('fluent-text-input').text()).toBe('Name')
-    expect(input.find('label').exists()).toBe(false)
-    expect(input.get('fluent-text-input').attributes('aria-label')).toBeUndefined()
+    const label = input.get('label')
+    expect(label.text()).toBe('Name')
+    expect(label.attributes('for')).toBe(inner(input).id)
+    expect(input.get('input').attributes('aria-label')).toBeUndefined()
   })
 
-  it('describes the inner input with its help and error text, and marks it invalid', async () => {
+  it('describes the input with its help and error text, and marks it invalid', async () => {
     const input = mount(UTextInput, { props: { label: 'Name', description: 'Letters only.' } })
-    expect(inner(input).getAttribute('aria-description')).toBe('Letters only.')
+    const texts = () =>
+      (inner(input).getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean).map((id) => input.find(`[id="${id}"]`).text())
+    expect(texts()).toEqual(['Letters only.'])
     expect(inner(input).hasAttribute('aria-invalid')).toBe(false)
 
     await input.setProps({ error: 'Remove the slash.' })
     await nextTick()
-    expect(inner(input).getAttribute('aria-description')).toBe('Remove the slash. Letters only.')
+    expect(texts()).toEqual(['Remove the slash.', 'Letters only.'])
     expect(inner(input).getAttribute('aria-invalid')).toBe('true')
     expect(input.get('[role="alert"]').text()).toBe('Remove the slash.')
     expect(input.classes()).toContain('u-field--invalid')
 
     await input.setProps({ error: undefined, description: undefined })
     await nextTick()
-    expect(inner(input).hasAttribute('aria-description')).toBe(false)
+    expect(inner(input).hasAttribute('aria-describedby')).toBe(false)
     expect(inner(input).hasAttribute('aria-invalid')).toBe(false)
     expect(input.find('[role="alert"]').exists()).toBe(false)
   })
 
   it('passes required and read-only, and marks required for sighted users only', () => {
     const input = mount(UTextInput, { props: { label: 'Name', required: true, readonly: true } })
-    const element = input.get('fluent-text-input')
+    const element = input.get('input')
     expect(element.attributes('required')).toBeDefined()
     expect(element.attributes('readonly')).toBeDefined()
     expect(input.get('.u-field__required').attributes('aria-hidden')).toBe('true')
@@ -118,8 +117,8 @@ describe('UTextInput', () => {
 })
 
 describe.each([
-  ['UCheckbox', UCheckbox, 'fluent-checkbox'],
-  ['USwitch', USwitch, 'fluent-switch'],
+  ['UCheckbox', UCheckbox, 'input[type="checkbox"]:not([role])'],
+  ['USwitch', USwitch, 'input[type="checkbox"][role="switch"]'],
 ] as const)('%s', (_name, component, tag) => {
   it('ties help and error text to the control by id', () => {
     const wrapper = mount(component, { props: { label: 'Notify', description: 'By email.', error: 'Required.' } })
@@ -237,6 +236,6 @@ describe('DesignView', () => {
     )
     const shown = view.findAll('[data-status]').map((badge) => badge.attributes('data-status'))
     for (const status of STATUS_NAMES) expect(shown).toContain(status)
-    expect(view.find('select').exists()).toBe(false)
+    expect(view.html()).not.toContain('<fluent-')
   })
 })

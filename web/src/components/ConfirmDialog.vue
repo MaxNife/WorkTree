@@ -42,6 +42,6 @@ watch(open, (isOpen) => {
 
 <style scoped>
 .confirm__message {
-  margin: 0 0 var(--spacingVerticalM);
+  margin: 0 0 var(--space-12);
 }
 </style>

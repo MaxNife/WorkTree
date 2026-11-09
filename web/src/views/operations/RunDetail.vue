@@ -253,12 +253,12 @@ watch(runId, () => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--spacingVerticalL) var(--spacingHorizontalXL);
+  gap: var(--space-16) var(--space-20);
 }
 .detail__main {
   display: grid;
   flex: 1 1 440px;
-  gap: var(--spacingVerticalM);
+  gap: var(--space-12);
   min-width: 0;
 }
 .detail__side {
@@ -269,6 +269,6 @@ watch(runId, () => {
   overflow-wrap: anywhere;
 }
 .run-status {
-  margin-inline-end: var(--spacingHorizontalS);
+  margin-inline-end: var(--space-8);
 }
 </style>

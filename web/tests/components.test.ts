@@ -150,23 +150,23 @@ describe('NodeCard', () => {
   })
 })
 
-describe('Fluent wrappers', () => {
+describe('base controls', () => {
   it('UButton passes appearance and emits click', async () => {
     const button = mount(UButton, { props: { appearance: 'primary', icon: 'play' }, slots: { default: 'Run' } })
-    const element = button.get('fluent-button')
-    expect(element.attributes('appearance')).toBe('primary')
+    const element = button.get('button')
+    expect(element.classes()).toContain('u-button--primary')
     await element.trigger('click')
     expect(button.emitted('click')).toHaveLength(1)
     expect(button.find('svg').exists()).toBe(true)
   })
 
   it('UButton marks itself disabled', () => {
-    expect(mount(UButton, { props: { disabled: true } }).get('fluent-button').attributes('disabled')).toBeDefined()
+    expect(mount(UButton, { props: { disabled: true } }).get('button').attributes('disabled')).toBeDefined()
   })
 
   it('UTextInput updates its model from the input event', async () => {
     const input = mount(UTextInput, { props: { label: 'Name', modelValue: '', 'onUpdate:modelValue': () => undefined } })
-    const element = input.get('fluent-text-input')
+    const element = input.get('input')
     ;(element.element as HTMLInputElement).value = 'hello'
     await element.trigger('input')
     expect(input.emitted('update:modelValue')?.[0]).toEqual(['hello'])
@@ -175,13 +175,14 @@ describe('Fluent wrappers', () => {
 
   it('UCheckbox and USwitch update their model from the change event', async () => {
     const box = mount(UCheckbox, { props: { label: 'Notify', modelValue: false } })
-    ;(box.get('fluent-checkbox').element as HTMLInputElement).checked = true
-    await box.get('fluent-checkbox').trigger('change')
+    ;(box.get('input').element as HTMLInputElement).checked = true
+    await box.get('input').trigger('change')
     expect(box.emitted('update:modelValue')?.[0]).toEqual([true])
 
     const toggle = mount(USwitch, { props: { label: 'Enabled', modelValue: true } })
-    ;(toggle.get('fluent-switch').element as HTMLInputElement).checked = false
-    await toggle.get('fluent-switch').trigger('change')
+    expect(toggle.get('input').attributes('role')).toBe('switch')
+    ;(toggle.get('input').element as HTMLInputElement).checked = false
+    await toggle.get('input').trigger('change')
     expect(toggle.emitted('update:modelValue')?.[0]).toEqual([false])
   })
 })

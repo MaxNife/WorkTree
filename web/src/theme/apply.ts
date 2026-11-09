@@ -17,12 +17,12 @@ export function resolveTheme(
   return media('(prefers-color-scheme: dark)') ? 'dark' : 'light'
 }
 
-/** Write the tokens as CSS custom properties (`--<name>`) so our CSS and Fluent share them. */
+/** Write the tokens as CSS custom properties (`--<name>`) so every stylesheet can read them. */
 export function writeTokens(tokens: TokenSet, element: HTMLElement): void {
   for (const [name, value] of Object.entries(tokens)) element.style.setProperty(`--${name}`, String(value))
 }
 
-/** Apply a theme and density to the document. Fluent components read the same custom properties. */
+/** Apply a theme and density to the document. Components read them through styles/base.css. */
 export function applyTheme(theme: ThemeName, density: Density, root: HTMLElement = document.documentElement): void {
   writeTokens(THEMES[theme], root)
   root.dataset.theme = theme

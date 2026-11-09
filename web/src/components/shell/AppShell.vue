@@ -95,10 +95,10 @@ async function run(command: PaletteCommand): Promise<void> {
 }
 .shell__skip {
   position: absolute;
-  top: var(--spacingVerticalS);
-  left: var(--spacingHorizontalS);
+  top: var(--space-8);
+  left: var(--space-8);
   z-index: 50;
-  padding: var(--spacingVerticalXS) var(--spacingHorizontalS);
+  padding: var(--space-4) var(--space-8);
   border-radius: var(--uaf-radius);
   background: var(--uaf-accent);
   color: var(--uaf-on-accent);
@@ -122,24 +122,24 @@ async function run(command: PaletteCommand): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacingHorizontalL);
+  gap: var(--space-16);
   min-height: 44px;
-  padding: var(--spacingVerticalXS) var(--uaf-page-padding);
-  border-bottom: var(--strokeWidthThin) solid var(--uaf-border);
+  padding: var(--space-4) var(--uaf-page-padding);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
 }
 .shell__tools {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
 }
 .shell__search {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacingHorizontalS);
+  gap: var(--space-8);
   height: var(--uaf-control-height);
-  padding: 0 var(--spacingHorizontalS);
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  padding: 0 var(--space-8);
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius);
   background: var(--uaf-surface);
   color: var(--uaf-text-muted);
@@ -152,7 +152,7 @@ async function run(command: PaletteCommand): Promise<void> {
 }
 .shell__kbd {
   font-family: var(--uaf-font);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
 }
 .shell__main {
   flex: 1;

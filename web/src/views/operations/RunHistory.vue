@@ -167,7 +167,7 @@ const openRun = (row: RunSummary) => router.push({ name: 'operations.run', param
 <style scoped>
 .runs {
   display: grid;
-  gap: var(--spacingVerticalS);
+  gap: var(--space-8);
   min-width: 0;
 }
 .runs :deep(td) {

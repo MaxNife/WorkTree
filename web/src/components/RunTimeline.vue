@@ -48,7 +48,7 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   list-style: none;
   margin: 0;
   padding: 0;
-  border: var(--strokeWidthThin) solid var(--uaf-border);
+  border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
 }
 .run-timeline__empty {
@@ -56,14 +56,14 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   color: var(--uaf-text-muted);
 }
 .run-timeline__item + .run-timeline__item {
-  border-top: var(--strokeWidthThin) solid var(--uaf-border);
+  border-top: var(--stroke-1) solid var(--uaf-border);
 }
 /* Fixed columns, because each row is its own grid and they still have to line up. */
 .run-timeline__summary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) 10ch minmax(11ch, max-content) 9ch;
   align-items: center;
-  gap: var(--spacingHorizontalM);
+  gap: var(--space-12);
   min-height: var(--uaf-row-height);
   padding: var(--uaf-cell-padding);
   cursor: pointer;
@@ -77,24 +77,24 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
 }
 .run-timeline__chevron {
   color: var(--uaf-text-muted);
-  transition: transform var(--durationFaster) var(--curveEasyEase);
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 details[open] > .run-timeline__summary .run-timeline__chevron {
   transform: rotate(90deg);
 }
 .run-timeline__name {
-  font-weight: var(--fontWeightSemibold);
+  font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 .run-timeline__meta {
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
+  font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .run-timeline__body {
   display: grid;
-  gap: var(--spacingVerticalS);
+  gap: var(--space-8);
   min-width: 0;
   padding: var(--uaf-cell-padding);
   background: var(--uaf-surface-sunken);

@@ -1,325 +1,209 @@
 // Design tokens: the single source of colour truth (docs/design-language.md).
-// The objects use Fluent's own token names. theme/apply.ts writes them as CSS custom properties on
-// the root, where the wrapped Fluent web components and styles/base.css both read them.
+// theme/apply.ts writes them as CSS custom properties on the root, and styles/base.css maps them to
+// the --uaf-* variables components use. A token name here is its CSS name without the leading dashes.
 
 export type ThemeName = 'light' | 'dark' | 'high-contrast'
 export type TokenValue = string | number
 export type TokenSet = Record<string, TokenValue>
 
-/** Accent: Fluent green (#107C10) and its tints. Change the brand here, nowhere else. */
+/** Accent: WorkTree green and its tints. Change the brand here, nowhere else. */
 export const BRAND = {
   base: '#107C10',
   hover: '#0E700E',
   pressed: '#0C5E0C',
-  tint: '#DFF6DD',
-  onDark: '#54B054',
-  onDarkPressed: '#479647',
-  linkOnDark: '#6CCB5F',
-  linkHoverOnDark: '#8AD97D',
-  tintOnDark: '#0A2E0A',
+  tint: '#E2F0DD',
+  onDark: '#5DB65A',
+  onDarkPressed: '#4B9A49',
+  linkOnDark: '#7BCB72',
+  linkHoverOnDark: '#9ADB92',
+  tintOnDark: '#20331D',
 } as const
 
-// Values that do not change with the theme (Fluent's scale).
+// Values that do not change with the theme.
 const shared: TokenSet = {
-  colorNeutralForeground1Static: '#242424',
-  colorNeutralForegroundStaticInverted: '#ffffff',
-  fontFamilyBase:
-    "'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif",
-  fontFamilyMonospace: "Consolas, 'Courier New', Courier, monospace",
-  fontFamilyNumeric: "Bahnschrift, 'Segoe UI', sans-serif",
-  fontSizeBase100: '10px',
-  fontSizeBase200: '12px',
-  fontSizeBase300: '14px',
-  fontSizeBase400: '16px',
-  fontSizeBase500: '20px',
-  fontSizeBase600: '24px',
-  fontSizeHero700: '28px',
-  fontSizeHero800: '32px',
-  fontSizeHero900: '40px',
-  fontSizeHero1000: '68px',
-  lineHeightBase100: '14px',
-  lineHeightBase200: '16px',
-  lineHeightBase300: '20px',
-  lineHeightBase400: '22px',
-  lineHeightBase500: '28px',
-  lineHeightBase600: '32px',
-  lineHeightHero700: '36px',
-  lineHeightHero800: '40px',
-  lineHeightHero900: '52px',
-  lineHeightHero1000: '92px',
-  fontWeightRegular: 400,
-  fontWeightMedium: 500,
-  fontWeightSemibold: 600,
-  fontWeightBold: 700,
-  borderRadiusNone: '0',
-  borderRadiusSmall: '2px',
-  borderRadiusMedium: '4px',
-  borderRadiusLarge: '6px',
-  borderRadiusXLarge: '8px',
-  borderRadiusCircular: '10000px',
-  strokeWidthThin: '1px',
-  strokeWidthThick: '2px',
-  strokeWidthThicker: '3px',
-  strokeWidthThickest: '4px',
-  spacingHorizontalNone: '0',
-  spacingHorizontalXXS: '2px',
-  spacingHorizontalXS: '4px',
-  spacingHorizontalSNudge: '6px',
-  spacingHorizontalS: '8px',
-  spacingHorizontalMNudge: '10px',
-  spacingHorizontalM: '12px',
-  spacingHorizontalL: '16px',
-  spacingHorizontalXL: '20px',
-  spacingHorizontalXXL: '24px',
-  spacingHorizontalXXXL: '32px',
-  spacingVerticalNone: '0',
-  spacingVerticalXXS: '2px',
-  spacingVerticalXS: '4px',
-  spacingVerticalSNudge: '6px',
-  spacingVerticalS: '8px',
-  spacingVerticalMNudge: '10px',
-  spacingVerticalM: '12px',
-  spacingVerticalL: '16px',
-  spacingVerticalXL: '20px',
-  spacingVerticalXXL: '24px',
-  spacingVerticalXXXL: '32px',
-  durationUltraFast: '50ms',
-  durationFaster: '100ms',
-  durationFast: '150ms',
-  durationNormal: '200ms',
-  durationSlow: '300ms',
-  durationSlower: '400ms',
-  durationUltraSlow: '500ms',
-  durationGentle: '250ms',
-  curveAccelerateMax: 'cubic-bezier(0.9,0.1,1,0.2)',
-  curveAccelerateMid: 'cubic-bezier(1,0,1,1)',
-  curveAccelerateMin: 'cubic-bezier(0.8,0,0.78,1)',
-  curveDecelerateMax: 'cubic-bezier(0.1,0.9,0.2,1)',
-  curveDecelerateMid: 'cubic-bezier(0,0,0,1)',
-  curveDecelerateMin: 'cubic-bezier(0.33,0,0.1,1)',
-  curveEasyEaseMax: 'cubic-bezier(0.8,0,0.2,1)',
-  curveEasyEase: 'cubic-bezier(0.33,0,0.67,1)',
-  curveLinear: 'cubic-bezier(0,0,1,1)',
+  'font-family-base':
+    "'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif",
+  'font-family-mono': "'Cascadia Mono', Consolas, 'Courier New', Courier, monospace",
+  'font-size-10': '10px',
+  'font-size-12': '12px',
+  'font-size-14': '14px',
+  'font-size-16': '16px',
+  'font-size-20': '20px',
+  'font-size-24': '24px',
+  'font-size-28': '28px',
+  'line-height-14': '14px',
+  'line-height-16': '16px',
+  'line-height-20': '20px',
+  'line-height-22': '22px',
+  'line-height-28': '28px',
+  'line-height-32': '32px',
+  'line-height-36': '36px',
+  'weight-regular': 400,
+  'weight-medium': 500,
+  'weight-semibold': 600,
+  'weight-bold': 700,
+  // Soft but not uniform: containers are rounder than the controls inside them.
+  'radius-control': '8px',
+  'radius-container': '12px',
+  'radius-full': '999px',
+  'stroke-1': '1px',
+  'stroke-2': '2px',
+  'stroke-3': '3px',
+  'stroke-4': '4px',
+  'space-0': '0',
+  'space-2': '2px',
+  'space-4': '4px',
+  'space-6': '6px',
+  'space-8': '8px',
+  'space-10': '10px',
+  'space-12': '12px',
+  'space-16': '16px',
+  'space-20': '20px',
+  'space-24': '24px',
+  'space-32': '32px',
+  'duration-fast': '100ms',
+  'duration-normal': '200ms',
+  'duration-slow': '500ms',
+  'ease-standard': 'cubic-bezier(0.33,0,0.67,1)',
 }
 
 interface Palette {
-  fg1: string
-  fg2: string
-  fg3: string
-  fg4: string
-  fgDisabled: string
-  fgOnBrand: string
-  bg1: string
-  bg1Hover: string
-  bg1Pressed: string
-  bg1Selected: string
-  bg2: string
-  bg3: string
-  bg4: string
-  bg5: string
-  bg6: string
-  bgDisabled: string
-  subtleHover: string
-  subtlePressed: string
-  subtleSelected: string
-  stroke1: string
-  stroke1Hover: string
-  stroke1Pressed: string
-  stroke2: string
-  stroke3: string
-  strokeAccessible: string
-  strokeDisabled: string
-  focus1: string
-  focus2: string
+  text: string
+  textSecondary: string
+  textMuted: string
+  textDisabled: string
+  textOnAccent: string
+  page: string
+  surface: string
+  sunken: string
+  hover: string
+  pressed: string
+  selected: string
+  disabledFill: string
+  border: string
+  borderStrong: string
+  borderControl: string
+  focus: string
   overlay: string
-  shadow: [string, string]
-  brandBg: string
-  brandBgHover: string
-  brandBgPressed: string
-  brandBg2: string
-  // Fills under a small glyph (checkbox tick, switch thumb), which sits in the inverted foreground.
-  compoundBg: string
-  compoundBgHover: string
-  compoundBgPressed: string
-  brandFg: string
-  brandFg2: string
-  brandLink: string
-  brandLinkHover: string
-  brandStroke: string
+  accent: string
+  accentHover: string
+  accentPressed: string
+  accentTint: string
+  accentText: string
+  // Fills under a small glyph (checkbox tick, switch thumb), which sits in the surface colour.
+  control: string
+  controlHover: string
+  controlPressed: string
+  link: string
+  linkHover: string
   wordmarkWork: string
   wordmarkTree: string
-  status: Record<'green' | 'red' | 'yellow' | 'orange', [fg: string, bg: string, border: string]>
-}
-
-function build(p: Palette): TokenSet {
-  const t: TokenSet = { ...shared }
-  const set = (names: string[], value: string) => names.forEach((n) => (t[n] = value))
-  set(['colorNeutralForeground1', 'colorNeutralForeground1Hover', 'colorNeutralForeground1Pressed', 'colorNeutralForeground1Selected'], p.fg1)
-  set(['colorNeutralForeground2', 'colorNeutralForeground2Hover', 'colorNeutralForeground2Pressed', 'colorNeutralForeground2Selected'], p.fg2)
-  set(['colorNeutralForeground3', 'colorNeutralForeground3Hover', 'colorNeutralForeground3Pressed', 'colorNeutralForeground3Selected'], p.fg3)
-  t.colorNeutralForeground4 = p.fg4
-  t.colorNeutralForegroundDisabled = p.fgDisabled
-  t.colorNeutralForegroundOnBrand = p.fgOnBrand
-  set(['colorNeutralForegroundInverted', 'colorNeutralForegroundInvertedHover', 'colorNeutralForegroundInvertedPressed'], p.bg1)
-  set(['colorNeutralForeground2BrandHover', 'colorNeutralForeground2BrandPressed', 'colorNeutralForeground2BrandSelected'], p.brandFg)
-  set(['colorNeutralForeground3BrandHover', 'colorNeutralForeground3BrandPressed', 'colorNeutralForeground3BrandSelected'], p.brandFg)
-  set(['colorBrandForeground1', 'colorCompoundBrandForeground1'], p.brandFg)
-  t.colorCompoundBrandForeground1Hover = p.brandFg2
-  t.colorCompoundBrandForeground1Pressed = p.brandFg2
-  t.colorBrandForeground2 = p.brandFg2
-  t.colorBrandForegroundLink = p.brandLink
-  t.colorBrandForegroundLinkHover = p.brandLinkHover
-  t.colorBrandForegroundLinkPressed = p.brandLinkHover
-  t.colorBrandForegroundLinkSelected = p.brandLink
-  t.colorNeutralForeground2Link = p.fg2
-  t.colorNeutralForeground2LinkHover = p.fg1
-  t.colorNeutralForeground2LinkPressed = p.fg1
-  t.colorNeutralForeground2LinkSelected = p.fg1
-
-  t.colorNeutralBackground1 = p.bg1
-  t.colorNeutralBackground1Hover = p.bg1Hover
-  t.colorNeutralBackground1Pressed = p.bg1Pressed
-  t.colorNeutralBackground1Selected = p.bg1Selected
-  for (const [i, v] of [p.bg2, p.bg3, p.bg4, p.bg5].entries()) {
-    const n = i + 2
-    t[`colorNeutralBackground${n}`] = v
-    t[`colorNeutralBackground${n}Hover`] = p.bg1Hover
-    t[`colorNeutralBackground${n}Pressed`] = p.bg1Pressed
-    t[`colorNeutralBackground${n}Selected`] = p.bg1Selected
-  }
-  t.colorNeutralBackground6 = p.bg6
-  t.colorNeutralBackgroundDisabled = p.bgDisabled
-  t.colorNeutralBackgroundInverted = p.fg1
-  t.colorSubtleBackground = 'transparent'
-  t.colorSubtleBackgroundHover = p.subtleHover
-  t.colorSubtleBackgroundPressed = p.subtlePressed
-  t.colorSubtleBackgroundSelected = p.subtleSelected
-  t.colorTransparentBackground = 'transparent'
-  t.colorTransparentBackgroundHover = 'transparent'
-  t.colorTransparentBackgroundPressed = 'transparent'
-  t.colorTransparentBackgroundSelected = 'transparent'
-  t.colorBackgroundOverlay = p.overlay
-
-  t.colorBrandBackground = p.brandBg
-  t.colorBrandBackgroundHover = p.brandBgHover
-  t.colorBrandBackgroundPressed = p.brandBgPressed
-  t.colorBrandBackgroundSelected = p.brandBgHover
-  t.colorCompoundBrandBackground = p.compoundBg
-  t.colorCompoundBrandBackgroundHover = p.compoundBgHover
-  t.colorCompoundBrandBackgroundPressed = p.compoundBgPressed
-  t.colorBrandBackground2 = p.brandBg2
-  t.colorBrandBackgroundStatic = p.brandBg
-
-  t.colorNeutralStroke1 = p.stroke1
-  t.colorNeutralStroke1Hover = p.stroke1Hover
-  t.colorNeutralStroke1Pressed = p.stroke1Pressed
-  t.colorNeutralStroke1Selected = p.stroke1Pressed
-  t.colorNeutralStroke2 = p.stroke2
-  t.colorNeutralStroke3 = p.stroke3
-  t.colorNeutralStrokeAccessible = p.strokeAccessible
-  t.colorNeutralStrokeAccessibleHover = p.fg2
-  t.colorNeutralStrokeAccessiblePressed = p.fg1
-  t.colorNeutralStrokeAccessibleSelected = p.brandStroke
-  t.colorNeutralStrokeDisabled = p.strokeDisabled
-  t.colorNeutralStrokeOnBrand = p.focus1
-  t.colorNeutralStrokeOnBrand2 = p.focus1
-  t.colorBrandStroke1 = p.brandStroke
-  t.colorBrandStroke2 = p.brandBg2
-  t.colorCompoundBrandStroke = p.brandStroke
-  t.colorCompoundBrandStrokeHover = p.compoundBgHover
-  t.colorCompoundBrandStrokePressed = p.compoundBgPressed
-  t.colorTransparentStroke = 'transparent'
-  t.colorTransparentStrokeInteractive = 'transparent'
-  t.colorTransparentStrokeDisabled = 'transparent'
-  t.colorStrokeFocus1 = p.focus1
-  t.colorStrokeFocus2 = p.focus2
-  // WorkTree wordmark: "Work" in green, "Tree" in brown.
-  t.wordmarkWork = p.wordmarkWork
-  t.wordmarkTree = p.wordmarkTree
-
-  for (const [name, [fg, bg, border]] of Object.entries(p.status)) {
-    const key = { green: 'Green', red: 'Red', yellow: 'Yellow', orange: 'DarkOrange' }[name]
-    t[`colorPalette${key}Foreground1`] = fg
-    t[`colorPalette${key}Foreground2`] = fg
-    t[`colorPalette${key}Foreground3`] = fg
-    t[`colorPalette${key}Background1`] = bg
-    t[`colorPalette${key}Background2`] = bg
-    t[`colorPalette${key}Background3`] = border
-    t[`colorPalette${key}Border1`] = border
-    t[`colorPalette${key}Border2`] = border
-    t[`colorPalette${key}BorderActive`] = fg
-  }
-
-  t.colorNeutralShadowAmbient = p.shadow[0]
-  t.colorNeutralShadowKey = p.shadow[1]
-  t.shadow2 = `0 0 2px ${p.shadow[0]}, 0 1px 2px ${p.shadow[1]}`
-  t.shadow4 = `0 0 2px ${p.shadow[0]}, 0 2px 4px ${p.shadow[1]}`
-  t.shadow8 = `0 0 2px ${p.shadow[0]}, 0 4px 8px ${p.shadow[1]}`
-  t.shadow16 = `0 0 2px ${p.shadow[0]}, 0 8px 16px ${p.shadow[1]}`
-  t.shadow28 = `0 0 8px ${p.shadow[0]}, 0 14px 28px ${p.shadow[1]}`
-  t.shadow64 = `0 0 8px ${p.shadow[0]}, 0 32px 64px ${p.shadow[1]}`
-  return t
+  status: Record<'ok' | 'danger' | 'warn' | 'attention', [fg: string, bg: string, border: string]>
+  /** Soft lift for what floats above the page: menus, popovers, toasts and dialogs. */
+  shadowFloat: string
+  shadowOverlay: string
 }
 
 const light: Palette = {
-  fg1: '#242424', fg2: '#424242', fg3: '#616161', fg4: '#707070', fgDisabled: '#bdbdbd', fgOnBrand: '#ffffff',
-  bg1: '#ffffff', bg1Hover: '#f5f5f5', bg1Pressed: '#e0e0e0', bg1Selected: '#ebebeb',
-  bg2: '#fafafa', bg3: '#f5f5f5', bg4: '#f0f0f0', bg5: '#ebebeb', bg6: '#e6e6e6', bgDisabled: '#f0f0f0',
-  subtleHover: '#f5f5f5', subtlePressed: '#e0e0e0', subtleSelected: '#ebebeb',
-  stroke1: '#d1d1d1', stroke1Hover: '#c7c7c7', stroke1Pressed: '#b3b3b3', stroke2: '#e0e0e0', stroke3: '#f0f0f0',
-  strokeAccessible: '#616161', strokeDisabled: '#e0e0e0', focus1: '#ffffff', focus2: '#000000',
-  overlay: 'rgba(0,0,0,0.4)', shadow: ['rgba(0,0,0,0.12)', 'rgba(0,0,0,0.14)'],
-  brandBg: BRAND.base, brandBgHover: BRAND.hover, brandBgPressed: BRAND.pressed, brandBg2: BRAND.tint,
-  compoundBg: BRAND.base, compoundBgHover: BRAND.hover, compoundBgPressed: BRAND.pressed,
-  brandFg: BRAND.base, brandFg2: BRAND.pressed, brandLink: BRAND.hover, brandLinkHover: BRAND.pressed, brandStroke: BRAND.base,
+  text: '#26231F', textSecondary: '#46413A', textMuted: '#5F584E', textDisabled: '#A9A297', textOnAccent: '#ffffff',
+  page: '#F8F6F2', surface: '#ffffff', sunken: '#F2EEE8', hover: '#F3EFE9', pressed: '#E8E2D9', selected: '#EAE5DC', disabledFill: '#F0ECE5',
+  border: '#E6E0D6', borderStrong: '#D2CABD', borderControl: '#8C8478',
+  focus: '#000000', overlay: 'rgba(38,35,31,0.42)',
+  accent: BRAND.base, accentHover: BRAND.hover, accentPressed: BRAND.pressed, accentTint: BRAND.tint, accentText: BRAND.base,
+  control: BRAND.base, controlHover: BRAND.hover, controlPressed: BRAND.pressed,
+  link: BRAND.hover, linkHover: BRAND.pressed,
   wordmarkWork: BRAND.base, wordmarkTree: '#7a4a1e',
   status: {
-    green: ['#107c10', '#f1faf1', '#9fd89f'],
-    red: ['#b10e1c', '#fdf3f4', '#eeacb2'],
-    yellow: ['#835b00', '#fff9e5', '#fde300'],
-    orange: ['#bc4b09', '#fdf6f3', '#f4bfab'],
+    ok: ['#0F6F1A', '#EEF7EC', '#A9D6A3'],
+    danger: ['#AE1B23', '#FCF1EF', '#EBB2AE'],
+    warn: ['#7D5700', '#FDF6E3', '#E7C565'],
+    attention: ['#B24A0C', '#FCF3EC', '#F0C0A0'],
   },
+  shadowFloat: '0 1px 2px rgba(61,50,35,0.08), 0 6px 18px rgba(61,50,35,0.10)',
+  shadowOverlay: '0 2px 4px rgba(61,50,35,0.10), 0 16px 40px rgba(61,50,35,0.18)',
 }
 
 const dark: Palette = {
-  fg1: '#ffffff', fg2: '#d6d6d6', fg3: '#adadad', fg4: '#999999', fgDisabled: '#5c5c5c', fgOnBrand: '#ffffff',
-  bg1: '#292929', bg1Hover: '#3d3d3d', bg1Pressed: '#1f1f1f', bg1Selected: '#333333',
-  bg2: '#1f1f1f', bg3: '#141414', bg4: '#0f0f0f', bg5: '#0a0a0a', bg6: '#313131', bgDisabled: '#141414',
-  subtleHover: '#383838', subtlePressed: '#2e2e2e', subtleSelected: '#333333',
-  stroke1: '#666666', stroke1Hover: '#757575', stroke1Pressed: '#6b6b6b', stroke2: '#525252', stroke3: '#3d3d3d',
-  strokeAccessible: '#d6d6d6', strokeDisabled: '#424242', focus1: '#000000', focus2: '#ffffff',
-  overlay: 'rgba(0,0,0,0.5)', shadow: ['rgba(0,0,0,0.24)', 'rgba(0,0,0,0.28)'],
-  brandBg: BRAND.base, brandBgHover: BRAND.hover, brandBgPressed: BRAND.pressed, brandBg2: BRAND.tintOnDark,
-  compoundBg: BRAND.onDark, compoundBgHover: BRAND.linkOnDark, compoundBgPressed: BRAND.onDarkPressed,
-  brandFg: BRAND.onDark, brandFg2: BRAND.linkOnDark, brandLink: BRAND.linkOnDark, brandLinkHover: BRAND.linkHoverOnDark, brandStroke: BRAND.onDark,
+  text: '#F6F2EC', textSecondary: '#DAD3C9', textMuted: '#B9B1A5', textDisabled: '#6F685E', textOnAccent: '#ffffff',
+  page: '#1C1A17', surface: '#262320', sunken: '#171512', hover: '#332F2B', pressed: '#211E1B', selected: '#3A3631', disabledFill: '#2A2723',
+  border: '#3E3933', borderStrong: '#5A534A', borderControl: '#8E867A',
+  focus: '#ffffff', overlay: 'rgba(0,0,0,0.55)',
+  accent: BRAND.base, accentHover: BRAND.hover, accentPressed: BRAND.pressed, accentTint: BRAND.tintOnDark, accentText: BRAND.onDark,
+  control: BRAND.onDark, controlHover: BRAND.linkOnDark, controlPressed: BRAND.onDarkPressed,
+  link: BRAND.linkOnDark, linkHover: BRAND.linkHoverOnDark,
   wordmarkWork: BRAND.onDark, wordmarkTree: '#c9a27c',
   status: {
-    green: ['#9fd89f', '#052505', '#107c10'],
-    red: ['#eeacb2', '#3b0509', '#b10e1c'],
-    yellow: ['#fde300', '#3d2e00', '#835b00'],
-    orange: ['#f4bfab', '#411200', '#bc4b09'],
+    ok: ['#9FD89A', '#14290F', '#3E7A38'],
+    danger: ['#F0AFA9', '#3A1412', '#9C2F2A'],
+    warn: ['#EFCB6A', '#332708', '#7D5F12'],
+    attention: ['#F2BE9E', '#3A1E0E', '#A2542A'],
   },
+  shadowFloat: '0 1px 2px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.34)',
+  shadowOverlay: '0 2px 4px rgba(0,0,0,0.34), 0 16px 40px rgba(0,0,0,0.46)',
 }
 
-// High contrast: pure black and white with yellow for brand and a cyan focus ring.
+// High contrast: pure black and white with yellow for the accent and a cyan focus ring. No shadows:
+// the white borders already separate what floats.
 const highContrast: Palette = {
-  fg1: '#ffffff', fg2: '#ffffff', fg3: '#ffffff', fg4: '#ffffff', fgDisabled: '#a6a6a6', fgOnBrand: '#000000',
-  bg1: '#000000', bg1Hover: '#1a1a1a', bg1Pressed: '#333333', bg1Selected: '#1a1a1a',
-  bg2: '#000000', bg3: '#000000', bg4: '#000000', bg5: '#000000', bg6: '#000000', bgDisabled: '#000000',
-  subtleHover: '#1a1a1a', subtlePressed: '#333333', subtleSelected: '#1a1a1a',
-  stroke1: '#ffffff', stroke1Hover: '#ffff00', stroke1Pressed: '#ffff00', stroke2: '#ffffff', stroke3: '#ffffff',
-  strokeAccessible: '#ffffff', strokeDisabled: '#a6a6a6', focus1: '#000000', focus2: '#00ffff',
-  overlay: 'rgba(0,0,0,0.8)', shadow: ['rgba(255,255,255,0)', 'rgba(255,255,255,0)'],
-  brandBg: '#ffff00', brandBgHover: '#ffffff', brandBgPressed: '#ffffff', brandBg2: '#000000',
-  compoundBg: '#ffff00', compoundBgHover: '#ffffff', compoundBgPressed: '#ffffff',
-  brandFg: '#ffff00', brandFg2: '#ffff00', brandLink: '#ffff00', brandLinkHover: '#ffffff', brandStroke: '#ffff00',
+  text: '#ffffff', textSecondary: '#ffffff', textMuted: '#ffffff', textDisabled: '#a6a6a6', textOnAccent: '#000000',
+  page: '#000000', surface: '#000000', sunken: '#000000', hover: '#1a1a1a', pressed: '#333333', selected: '#1a1a1a', disabledFill: '#000000',
+  border: '#ffffff', borderStrong: '#ffffff', borderControl: '#ffffff',
+  focus: '#00ffff', overlay: 'rgba(0,0,0,0.8)',
+  accent: '#ffff00', accentHover: '#ffffff', accentPressed: '#ffffff', accentTint: '#000000', accentText: '#ffff00',
+  control: '#ffff00', controlHover: '#ffffff', controlPressed: '#ffffff',
+  link: '#ffff00', linkHover: '#ffffff',
   wordmarkWork: '#3ff23f', wordmarkTree: '#ffa94d',
   status: {
-    green: ['#3ff23f', '#000000', '#3ff23f'],
-    red: ['#ff6b6b', '#000000', '#ff6b6b'],
-    yellow: ['#ffff00', '#000000', '#ffff00'],
-    orange: ['#ffa94d', '#000000', '#ffa94d'],
+    ok: ['#3ff23f', '#000000', '#3ff23f'],
+    danger: ['#ff6b6b', '#000000', '#ff6b6b'],
+    warn: ['#ffff00', '#000000', '#ffff00'],
+    attention: ['#ffa94d', '#000000', '#ffa94d'],
   },
+  shadowFloat: 'none',
+  shadowOverlay: 'none',
+}
+
+function build(p: Palette): TokenSet {
+  const t: TokenSet = {
+    ...shared,
+    'color-text': p.text,
+    'color-text-secondary': p.textSecondary,
+    'color-text-muted': p.textMuted,
+    'color-text-disabled': p.textDisabled,
+    'color-text-on-accent': p.textOnAccent,
+    'color-page': p.page,
+    'color-surface': p.surface,
+    'color-surface-sunken': p.sunken,
+    'color-surface-hover': p.hover,
+    'color-surface-pressed': p.pressed,
+    'color-surface-selected': p.selected,
+    'color-surface-disabled': p.disabledFill,
+    'color-border': p.border,
+    'color-border-strong': p.borderStrong,
+    'color-border-control': p.borderControl,
+    'color-focus': p.focus,
+    'color-overlay': p.overlay,
+    'color-accent': p.accent,
+    'color-accent-hover': p.accentHover,
+    'color-accent-pressed': p.accentPressed,
+    'color-accent-tint': p.accentTint,
+    'color-accent-text': p.accentText,
+    'color-control': p.control,
+    'color-control-hover': p.controlHover,
+    'color-control-pressed': p.controlPressed,
+    'color-link': p.link,
+    'color-link-hover': p.linkHover,
+    'wordmark-work': p.wordmarkWork,
+    'wordmark-tree': p.wordmarkTree,
+    'shadow-float': p.shadowFloat,
+    'shadow-overlay': p.shadowOverlay,
+  }
+  for (const [name, [fg, bg, border]] of Object.entries(p.status)) {
+    t[`color-${name}`] = fg
+    t[`color-${name}-bg`] = bg
+    t[`color-${name}-border`] = border
+  }
+  return t
 }
 
 export const THEMES: Record<ThemeName, TokenSet> = {

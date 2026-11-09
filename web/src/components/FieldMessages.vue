@@ -19,13 +19,13 @@ defineProps<{ fieldId: string; description?: string; error?: string }>()
 .field-message {
   margin: 0;
   color: var(--uaf-text-muted);
-  font-size: var(--fontSizeBase200);
-  line-height: var(--lineHeightBase200);
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-16);
   overflow-wrap: anywhere;
 }
 .field-message--error {
   display: flex;
-  gap: var(--spacingHorizontalXS);
+  gap: var(--space-4);
   color: var(--uaf-danger);
 }
 </style>
