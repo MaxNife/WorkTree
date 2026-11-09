@@ -1,18 +1,32 @@
 <script setup lang="ts">
-// A status dot plus its word (GitHub Actions / Temporal style): no pill, border or tinted fill.
-// The text is always shown, so colour is never the only signal; neutral states use a hollow dot.
+// A status mark plus its word: no pill, border or tinted fill. Each kind has its own shape as well as
+// its own colour (a tick, a cross, a clock, an alert, a turning ring, a hollow ring), and the word is
+// always shown, so colour is never the only signal.
 import { computed } from 'vue'
-import { statusStyle } from '@/status'
+import type { IconName } from '@/icons/paths'
+import { statusStyle, type StatusKind } from '@/status'
+import UIcon from './UIcon.vue'
 
 const props = defineProps<{ status: string; label?: string }>()
 const style = computed(() => statusStyle(props.status))
 const text = computed(() => props.label ?? style.value.label)
+
+const MARKS: Partial<Record<StatusKind, IconName>> = {
+  ok: 'check-circle',
+  danger: 'dismiss-circle',
+  warn: 'clock',
+  attention: 'error',
+}
+const mark = computed(() => MARKS[style.value.kind])
 </script>
 
 <template>
   <span class="status" :class="`status--${style.kind}`" :data-status="status">
-    <span class="status__dot" aria-hidden="true" />
-    <span>{{ text }}</span>
+    <span class="status__dot" aria-hidden="true">
+      <UIcon v-if="mark" :name="mark" :size="14" weight="fill" />
+      <span v-else class="status__ring" :class="`status__ring--${style.kind}`" />
+    </span>
+    <span class="status__word">{{ text }}</span>
   </span>
 </template>
 
@@ -24,12 +38,33 @@ const text = computed(() => props.label ?? style.value.label)
   white-space: nowrap;
 }
 .status__dot {
+  display: inline-grid;
   flex: none;
-  width: var(--uaf-dot-size);
-  height: var(--uaf-dot-size);
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: var(--dot);
+}
+/* Running: a ring with one bright arc that turns. Neutral: a still, hollow ring. */
+.status__ring {
+  width: 11px;
+  height: 11px;
+  border: var(--stroke-2) solid var(--dot);
   border-radius: var(--radius-full);
-  background: var(--dot);
-  border: var(--stroke-1) solid var(--dot);
+}
+.status--running .status__ring {
+  border-color: color-mix(in srgb, var(--dot) 30%, transparent);
+  border-top-color: var(--dot);
+  animation: status-turn 1.1s linear infinite;
+}
+.status--neutral .status__ring {
+  border-width: var(--stroke-1);
+  border-style: dashed;
+}
+@keyframes status-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .status--ok {
   --dot: var(--uaf-ok);
@@ -49,18 +84,15 @@ const text = computed(() => props.label ?? style.value.label)
 .status--neutral {
   --dot: var(--uaf-text-muted);
 }
-.status--neutral .status__dot {
-  background: transparent;
-}
-/* Forced colours drop backgrounds, which would leave every dot hollow. */
+/* Forced colours: the shapes still tell the kinds apart, drawn in the text colour. */
 @media (forced-colors: active) {
   .status__dot {
-    forced-color-adjust: none;
-    background: CanvasText;
-    border-color: CanvasText;
+    color: CanvasText;
   }
-  .status--neutral .status__dot {
-    background: transparent;
+  .status__ring,
+  .status--running .status__ring {
+    forced-color-adjust: none;
+    border-color: CanvasText;
   }
 }
 </style>

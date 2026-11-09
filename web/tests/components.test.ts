@@ -50,12 +50,16 @@ describe('UIcon', () => {
 })
 
 describe('StatusBadge', () => {
-  it('is a dot plus its word, never a pill or an icon', () => {
+  it('is a mark plus its word, with a different shape for each kind and the mark hidden from readers', () => {
     const badge = mount(StatusBadge, { props: { status: 'failed' } })
     expect(badge.text()).toBe('Failed')
-    expect(badge.find('.status__dot').exists()).toBe(true)
-    expect(badge.find('svg').exists()).toBe(false)
+    expect(badge.get('.status__dot').attributes('aria-hidden')).toBe('true')
+    expect(badge.find('.status__dot svg').exists()).toBe(true)
     expect(badge.classes()).toContain('status--danger')
+    const marks = ['done', 'failed', 'waiting', 'open', 'running', 'pending'].map((status) =>
+      mount(StatusBadge, { props: { status } }).get('.status__dot').html(),
+    )
+    expect(new Set(marks).size).toBe(marks.length)
   })
 
   it('accepts a custom label', () => {

@@ -18,34 +18,52 @@ async function copy(): Promise<void> {
 
 <template>
   <div class="code-block">
+    <div class="code-block__bar">
+      <span class="code-block__label">{{ label }}</span>
+      <UButton class="code-block__copy" appearance="subtle" icon="copy" label="Copy to clipboard" @click="copy" />
+    </div>
     <pre class="code-block__text" :class="{ 'code-block__text--wrap': wrap }" tabindex="0" :aria-label="label">{{ text }}</pre>
-    <UButton class="code-block__copy" appearance="subtle" icon="copy" label="Copy to clipboard" @click="copy" />
   </div>
 </template>
 
 <style scoped>
 .code-block {
-  position: relative;
-}
-.code-block__text {
-  margin: 0;
-  padding: var(--space-8) var(--space-12);
-  padding-inline-end: calc(var(--uaf-control-height) + var(--space-8));
+  overflow: hidden;
   border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
+}
+.code-block__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-12);
+  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  background: var(--uaf-surface);
+}
+.code-block__label {
+  overflow: hidden;
+  color: var(--uaf-text-muted);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-block__text {
+  margin: 0;
+  padding: var(--space-10) var(--space-12);
   color: var(--uaf-text);
   font-family: var(--uaf-font-mono, monospace);
   font-size: var(--font-size-12);
+  line-height: var(--line-height-20);
   overflow: auto;
+}
+.code-block__text:focus-visible {
+  outline-offset: calc(-1 * var(--uaf-focus-width));
 }
 .code-block__text--wrap {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.code-block__copy {
-  position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
 }
 </style>

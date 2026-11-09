@@ -21,7 +21,13 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
 <template>
   <p v-if="steps.length === 0" class="run-timeline__empty">No steps yet.</p>
   <ol v-else class="run-timeline" :aria-label="label">
-    <li v-for="step in steps" :key="step.id" class="run-timeline__item" :data-state="step.state">
+    <li
+      v-for="step in steps"
+      :key="step.id"
+      class="run-timeline__item"
+      :class="`run-timeline__item--${statusStyle(step.state).kind}`"
+      :data-state="step.state"
+    >
       <details :open="failed(step) || undefined">
         <summary class="run-timeline__summary">
           <UIcon class="run-timeline__chevron" name="chevron-right" />
@@ -44,19 +50,76 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
 </template>
 
 <style scoped>
+/* A vine down the left: each step is a bud on one stem, coloured by its state. The status word on
+   the right still says what the colour means. */
 .run-timeline {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: var(--space-4) 0;
   border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface);
 }
 .run-timeline__empty {
   margin: 0;
   color: var(--uaf-text-muted);
 }
-.run-timeline__item + .run-timeline__item {
-  border-top: var(--stroke-1) solid var(--uaf-border);
+.run-timeline__item {
+  position: relative;
+  padding-left: var(--space-32);
+}
+.run-timeline__item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 15px;
+  width: var(--stroke-2);
+  background: var(--uaf-border);
+}
+.run-timeline__item:first-child::before {
+  top: calc(var(--uaf-row-height) / 2);
+}
+.run-timeline__item:last-child::before {
+  bottom: auto;
+  height: calc(var(--uaf-row-height) / 2);
+}
+.run-timeline__item:only-child::before {
+  display: none;
+}
+.run-timeline__item::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--uaf-row-height) / 2 - 6px);
+  left: 10px;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: var(--stroke-2) solid var(--bud);
+  border-radius: var(--radius-full);
+  background: var(--bud);
+  box-shadow: 0 0 0 3px var(--uaf-surface);
+}
+.run-timeline__item--ok {
+  --bud: var(--uaf-ok);
+}
+.run-timeline__item--danger {
+  --bud: var(--uaf-danger);
+}
+.run-timeline__item--warn {
+  --bud: var(--uaf-warn);
+}
+.run-timeline__item--attention {
+  --bud: var(--uaf-attention);
+}
+.run-timeline__item--running {
+  --bud: var(--uaf-accent-text);
+}
+.run-timeline__item--neutral {
+  --bud: var(--uaf-text-muted);
+}
+.run-timeline__item--neutral::after {
+  background: var(--uaf-surface);
 }
 /* Fixed columns, because each row is its own grid and they still have to line up. */
 .run-timeline__summary {
@@ -65,13 +128,18 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   align-items: center;
   gap: var(--space-12);
   min-height: var(--uaf-row-height);
+  margin-right: var(--space-4);
   padding: var(--uaf-cell-padding);
+  border-radius: var(--uaf-radius);
+  list-style: none;
   cursor: pointer;
+}
+.run-timeline__summary::-webkit-details-marker {
+  display: none;
 }
 .run-timeline__summary:hover {
   background: var(--uaf-surface-hover);
 }
-/* Drawn inside the row, so the rows above and below do not cover it. */
 .run-timeline__summary:focus-visible {
   outline-offset: calc(-1 * var(--uaf-focus-width));
 }
@@ -96,7 +164,9 @@ details[open] > .run-timeline__summary .run-timeline__chevron {
   display: grid;
   gap: var(--space-8);
   min-width: 0;
-  padding: var(--uaf-cell-padding);
+  margin: 0 var(--space-12) var(--space-8) var(--space-8);
+  padding: var(--space-10) var(--space-12);
+  border-radius: var(--uaf-radius);
   background: var(--uaf-surface-sunken);
   overflow-wrap: anywhere;
 }
@@ -106,5 +176,15 @@ details[open] > .run-timeline__summary .run-timeline__chevron {
 }
 .run-timeline__message--failed {
   color: var(--uaf-danger);
+}
+@media (forced-colors: active) {
+  .run-timeline__item::after {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+    background: CanvasText;
+  }
+  .run-timeline__item--neutral::after {
+    background: Canvas;
+  }
 }
 </style>

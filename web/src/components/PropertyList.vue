@@ -25,15 +25,22 @@ const shown = (value: PropertyItem['value']): string | number => (value === '' ?
 <style scoped>
 .property-list {
   display: grid;
-  gap: var(--space-4);
   margin: 0;
+  padding: 0 var(--space-12);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface);
 }
 /* Baseline, not centre: a value that wraps keeps its first line level with the label. */
 .property-list__row {
   display: grid;
   grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
   align-items: baseline;
-  gap: var(--space-8);
+  gap: var(--space-12);
+  padding-block: var(--space-6);
+}
+.property-list__row + .property-list__row {
+  border-top: var(--stroke-1) solid var(--uaf-border);
 }
 dt,
 dd {
@@ -43,6 +50,7 @@ dd {
 dt {
   color: var(--uaf-text-muted);
   font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
   line-height: var(--line-height-16);
 }
 dd {

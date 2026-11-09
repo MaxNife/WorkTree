@@ -34,11 +34,15 @@ function next(): void {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 .pagination__range {
-  margin-right: var(--space-8);
   color: var(--uaf-text-muted);
   font-size: var(--font-size-12);
+  font-variant-numeric: tabular-nums;
+}
+.pagination :deep(.u-button) {
+  border-color: var(--uaf-border-strong);
+  background: var(--uaf-surface);
 }
 </style>

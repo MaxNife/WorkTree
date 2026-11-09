@@ -2,6 +2,7 @@
 // The row above a list: optional search, filter controls in the default slot, and "Clear filters".
 import { onBeforeUnmount, ref, watch } from 'vue'
 import UButton from './UButton.vue'
+import UIcon from './UIcon.vue'
 import UTextInput from './UTextInput.vue'
 
 const DEBOUNCE_MS = 250
@@ -38,16 +39,12 @@ onBeforeUnmount(() => clearTimeout(timer))
 
 <template>
   <div class="filter-bar">
-    <UTextInput
-      v-if="searchLabel"
-      class="filter-bar__search"
-      type="search"
-      :label="searchLabel"
-      :model-value="draft"
-      @update:model-value="onSearchInput"
-    />
+    <div v-if="searchLabel" class="filter-bar__search">
+      <UTextInput type="search" :label="searchLabel" :model-value="draft" @update:model-value="onSearchInput" />
+      <UIcon class="filter-bar__search-icon" name="search" :size="16" />
+    </div>
     <slot />
-    <UButton v-if="active" appearance="subtle" @click="onClear">Clear filters</UButton>
+    <UButton v-if="active" class="filter-bar__clear" appearance="subtle" icon="filter-clear" @click="onClear">Clear filters</UButton>
   </div>
 </template>
 
@@ -56,9 +53,28 @@ onBeforeUnmount(() => clearTimeout(timer))
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: var(--uaf-gap);
+  gap: var(--space-8) var(--space-12);
+  padding: var(--space-10) var(--space-12);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface-sunken);
 }
 .filter-bar__search {
-  margin-right: var(--space-8);
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+.filter-bar__search :deep(input) {
+  padding-left: var(--space-32);
+}
+.filter-bar__search-icon {
+  position: absolute;
+  left: var(--space-10);
+  bottom: calc((var(--uaf-control-height) - 16px) / 2);
+  color: var(--uaf-text-muted);
+  pointer-events: none;
+}
+.filter-bar__clear {
+  margin-left: auto;
 }
 </style>

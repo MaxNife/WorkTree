@@ -16,7 +16,7 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
 
 <template>
   <div class="message-bar" :class="`message-bar--${intent}`" :role="intent === 'error' || intent === 'warning' ? 'alert' : 'status'">
-    <UIcon :name="ICONS[intent]" :size="16" class="message-bar__icon" />
+    <UIcon :name="ICONS[intent]" :size="18" weight="fill" class="message-bar__icon" />
     <div class="message-bar__text">
       <strong v-if="title" class="message-bar__title">{{ title }}</strong>
       <slot />
@@ -32,15 +32,15 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
 .message-bar {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-8);
-  padding: var(--space-8) var(--space-12);
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-12);
   border: var(--stroke-1) solid var(--uaf-border);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
 }
 .message-bar__icon {
   margin-top: 2px;
-  color: var(--uaf-text-muted);
+  color: var(--uaf-text-secondary);
 }
 .message-bar--success {
   border-color: var(--uaf-ok-border);
@@ -68,8 +68,11 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
   min-width: 0;
 }
 .message-bar__title {
-  margin-right: var(--space-4);
+  margin-right: var(--space-6);
   font-weight: var(--weight-semibold);
+}
+.message-bar__text {
+  line-height: var(--line-height-22);
 }
 .message-bar__actions {
   display: flex;

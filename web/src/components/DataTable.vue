@@ -126,8 +126,11 @@ function onRowKeydown(event: KeyboardEvent, row: T, index: number): void {
 <style scoped>
 .data-table {
   width: 100%;
+  border: var(--stroke-1) solid var(--uaf-border);
   border-collapse: separate;
   border-spacing: 0;
+  border-radius: var(--uaf-radius-container);
+  background: var(--uaf-surface);
 }
 .data-table__caption {
   position: absolute;
@@ -144,11 +147,26 @@ td {
   border-bottom: var(--stroke-1) solid var(--uaf-border);
   text-align: start;
 }
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--uaf-radius-container);
+}
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--uaf-radius-container);
+}
+th:first-child {
+  border-top-left-radius: var(--uaf-radius-container);
+}
+th:last-child {
+  border-top-right-radius: var(--uaf-radius-container);
+}
 th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--uaf-surface);
+  background: var(--uaf-surface-sunken);
   color: var(--uaf-text-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
@@ -175,7 +193,10 @@ th {
 }
 .data-table__row--selected,
 .data-table__row--selected:hover {
-  background: var(--uaf-surface-selected);
+  background: var(--uaf-accent-tint);
+}
+.data-table__row--selected td:first-child {
+  font-weight: var(--weight-semibold);
 }
 .data-table__row--interactive {
   cursor: pointer;

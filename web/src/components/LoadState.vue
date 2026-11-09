@@ -23,7 +23,7 @@ const errorMessage = computed(() => {
 </script>
 
 <template>
-  <p v-if="loading" class="load-state__loading" role="status">Loading...</p>
+  <p v-if="loading" class="load-state__loading" role="status"><span class="load-state__spinner" aria-hidden="true" />Loading...</p>
   <MessageBar v-else-if="hasError" intent="error">
     {{ errorMessage }}
     <template #actions>
@@ -36,7 +36,27 @@ const errorMessage = computed(() => {
 
 <style scoped>
 .load-state__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
   margin: 0;
+  padding: var(--space-16);
+  border: var(--stroke-1) dashed var(--uaf-border-strong);
+  border-radius: var(--uaf-radius-container);
   color: var(--uaf-text-muted);
+}
+.load-state__spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border: var(--stroke-2) solid var(--uaf-border-strong);
+  border-top-color: var(--uaf-accent-text);
+  border-radius: var(--radius-full);
+  animation: load-state-turn 0.9s linear infinite;
+}
+@keyframes load-state-turn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

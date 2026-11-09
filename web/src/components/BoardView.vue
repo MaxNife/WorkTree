@@ -14,7 +14,8 @@ defineSlots<{ default(props: { item: T }): unknown }>()
         <span class="board__count">{{ formatCount(column.items.length) }}</span>
       </div>
       <ul class="board__items">
-        <li v-for="item in column.items" :key="itemKey(item)"><slot :item="item" /></li>
+        <li v-for="item in column.items" :key="itemKey(item)" class="board__item"><slot :item="item" /></li>
+        <li v-if="column.items.length === 0" class="board__none">Nothing here</li>
       </ul>
     </section>
   </div>
@@ -24,33 +25,59 @@ defineSlots<{ default(props: { item: T }): unknown }>()
 .board {
   display: flex;
   align-items: flex-start;
-  gap: var(--uaf-gap);
+  gap: var(--space-12);
   overflow-x: auto;
+  padding-bottom: var(--space-4);
 }
 .board__column {
+  display: grid;
+  gap: var(--space-8);
   flex: 0 0 280px;
-  padding: var(--uaf-gap);
-  border: var(--stroke-1) solid var(--uaf-border);
+  padding: var(--space-10);
   border-radius: var(--uaf-radius-container);
   background: var(--uaf-surface-sunken);
 }
 .board__header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--uaf-gap);
-  margin-bottom: var(--uaf-gap);
+  padding: var(--space-2) var(--space-4);
 }
 .board__title {
   font-weight: var(--weight-semibold);
 }
 .board__count {
+  min-width: 22px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--uaf-surface);
   color: var(--uaf-text-muted);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-20);
+  text-align: center;
 }
 .board__items {
   display: grid;
-  gap: var(--uaf-gap);
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.board__item {
+  padding: var(--space-10) var(--space-12);
+  border: var(--stroke-1) solid var(--uaf-border);
+  border-radius: var(--uaf-radius);
+  background: var(--uaf-surface);
+  overflow-wrap: anywhere;
+}
+.board__none {
+  padding: var(--space-12);
+  border: var(--stroke-1) dashed var(--uaf-border-strong);
+  border-radius: var(--uaf-radius);
+  color: var(--uaf-text-muted);
+  font-size: var(--font-size-12);
+  text-align: center;
 }
 </style>

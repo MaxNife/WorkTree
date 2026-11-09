@@ -14,9 +14,14 @@ withDefaults(defineProps<{ title: string; description?: string; headingLevel?: 2
 <style scoped>
 .empty {
   display: grid;
+  justify-items: start;
   gap: var(--space-4);
+  padding: var(--space-20) var(--space-24);
+  border: var(--stroke-1) dashed var(--uaf-border-strong);
+  border-radius: var(--uaf-radius-container);
+}
+.empty__text {
   max-width: 52ch;
-  padding: var(--space-24) 0;
 }
 .empty__title {
   margin: 0;
