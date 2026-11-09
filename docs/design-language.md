@@ -11,8 +11,9 @@ WorkTree is calm and warm where people read and decide, and expressive only wher
 principles, shown at the top of `/design`:
 
 1. **Calm by default.** Warm neutrals, soft corners and dense tables. Nothing competes with the work.
-2. **Colour grows on the canvas.** Vivid family colours belong to workflow nodes. Everywhere else, green
-   marks the one main action.
+2. **Colour grows from the workflows.** Vivid family colours belong to workflows: their nodes,
+   avatars, cards and chart streams. The interface itself stays calm, and green marks the one main
+   action.
 3. **Every state in words.** A status mark always comes with its word, every control has a visible focus ring,
    and contrast passes in all themes.
 
@@ -24,7 +25,7 @@ brown everywhere.
 | Area | Decision | Notes |
 |---|---|---|
 | Look and feel | **WorkTree's own: warm, soft, nature-shaped** | Our own Vue components on native HTML elements, styled only by our tokens. No third-party UI kit. Replaced the Fluent look on 2026-11-06. |
-| App shell | **Collapsible left sidebar** | Notion/Azure-style tree: Operations, Inbox, Studio, Data, Admin. Breadcrumbs on top. Ctrl/Cmd+K command palette. |
+| App shell | **Collapsible left sidebar** | Notion/Azure-style tree: Home, Operations, Inbox, Studio, Data, Connections, Insights, Admin (Home, Connections and Insights added 2026-11-09). Breadcrumbs on top. Ctrl/Cmd+K command palette. The full screen list is the sitemap in `docs/research/canvas-design/HANDOFF.md`. |
 | Studio canvas | **Rings and Bloom** | Nodes are tree cross-sections in their family colour, routers open like flowers, branches thicken with item count. n8n supplies typed connections and run data on the node. `done` / `failed` ports on every node. Decided 2026-11-04 (Make look, n8n data) and 2026-11-05 (Rings and Bloom). Details below. |
 | Node properties panel | **Input, settings, output** | Input data left, settings middle, output right, with a dynamic-content picker to map values from earlier steps. |
 | Density | **Compact by default, comfortable toggle** | Temporal / GitHub Actions-style dense tables; per-user density switch, remembered. |
@@ -36,7 +37,7 @@ brown everywhere.
 | Theme | **Follow the OS, manual override** | Light / dark follow the system; high-contrast available; the choice is remembered per user. WCAG AA contrast and full keyboard operation everywhere. |
 | Neutrals | **Warm** | Stone and parchment greys (page `#F8F6F2`, surface white, sunken `#F2EEE8` in light; warm charcoal in dark). The page is a shade darker than the cards on it. |
 | Accent colour | **WorkTree green (#107C10)** | One accent design token so the brand colour can change without touching components. Used only for the primary action, links, selection and the running state; surfaces stay neutral. Solid accent uses white text in light and dark. High contrast uses a yellow accent with black text, because white on yellow fails contrast; text on solid accent always takes the colour that passes. Contrast is unit-tested in all three themes. |
-| Family colours | **Canvas only** | Nine activity family colours (`web/src/theme/families.ts`) paint node cores and family dots. They never colour buttons, tables, panels or text. |
+| Family colours | **Workflow identity** | Nine activity family colours (`web/src/theme/families.ts`) mark workflows wherever they appear: node cores on the canvas, ring avatars beside a workflow's name, workflow cards, family dots and chart series. They never colour buttons, tables, panels, text or status. Widened from "canvas only" on 2026-11-09. |
 | Focus ring | **Neutral, not accent** | Black or white by theme, cyan in high contrast (token `color-focus`). The ring must stay 3:1 against every surface. A neutral ring also keeps focus distinct from selection, which does use the accent. Decided 2026-11-05. |
 | Corners | **Soft, not uniform** | Controls 8px, containers (cards, panels, tables, dialogs) 12px, pills and dots round. |
 | Elevation | **Flat on the page, soft lift when floating** | Cards and panels on the page are flat: hairline border, no shadow. What floats above the page (menus, popovers, toasts, dialogs, canvas toolbars) gets one soft warm shadow (`--uaf-shadow-float`, `--uaf-shadow-overlay`). High contrast has no shadows. |
@@ -53,8 +54,8 @@ brown everywhere.
   `<dialog>`), so the browser gives them keyboard use and screen-reader support.
 - Colours, spacing, radii, type sizes, shadows and motion come from tokens (CSS custom properties),
   defined for light, dark and high contrast in `web/src/theme/tokens.ts` and mapped to `--uaf-*` in
-  `web/src/styles/base.css`. No hard-coded colours in components, except the canvas family colours,
-  which live in one file.
+  `web/src/styles/base.css`. No hard-coded colours in components, except the family colours, which
+  live in one file.
 - Every interactive element is keyboard reachable with a visible focus ring; status is never shown
   by colour alone (the status word is always shown beside the mark, and each mark has its own shape).
 - The edge of a text field, checkbox or switch keeps 3:1 against its surface (`--uaf-border-control`).
@@ -63,8 +64,8 @@ brown everywhere.
 - Icons come only from Phosphor via the generator; no icon fonts and no hand-drawn glyphs.
 - Avoid the common "AI-designed" tells: icon-in-a-tinted-square cards, tinted pills with icons,
   gradients and glows, one radius everywhere, shadow plus border plus fill cards, decorative badges,
-  stock illustrations, accent colour spread over every surface. The canvas node is the one deliberate
-  exception: a coloured core is how a family is recognised there.
+  stock illustrations, accent colour spread over every surface. Workflow identity is the one
+  deliberate exception: a coloured core or ring is how a workflow and its family are recognised.
 
 ## Shared components (look)
 
@@ -134,5 +135,7 @@ CP-31.
 - Mobile / narrow-width behaviour (desktop-first for the MVP; the shell must not break at 1024 px).
 - Whether routers become their own engine node type (`docs/SYSTEM_DESIGN.md` open question 23); the
   flower router assumes yes.
-- Family colours in high contrast: nodes keep their colours today; a high-contrast canvas needs its
-  own pass in CP-31.
+- Family colours in high contrast: nodes and avatars keep their colours today; high contrast needs
+  its own pass in CP-31.
+- Workers and work queues: the screen is approved (2026-11-09), but workers need a spec and work
+  queues need engine work before it can be built.

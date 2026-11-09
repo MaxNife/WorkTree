@@ -32,7 +32,7 @@ Orchestrator = Elsa engine + designer (.NET). Each language step is a job handed
 The Elsa details above are from general knowledge of Elsa 3 and haven't been checked against the code yet.
 
 ## Next steps
-1. Create a Claude Project and paste in project-instructions.md.
+1. Create a Claude Project for the research (its instruction file has since been removed).
 2. Attach elsa-core, elsa-studio and elsa-extensions and check exactly what exists for scripting, AI and database.
 3. List the specific bits to modify and sort them into "extension point exists" vs "needs a fork".
 4. Prototype one Python worker activity end to end.

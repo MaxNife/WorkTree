@@ -99,7 +99,7 @@ Files range from thousands to a few million rows. Oracle is "newer" (treat as 19
 
 ## 10. Source notes (full evidence; keep these in the Project)
 
-discussion-summary, project-instructions, feasibility-two-test-projects, research-01 portal login/MFA, 02 Graph OTP + Playwright hosting, 03 Oracle, 04 large files, 05 Excel, 06 CSV, 07 TXT, 08 ZIP, 09 HTML, 10 Word, 11 PPTX, 12 logs, 13 LibreOffice, 14 nodes per file tool, 15 n8n/Make/Power Automate vs Elsa, 16 growing node library, 17 secrets, 18 Elsa gaps, 19 language verdicts, 20 benchmark plan. The benchmark plan file itself (`benchmark-plan-all-languages.md`) was not among the attachments.
+discussion-summary, feasibility-two-test-projects, research-01 portal login/MFA, 02 Graph OTP + Playwright hosting, 03 Oracle, 04 large files, 05 Excel, 06 CSV, 07 TXT, 08 ZIP, 09 HTML, 10 Word, 11 PPTX, 12 logs, 13 LibreOffice, 14 nodes per file tool, 15 n8n/Make/Power Automate vs Elsa, 16 growing node library, 17 secrets, 18 Elsa gaps, 19 language verdicts, 20 benchmark plan. The benchmark plan file itself (`benchmark-plan-all-languages.md`) was not among the attachments.
 
 ## 11. Python build alignment (added 2026-10-22)
 

@@ -1,6 +1,6 @@
 # Next build tasks
 
-Written 2026-11-05. Work these in order. Full briefs are in `docs/briefs/`.
+Written 2026-11-05, updated 2026-11-09. Work these in order. Before any UI task, read `docs/design-language.md` and the approved screen designs listed in `docs/research/canvas-design/HANDOFF.md`.
 
 ## How to run them
 

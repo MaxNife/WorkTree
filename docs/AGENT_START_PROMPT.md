@@ -24,9 +24,10 @@ Elsa is the major workflow reference and n8n is a reference for workflow behavio
 ## 2. Read before doing anything (first start and every restart)
 1. `BUILD_PROGRESS.md` (repository root): where you are.
 2. `docs/BUILD_CHECKPOINTS.md`: what each checkpoint must deliver and its "Done when" test.
-3. `docs/BUILD_PROMPT_python_mvp.md`: the full spec. It is the authority when documents disagree.
+3. `docs/BUILD_PROMPT_python_mvp.md`: the full spec. When documents disagree, newer owner decisions win: `DECISIONS.md` first, then `docs/design-language.md` for anything about the UI, then this spec.
 4. `docs/SYSTEM_DESIGN.md`: repository map, do-not-break rules R1-R36, open questions.
-5. As needed for the current checkpoint: `docs/HANDOFF.md` (the Elsa reference), `docs/UI_reference_list.md`, and `docs/research/*.md`. Read the "Python build update" section at the end of each research note before using it.
+5. Before any screen work: `docs/design-language.md` and the approved screen designs in `docs/research/canvas-design/HANDOFF.md`.
+6. As needed for the current checkpoint: `docs/HANDOFF.md` (the Elsa reference), `docs/UI_reference_list.md`, and `docs/research/*.md`. Read the "Python build update" section at the end of each research note before using it.
 
 On a restart, read items 1-2 in full. Then read only the parts of items 3-5 that the current checkpoint needs.
 

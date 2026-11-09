@@ -65,7 +65,6 @@ Pass 1 result: 3 directories (`.`, `docs/`, `docs/research/`), 27 files. A re-ch
 | `docs/UI_reference_list.md` | Markdown, 44 lines | UI reference products per experience-layer area (9 areas: app shell, operations dashboard, run detail, Studio canvas, node properties panel, Task Inbox, data views, page-like detail, admin/audit), each with the specific feature to study. | `BUILD_PROMPT:3,77,186-191`; §3.4 of this document |
 | `docs/research/discussion-summary.md` | Markdown | 2026-09-29 discussion: Elsa as base, worker model, extend-before-fork rule. Its Elsa claims were unverified at the time (line 32). | `docs/HANDOFF.md:3,102` |
 | `docs/research/feasibility-two-test-projects.md` | Markdown | Elsa code read (`elsa-core 8fadf47`, `elsa-extensions 212dc55`) against the two reference projects: exists / missing table. | `docs/HANDOFF.md:3,102` |
-| `docs/research/project-instructions.md` | Markdown | Instructions for the research Claude Project: goal, constraints, tone, verify against Elsa code. | `docs/HANDOFF.md:102` |
 | `docs/research/research-01-portal-login-mfa.md` | Markdown | Login types and automatability, Playwright session notes, Elsa `UserTask`, Playwright language verdict. | `docs/HANDOFF.md:102`, `research-19:22` |
 | `docs/research/research-02-graph-otp-and-playwright-hosting.md` | Markdown | Graph OTP mail query rules, mailbox scoping (RBAC for Applications), OTP timing rules, Playwright container hosting, Graph language verdict. | `docs/HANDOFF.md:102`, `research-19:22-23` |
 | `docs/research/research-03-oracle.md` | Markdown | Elsa SQL providers, Oracle `ISqlClient` extension, ODP.NET / python-oracledb, bulk-load options, Oracle verdict. | `docs/HANDOFF.md:102`, `research-19:24` |
@@ -107,8 +106,7 @@ Files that docs reference but that **do not exist** in the repository:
 
 ```mermaid
 flowchart LR
-  PI["research/project-instructions.md"] --> DS["research/discussion-summary.md"]
-  DS --> FE["research/feasibility-two-test-projects.md"]
+  DS["research/discussion-summary.md"] --> FE["research/feasibility-two-test-projects.md"]
   FE --> R01["research-01 … research-18<br/>(topic notes + per-file 'Language verdict')"]
   R01 --> R19["research-19-language-verdicts.md<br/>(summary table)"]
   R19 --> R20["research-20-benchmark-plan.md<br/>(NOT RUN)"]
@@ -219,7 +217,7 @@ The pages come from `BUILD_PROMPT:78-81`. The base components are our own Vue co
 
 Rules for using these references:
 - Take ideas and interaction patterns only. Build our own design tokens, icons and wording. `BUILD_PROMPT:73` forbids reusing assets, branding or code from n8n, Notion or Microsoft. No UI library is used; icons are Phosphor (MIT), copied by a generator. [INFERRED] Apply the same rule to every product in `docs/UI_reference_list.md` (Linear, Temporal, GitHub, Airflow, Make, Power Automate, Camunda, Airtable, Entra, Vault, Azure/Fabric).
-- `BUILD_PROMPT:77` gives a conflict order for only three styles: Microsoft, n8n, Notion. For the other products, use each one only in the area it is listed under, and resolve conflicts with the style named in the last column (adopted in `BUILD_PROMPT:186-191`).
+- Use each product only in the area it is listed under. When references disagree, `docs/design-language.md` decides (DECISIONS 13.1-13.8); the old Microsoft, n8n, Notion conflict order no longer applies.
 - Record the chosen patterns and tokens in `docs/design-language.md` (`BUILD_PROMPT:77`).
 
 ---
@@ -618,7 +616,7 @@ Paste the block at the top of `docs/AGENT_START_PROMPT.md` into a new agent sess
 ### 12.1 Add or update a research note (the only existing pattern)
 1. Name the file `docs/research/research-NN-<topic>.md` with the next free `NN` (currently 21).
 2. Start with `# Research NN: <title> (<YYYY-MM-DD>)` and state the context, sources and what was or was not run.
-3. Separate "already exists in Elsa", "extension point exists" and "needs a fork" when assessing Elsa (`project-instructions.md:22`).
+3. Separate "already exists in Elsa", "extension point exists" and "needs a fork" when assessing Elsa.
 4. End with a `## Language verdict: ...` section that uses the evidence tags `[measured]`, `[tested]`, `[docs]`, `[reasoning]`, and give a "what would change this" condition (pattern in research-05 to research-13).
 5. Update the verdict table in `docs/research/research-19-language-verdicts.md:10-24` and the table in `docs/HANDOFF.md:38-51`. Add the note to the source list at `docs/HANDOFF.md:102`.
 6. Do not rewrite older notes. Append dated `## Update <date>` or `## Language update` sections (pattern: `research-06:77`, `research-14:36`).
@@ -718,7 +716,6 @@ Every file from Pass 1 appears in §2, and each is cited in at least one design 
 | `BUILD_PROGRESS.md` | §0.2, §0.2a, §2, §3.1, §11 R3a, §12.0 |
 | `docs/research/discussion-summary.md` | §2, §3.1 |
 | `docs/research/feasibility-two-test-projects.md` | §2, §3.1, §8 |
-| `docs/research/project-instructions.md` | §2, §3.1, §12.1 |
 | `docs/research/research-01` … `research-20` | §2 and cited in §3-§14 (01: §4.3, §8; 02: §6.6, §6.7, §8; 03: §7, §9.3, §12.3; 04: §6.6, §8, §11; 05: §6.6, §9.3; 06: §6.6, §11; 07: §6.6; 08: §6.6; 09: §2 only, since HTML is out of Track B scope; 10: §9.3; 11: §2 only, since PPTX is out of Track B scope; 12: §9.3, §14; 13: §8, §11; 14: §6.2, §7; 15: §2, §3.1; 16: §7, §11; 17: §8; 18: §4.3, §7, §10; 19: §3.1, §11; 20: §2, §13) |
 
 Files not fully covered, and why:

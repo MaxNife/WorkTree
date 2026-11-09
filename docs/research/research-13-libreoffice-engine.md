@@ -1,5 +1,7 @@
 # Research 13: LibreOffice as a conversion/recalculation engine (2026-09-29)
 
+> **Superseded:** WorkTree uses no LibreOffice. Spreadsheet recalculation, PDF and Word work run on pure Python (DECISIONS 11.12-11.14). Kept only as history.
+
 ## Hope's answers
 - Desktop Office can be installed on the machines, but it is unclear whether a SERVICE ACCOUNT would hold a licence.
 - LibreOffice is fine if it is "safe".

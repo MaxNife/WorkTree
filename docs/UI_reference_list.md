@@ -1,3 +1,5 @@
+> **Patterns only.** These products are references for interaction patterns in their own area. They do not set the look: WorkTree has its own design language (`docs/design-language.md`, DECISIONS 13.1-13.8), which wins whenever a reference suggests otherwise. Ignore the "Microsoft flavour" and "Microsoft-style" notes below; the app no longer follows the Microsoft look.
+
 **App shell, navigation and command palette**
 Notion: the collapsible sidebar tree, Ctrl/Cmd+K and the / menu.
 Linear: fast keyboard-first navigation, and a clean command palette.
