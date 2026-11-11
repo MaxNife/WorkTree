@@ -1,6 +1,6 @@
 """Export the API's OpenAPI document for client generation.
 
-uv run scripts/export_openapi.py           # write docs/openapi.json
+uv run scripts/export_openapi.py           # write docs/reference/openapi.json
 uv run scripts/export_openapi.py --check   # fail when the file is stale
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "docs" / "openapi.json"
+OUTPUT = ROOT / "docs" / "reference" / "openapi.json"
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

@@ -1,4 +1,4 @@
-"""Generate the versioned JSON Schemas in docs/schemas/ from the pydantic models.
+"""Generate the versioned JSON Schemas in docs/reference/schemas/ from the pydantic models.
 
 uv run python scripts/gen_schemas.py          # rewrite the schema files
 uv run python scripts/gen_schemas.py --check  # exit 1 when any file is stale (CI)
@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from app.domain.envelope import ENVELOPE_SCHEMA_VERSION, envelope_schema  # noqa: E402
 from app.domain.workflow import SCHEMA_VERSION, WorkflowDefinition  # noqa: E402
 
-OUT = ROOT / "docs" / "schemas"
+OUT = ROOT / "docs" / "reference" / "schemas"
 
 
 def workflow_schema() -> dict[str, Any]:

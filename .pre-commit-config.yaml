@@ -41,11 +41,11 @@ repos:
         pass_filenames: false
         files: ^app/
       - id: web-api-fresh
-        name: web API types are fresh (docs/openapi.json)
+        name: web API types are fresh (docs/reference/openapi.json)
         entry: npm --prefix web run api:check
         language: system
         pass_filenames: false
-        files: ^(docs/openapi\.json|web/src/api/schema\.d\.ts|web/scripts/generate-api\.mjs)$
+        files: ^(docs/reference/openapi\.json|web/src/api/schema\.d\.ts|web/scripts/generate-api\.mjs)$
       - id: web-typecheck
         name: web vue-tsc
         entry: npm --prefix web run typecheck

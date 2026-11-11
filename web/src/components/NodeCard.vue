@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A step on the Studio canvas and in replay: the "Rings and Bloom" node (docs/design-language.md).
+// A step on the Studio canvas and in replay: the "Rings and Bloom" node (docs/04-ui-reimplementation-guide.md).
 // A tree cross-section in the colour of the activity family, the label underneath, run state on the
 // outer ring (an arc that fills) and as a dot plus word, and the done and failed ports on the right
 // edge. Wiring to Vue Flow handles is CP-31.

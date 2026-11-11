@@ -1,4 +1,4 @@
-"""Generate docs/DATA_MODEL.md from the SQLAlchemy models.
+"""Generate docs/reference/DATA_MODEL.md from the SQLAlchemy models.
 
 uv run python scripts/gen_data_model.py          # rewrite the document
 uv run python scripts/gen_data_model.py --check  # exit 1 when it is stale (CI)
@@ -16,7 +16,7 @@ from sqlalchemy import Table  # noqa: E402
 
 from app.adapters.db.models import Base  # noqa: E402
 
-TARGET = ROOT / "docs" / "DATA_MODEL.md"
+TARGET = ROOT / "docs" / "reference" / "DATA_MODEL.md"
 
 HEADER = """# Data model
 
@@ -96,9 +96,12 @@ def main(argv: list[str]) -> int:
     if "--check" in argv:
         current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
         if current.replace("\r\n", "\n") != text:
-            print("docs/DATA_MODEL.md is stale; run scripts/gen_data_model.py", file=sys.stderr)
+            print(
+                "docs/reference/DATA_MODEL.md is stale; run scripts/gen_data_model.py",
+                file=sys.stderr,
+            )
             return 1
-        print("docs/DATA_MODEL.md is up to date")
+        print("docs/reference/DATA_MODEL.md is up to date")
         return 0
     TARGET.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {TARGET.relative_to(ROOT)}")

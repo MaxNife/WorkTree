@@ -129,7 +129,9 @@ def test_schema_files_are_current_and_validate_examples() -> None:
         env={**os.environ, "PYTHONPATH": str(REPO)},
     )
     assert result.returncode == 0, result.stderr
-    schema = json.loads((REPO / "docs" / "schemas" / "workflow-v1.json").read_text("utf-8"))
+    schema = json.loads(
+        (REPO / "docs" / "reference" / "schemas" / "workflow-v1.json").read_text("utf-8")
+    )
     jsonschema.Draft202012Validator.check_schema(schema)
     jsonschema.validate(chain(["a", "b"]), schema)
     with pytest.raises(jsonschema.ValidationError):

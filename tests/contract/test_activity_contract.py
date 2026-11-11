@@ -28,7 +28,9 @@ from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.workers.process import run_activity_process
 
 REPO = Path(__file__).resolve().parents[2]
-SCHEMA = json.loads((REPO / "docs" / "schemas" / "envelope-v1.json").read_text(encoding="utf-8"))
+SCHEMA = json.loads(
+    (REPO / "docs" / "reference" / "schemas" / "envelope-v1.json").read_text(encoding="utf-8")
+)
 REGISTRY = ActivityRegistry().discover()
 # The template is skipped by discovery (leading underscore) but must pass the contract.
 ACTIVITIES: list[Activity[Any]] = [*REGISTRY.all(), DummyActivity(), ExampleActivity()]

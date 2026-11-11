@@ -56,7 +56,7 @@
   --uaf-attention-border: var(--color-attention-border);
   --uaf-dot-size: 8px;
 
-  /* Density: compact by default (docs/design-language.md), comfortable on request. */
+  /* Density: compact by default (docs/04-ui-reimplementation-guide.md), comfortable on request. */
   --uaf-row-height: 32px;
   --uaf-cell-padding: var(--space-4) var(--space-12);
   --uaf-control-height: 30px;

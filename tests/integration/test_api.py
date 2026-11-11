@@ -273,5 +273,5 @@ def test_openapi_export_is_current() -> None:
         env={**os.environ, "PYTHONPATH": str(REPO)},
     )
     assert result.returncode == 0, result.stderr
-    text = (REPO / "docs" / "openapi.json").read_text(encoding="utf-8")
+    text = (REPO / "docs" / "reference" / "openapi.json").read_text(encoding="utf-8")
     assert text == render(build_schema())

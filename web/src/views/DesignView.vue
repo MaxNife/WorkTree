@@ -221,7 +221,7 @@ const rejectOpen = ref(false)
 </script>
 
 <template>
-  <AppPage title="Design language" subtitle="Tokens and shared components. Decisions are recorded in docs/design-language.md.">
+  <AppPage title="Design language" subtitle="Tokens and shared components. Decisions are recorded in docs/04-ui-reimplementation-guide.md.">
     <template #actions>
       <USelect
         class="switcher"

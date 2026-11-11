@@ -1,4 +1,4 @@
-// Activity family colours: the one place WorkTree uses vivid colour (docs/design-language.md,
+// Activity family colours: the one place WorkTree uses vivid colour (docs/04-ui-reimplementation-guide.md,
 // "Canvas"). They paint the core of a node on the Studio canvas and the dot beside a family name.
 // The rest of the app stays on the neutral, warm palette in tokens.ts.
 import type { IconName } from '@/icons/paths'

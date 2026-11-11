@@ -1,7 +1,7 @@
 """CP-39: security properties of the running app, checked through the test client.
 
 Each test pins one protection. A test that fails because of a real defect is marked
-``xfail(strict=True)`` with the finding id (SEC-n); ``docs/SECURITY.md`` explains each one.
+``xfail(strict=True)`` with the finding id (SEC-n); ``docs/06-database-and-security-plan.md`` explains each one.
 Findings SEC-1 to SEC-9 are fixed, so none is marked now. SEC-10 has no test (no protection
 exists to pin).
 """

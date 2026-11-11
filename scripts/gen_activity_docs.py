@@ -1,4 +1,4 @@
-"""Generate docs/ACTIVITIES.md (the activity catalogue) from the built-in activity classes.
+"""Generate docs/reference/ACTIVITIES.md (the activity catalogue) from the built-in activity classes.
 
 uv run python scripts/gen_activity_docs.py          # rewrite the catalogue
 uv run python scripts/gen_activity_docs.py --check  # exit 1 when it is stale (CI)
@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.domain.activity_registry import ActivityRegistry  # noqa: E402
 
-TARGET = ROOT / "docs" / "ACTIVITIES.md"
+TARGET = ROOT / "docs" / "reference" / "ACTIVITIES.md"
 
 
 def _type(prop: dict[str, Any]) -> str:
@@ -35,7 +35,7 @@ def render() -> str:
         "",
         "Generated from the activity classes by `scripts/gen_activity_docs.py`; do not edit by",
         "hand. Drop-in activities from the configured extra folder appear in the Studio palette",
-        "and `uaf list-activities` but not here. How to write one: `docs/WRITING_AN_ACTIVITY.md`.",
+        "and `uaf list-activities` but not here. How to write one: `docs/reference/WRITING_AN_ACTIVITY.md`.",
         "",
         "| Activity | Category | Version | Description |",
         "|---|---|---|---|",
@@ -76,7 +76,10 @@ def main(argv: list[str]) -> int:
     if "--check" in argv:
         current = TARGET.read_text(encoding="utf-8") if TARGET.exists() else ""
         if current.replace("\r\n", "\n") != text:
-            print("docs/ACTIVITIES.md is stale; run scripts/gen_activity_docs.py", file=sys.stderr)
+            print(
+                "docs/reference/ACTIVITIES.md is stale; run scripts/gen_activity_docs.py",
+                file=sys.stderr,
+            )
             return 1
         return 0
     TARGET.write_text(text, encoding="utf-8", newline="\n")

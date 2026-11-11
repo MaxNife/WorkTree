@@ -2,7 +2,7 @@
 
 ## Commits
 
-Follow `docs/COMMIT_GUIDELINES.md` for every commit. In short:
+Follow `docs/reference/COMMIT_GUIDELINES.md` for every commit. In short:
 
 - Author and committer are **Hope** `<idowuhope00@gmail.com>` (already set in the repository-local git config).
 - Use Conventional Commits: `type(scope): subject`, imperative, at most 72 characters, with a wrapped body that explains why.
@@ -12,4 +12,4 @@ Follow `docs/COMMIT_GUIDELINES.md` for every commit. In short:
 
 ## UI
 
-Read `docs/design-language.md` before building or changing any screen. The product is named **WorkTree**.
+Read `docs/04-ui-reimplementation-guide.md` before building or changing any screen. The product is named **WorkTree**.

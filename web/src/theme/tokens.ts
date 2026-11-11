@@ -1,4 +1,4 @@
-// Design tokens: the single source of colour truth (docs/design-language.md).
+// Design tokens: the single source of colour truth (docs/04-ui-reimplementation-guide.md).
 // theme/apply.ts writes them as CSS custom properties on the root, and styles/base.css maps them to
 // the --uaf-* variables components use. A token name here is its CSS name without the leading dashes.
 

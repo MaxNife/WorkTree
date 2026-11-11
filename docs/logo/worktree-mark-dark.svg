@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="WorkTree">
+  <title>WorkTree</title>
+  <!-- Five petals, five steps: hibiscus, marigold, fern, morning glory, orchid -->
+  <g transform="translate(24 24)">
+    <path transform="rotate(0)" d="M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z" fill="#EE3F3A"/>
+    <path transform="rotate(72)" d="M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z" fill="#FFB01F"/>
+    <path transform="rotate(144)" d="M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z" fill="#0E9F5B"/>
+    <path transform="rotate(216)" d="M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z" fill="#2A7BEA"/>
+    <path transform="rotate(288)" d="M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z" fill="#E0288F"/>
+  </g>
+  <circle cx="24" cy="24" r="6.2" fill="#FFFFFF"/>
+  <circle cx="24" cy="24" r="2.2" fill="#231F2E"/>
+</svg>
