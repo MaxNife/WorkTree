@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 
+from app.adapters.db.schema import ensure_schema_current
 from app.api import admin as admin_routes
 from app.api import auth as auth_routes
 from app.api import runs as run_routes
@@ -72,7 +73,9 @@ def create_app(
 ) -> FastAPI:
     settings = settings or (container.settings if container else load_settings())
     assert_startup_safe(settings)
-    active = container or build_container(settings, create_schema=True)
+    if container is None:
+        ensure_schema_current(settings.database.url)
+    active = container or build_container(settings)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:

@@ -1,4 +1,4 @@
-"""Command-line interface: serve, create-user, validate, run, list-activities, verify-audit."""
+"""Command-line interface: serve, db, create-user, validate, run, list-activities, verify-audit."""
 
 from __future__ import annotations
 
@@ -10,6 +10,16 @@ import time
 from pathlib import Path
 from typing import Any
 
+from app.adapters.db.schema import (
+    UPGRADE_COMMAND,
+    AdoptionRefused,
+    SchemaNotCurrent,
+    check_database,
+    ensure_schema_current,
+    head_revision,
+    schema_status,
+    upgrade_database,
+)
 from app.config import (
     InsecureConfiguration,
     Settings,
@@ -23,8 +33,18 @@ from app.domain.workflow import load_workflow_yaml, validate_definition
 from app.errors import AppError
 
 
+def _schema_ready(settings: Settings, *, prefix: str = "error") -> bool:
+    """Refuse, with one line naming the fix, when the database is not at the head revision."""
+    try:
+        ensure_schema_current(settings.database.url)
+    except SchemaNotCurrent as exc:
+        print(f"{prefix}: {exc}", file=sys.stderr)
+        return False
+    return True
+
+
 def _container(settings: Settings) -> Any:
-    container = build_container(settings, create_schema=True)
+    container = build_container(settings)
     seed_reference_data(container.database)
     return container
 
@@ -39,6 +59,8 @@ def create_user(args: argparse.Namespace, settings: Settings) -> int:
             return 2
     if is_insecure_password(password):
         print("refusing a default or empty password", file=sys.stderr)
+        return 2
+    if not _schema_ready(settings):
         return 2
     container = _container(settings)
     try:
@@ -61,7 +83,7 @@ def create_user(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def list_activities(args: argparse.Namespace, settings: Settings) -> int:
-    container = build_container(settings, create_schema=True)
+    container = build_container(settings)
     try:
         for activity in container.registry.all():
             print(f"{activity.name:28} {activity.category:30} {activity.description}")
@@ -80,7 +102,7 @@ def validate(args: argparse.Namespace, settings: Settings) -> int:
     except AppError as exc:
         print(f"error: {exc.message}", file=sys.stderr)
         return 2
-    container = build_container(settings, create_schema=True)
+    container = build_container(settings)
     try:
         issues = validate_definition(definition, container.registry.names())
     finally:
@@ -94,7 +116,9 @@ def validate(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def verify_audit(args: argparse.Namespace, settings: Settings) -> int:
-    container = build_container(settings, create_schema=True)
+    if not _schema_ready(settings):
+        return 2
+    container = build_container(settings)
     try:
         with container.database.session() as session:
             check = container.audit.verify(session)
@@ -105,6 +129,8 @@ def verify_audit(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def run_workflow(args: argparse.Namespace, settings: Settings) -> int:
+    if not _schema_ready(settings):
+        return 2
     container = _container(settings)
     container.workers.start()
     try:
@@ -151,6 +177,8 @@ def serve(args: argparse.Namespace, settings: Settings) -> int:
     except InsecureConfiguration as exc:
         print(f"refusing to start: {exc}", file=sys.stderr)
         return 2
+    if not _schema_ready(settings, prefix="refusing to start"):
+        return 2
     configure_logging(settings, console=True)
     container = _container(settings)
     if not container.has_admin():
@@ -163,6 +191,45 @@ def serve(args: argparse.Namespace, settings: Settings) -> int:
         return 2
     application = create_app(settings, container=container, start_background=True)
     uvicorn.run(application, host=args.host, port=args.port, log_level=args.log_level)
+    return 0
+
+
+def db_upgrade(args: argparse.Namespace, settings: Settings) -> int:
+    try:
+        outcome = upgrade_database(settings.database.url)
+    except AdoptionRefused as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        for line in exc.differences:
+            print(f"  - {line}", file=sys.stderr)
+        return 1
+    except SchemaNotCurrent as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for message in outcome.messages:
+        print(message)
+    return 0
+
+
+def db_current(args: argparse.Namespace, settings: Settings) -> int:
+    status = schema_status(settings.database.url)
+    print(f"current: {status.current or '(none)'}")
+    print(f"head:    {head_revision()}")
+    if status.up_to_date:
+        print("the database is up to date")
+    elif status.current is None and status.app_tables_present:
+        print(f"no migration history, but tables exist; run '{UPGRADE_COMMAND}' to adopt them")
+    else:
+        print(f"the database is not up to date; run '{UPGRADE_COMMAND}'")
+    return 0
+
+
+def db_check(args: argparse.Namespace, settings: Settings) -> int:
+    problems = check_database(settings.database.url)
+    if problems:
+        for problem in problems:
+            print(f"error: {problem}", file=sys.stderr)
+        return 1
+    print("the database is at head and matches the models")
     return 0
 
 
@@ -200,6 +267,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit_parser = sub.add_parser("verify-audit", help="verify the audit hash chain")
     audit_parser.set_defaults(func=verify_audit)
+
+    db_parser = sub.add_parser("db", help="manage the database schema (Alembic migrations)")
+    db_sub = db_parser.add_subparsers(dest="db_command", required=True)
+    db_sub.add_parser("upgrade", help="upgrade the schema to head").set_defaults(func=db_upgrade)
+    db_sub.add_parser("current", help="show the current and head revisions").set_defaults(
+        func=db_current
+    )
+    db_sub.add_parser("check", help="fail unless the schema is at head with no drift").set_defaults(
+        func=db_check
+    )
     return parser
 
 

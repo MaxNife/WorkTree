@@ -15,8 +15,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = load_settings()
-config.set_main_option("sqlalchemy.url", settings.database.url.replace("%", "%%"))
+# The CLI passes the URL it already resolved; running ``alembic`` directly falls back to settings.
+database_url = config.attributes.get("database_url") or load_settings().database.url
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 

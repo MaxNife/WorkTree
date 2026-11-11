@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import select, text, update
 
 from app.adapters.db.models import AuditLog
+from app.adapters.db.schema import stamp_head
 from app.audit.guard import AuditMutationError
 from app.cli import verify_audit
 
@@ -95,6 +96,7 @@ def test_orm_guard_rejects_object_and_bulk_mutation(container) -> None:
 
 def test_verify_audit_cli_exit_codes(container, capsys: pytest.CaptureFixture[str]) -> None:
     _write(container, 3)
+    stamp_head(container.settings.database.url)  # the fixture built the schema with create_all
     assert verify_audit(argparse.Namespace(), container.settings) == 0
     assert "audit chain verified" in capsys.readouterr().out
     with container.database.session() as session:

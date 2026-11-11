@@ -65,6 +65,14 @@ jobs:
           uv run python scripts/gen_activity_docs.py --check
           uv run python scripts/gen_data_model.py --check
 
+      # Alembic is the only schema path: a fresh database must migrate to head with no drift.
+      - name: Migrations build the schema and match the models
+        env:
+          UAF_DATABASE__URL: sqlite:///${{ runner.temp }}/ci-schema.db
+        run: |
+          uv run uaf db upgrade
+          uv run uaf db check
+
       - name: Tests with coverage
         run: uv run pytest --cov --cov-report=term
 

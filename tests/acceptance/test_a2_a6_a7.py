@@ -28,6 +28,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 
 from app.adapters.db.models import AuditLog, Run
+from app.adapters.db.schema import stamp_head
 from app.audit.chain import compute_hash
 from app.audit.writer import AuditWriter
 from app.config import Settings
@@ -801,6 +802,7 @@ def test_a7_every_action_is_audited_and_the_chain_verifies_via_api_and_cli(
         "first_bad_id": None,
         "message": "audit chain verified",
     }
+    stamp_head(container.settings.database.url)  # the fixture used create_all, not Alembic
     config = write_cli_config(container.settings, tmp_path / "cli-config.yaml")
     clean = cli_verify_audit(config)
     assert clean.returncode == 0, clean.stdout + clean.stderr

@@ -11,6 +11,7 @@ import pytest
 from sqlalchemy import select
 
 from app.adapters.db.models import AuditLog, Task
+from app.adapters.db.schema import upgrade_database
 from app.cli import serve
 from app.config import load_settings
 from app.container import build_container, seed_reference_data
@@ -155,8 +156,11 @@ def test_serve_refuses_to_start_without_an_admin(tmp_path, capsys, restore_loggi
     )
     args = argparse.Namespace(host="127.0.0.1", port=0, log_level="error")
     assert serve(args, settings) == 2
-    assert "refusing to start" in capsys.readouterr().err
-    container = build_container(settings, create_schema=True)
+    assert "uaf db upgrade" in capsys.readouterr().err, "an unmigrated database is refused"
+    upgrade_database(settings.database.url)
+    assert serve(args, settings) == 2
+    assert "no active admin" in capsys.readouterr().err
+    container = build_container(settings)
     try:
         seed_reference_data(container.database)
         with container.database.session() as session:
