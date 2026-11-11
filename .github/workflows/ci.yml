@@ -37,6 +37,15 @@ jobs:
       - name: Install
         run: uv sync --frozen
 
+      # The browser activity tests drive a real Chromium against the fake portal.
+      - name: Install Chromium
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            uv run playwright install --with-deps chromium
+          else
+            uv run playwright install chromium
+          fi
+
       - name: Ruff check
         run: uv run ruff check .
 
