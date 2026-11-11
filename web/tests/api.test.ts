@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiGet, apiSend, buildUrl } from '@/api/client'
+import { ApiError, apiGet, apiSend, buildUrl, setCsrfToken } from '@/api/client'
 
 function respond(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -51,5 +51,48 @@ describe('fetch helpers', () => {
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.method).toBe('POST')
     expect(init.body).toBe('{"a":1}')
+  })
+
+  it('sends extra headers and the abort signal', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const controller = new AbortController()
+    await apiSend('PUT', '/api/x', { a: 1 }, { headers: { 'If-Match': '"v3"' }, signal: controller.signal })
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.headers).toMatchObject({ 'If-Match': '"v3"', 'Content-Type': 'application/json' })
+    expect(init.signal).toBe(controller.signal)
+  })
+
+  it('never lets a caller replace the CSRF token or content type', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    setCsrfToken('real-token')
+    try {
+      await apiSend('POST', '/api/x', { a: 1 }, { headers: { 'x-csrf-token': 'forged', 'CONTENT-TYPE': 'text/plain' } })
+    } finally {
+      setCsrfToken(null)
+    }
+    const headers = (fetchMock.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>
+    expect(headers['X-CSRF-Token']).toBe('real-token')
+    expect(headers['Content-Type']).toBe('application/json')
+    expect(Object.keys(headers).map((name) => name.toLowerCase()).sort()).toEqual(['accept', 'content-type', 'x-csrf-token'])
+  })
+
+  it('keeps error details, whether a list or an object', async () => {
+    const list = [{ loc: ['steps', 0], msg: 'field required', type: 'missing', step_id: 'a' }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(422, { error: { code: 'validation_failed', message: 'bad', details: list } })))
+    await expect(apiSend('POST', '/api/x', {})).rejects.toMatchObject({ status: 422, details: list })
+    const object = { duplicate_of: 'run-1' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(409, { error: { code: 'duplicate_run', message: 'dup', details: object } })))
+    await expect(apiSend('POST', '/api/x', {})).rejects.toMatchObject({ status: 409, details: object })
+  })
+
+  it('leaves details undefined when there are none', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(403, { error: { code: 'forbidden', message: 'No' } })))
+    const plain = (await apiGet('/health').catch((e: unknown) => e)) as ApiError
+    expect(plain.details).toBeUndefined()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('boom', { status: 502 })))
+    const notJson = (await apiGet('/health').catch((e: unknown) => e)) as ApiError
+    expect(notJson.details).toBeUndefined()
   })
 })
