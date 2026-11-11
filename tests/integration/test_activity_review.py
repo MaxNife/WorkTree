@@ -1,4 +1,4 @@
-"""Regression tests for defects found in the activity-library review (BUILD_PROGRESS.md R22-R30)."""
+"""Regression tests for defects found in the activity-library review (R22-R30 in the retired BUILD_PROGRESS.md, in git history)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Regression tests for defects found in the platform review (BUILD_PROGRESS.md R34-R43)."""
+"""Regression tests for defects found in the platform review (R34-R43 in the retired BUILD_PROGRESS.md, in git history)."""
 
 from __future__ import annotations
 

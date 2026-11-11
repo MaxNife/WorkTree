@@ -1,4 +1,4 @@
-"""Regression tests for defects found in the CP-01 code review (see BUILD_PROGRESS.md)."""
+"""Regression tests for defects found in the CP-01 code review (see the retired BUILD_PROGRESS.md in git history)."""
 
 from __future__ import annotations
 
