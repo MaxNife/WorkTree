@@ -27,9 +27,9 @@ const shown = (value: PropertyItem['value']): string | number => (value === '' ?
   display: grid;
   margin: 0;
   padding: 0 var(--space-12);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
 }
 /* Baseline, not centre: a value that wraps keeps its first line level with the label. */
 .property-list__row {
@@ -40,7 +40,7 @@ const shown = (value: PropertyItem['value']): string | number => (value === '' ?
   padding-block: var(--space-6);
 }
 .property-list__row + .property-list__row {
-  border-top: var(--stroke-1) solid var(--uaf-border);
+  border-top: var(--stroke-1) solid var(--wt-line);
 }
 dt,
 dd {
@@ -48,7 +48,7 @@ dd {
   overflow-wrap: anywhere;
 }
 dt {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
   line-height: var(--line-height-16);

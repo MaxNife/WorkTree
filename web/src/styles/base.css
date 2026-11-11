@@ -1,75 +1,91 @@
 /* Semantic variables built on the theme tokens (src/theme/tokens.ts writes --color-*, etc.).
-   Components use --uaf-* for colour and the token scale for sizes; they never hard-code colours. */
+   Components use --wt-* for colour and the token scale for sizes; they never hard-code colours. */
 :root {
-  --uaf-page: var(--color-page);
-  --uaf-surface: var(--color-surface);
-  --uaf-surface-raised: var(--color-surface);
-  --uaf-surface-sunken: var(--color-surface-sunken);
-  --uaf-surface-hover: var(--color-surface-hover);
-  --uaf-surface-pressed: var(--color-surface-pressed);
-  --uaf-surface-selected: var(--color-surface-selected);
-  --uaf-surface-disabled: var(--color-surface-disabled);
-  --uaf-text: var(--color-text);
-  --uaf-text-secondary: var(--color-text-secondary);
-  --uaf-text-muted: var(--color-text-muted);
-  --uaf-text-disabled: var(--color-text-disabled);
-  --uaf-border: var(--color-border);
-  --uaf-border-strong: var(--color-border-strong);
+  --wt-ground: var(--color-page);
+  --wt-surface: var(--color-surface);
+  --wt-surface-raised: var(--color-surface);
+  --wt-sunken: var(--color-surface-sunken);
+  --wt-surface-hover: var(--color-surface-hover);
+  --wt-surface-pressed: var(--color-surface-pressed);
+  --wt-surface-selected: var(--color-surface-selected);
+  --wt-surface-disabled: var(--color-surface-disabled);
+  --wt-ink: var(--color-text);
+  --wt-text-secondary: var(--color-text-secondary);
+  --wt-muted: var(--color-text-muted);
+  --wt-text-disabled: var(--color-text-disabled);
+  --wt-line: var(--color-border);
+  --wt-line-strong: var(--color-border-strong);
   /* The edge of something you can type in or tick: 3:1 against the surface. */
-  --uaf-border-control: var(--color-border-control);
-  /* --uaf-accent is a fill with --uaf-on-accent on top. A small mark on a surface (a dot, an
-     underline) uses --uaf-accent-text, which keeps 3:1 against the page in every theme. */
-  --uaf-accent: var(--color-accent);
-  --uaf-accent-hover: var(--color-accent-hover);
-  --uaf-accent-pressed: var(--color-accent-pressed);
-  --uaf-accent-tint: var(--color-accent-tint);
-  --uaf-accent-text: var(--color-accent-text);
-  --uaf-on-accent: var(--color-text-on-accent);
-  /* A ticked checkbox or an on switch: the mark on top is --uaf-surface. */
-  --uaf-control: var(--color-control);
-  --uaf-control-hover: var(--color-control-hover);
-  --uaf-control-pressed: var(--color-control-pressed);
-  --uaf-link: var(--color-link);
-  --uaf-link-hover: var(--color-link-hover);
-  --uaf-focus: var(--color-focus);
-  --uaf-focus-width: var(--stroke-2);
-  --uaf-radius: var(--radius-control); /* controls */
-  --uaf-radius-container: var(--radius-container); /* panels, cards, tables */
-  --uaf-shadow-float: var(--shadow-float); /* menus, popovers, toasts */
-  --uaf-shadow-overlay: var(--shadow-overlay); /* dialogs */
-  --uaf-overlay: var(--color-overlay);
-  --uaf-font: var(--font-family-base);
-  --uaf-font-mono: var(--font-family-mono);
+  --wt-border-control: var(--color-border-control);
+  /* --wt-accent is a fill with --wt-on-accent on top. A small mark on a surface (a dot, an
+     underline) uses --wt-accent-text, which keeps 3:1 against the page in every theme. */
+  --wt-accent: var(--color-accent);
+  --wt-accent-hover: var(--color-accent-hover);
+  --wt-accent-pressed: var(--color-accent-pressed);
+  --wt-accent-tint: var(--color-accent-tint);
+  --wt-accent-text: var(--color-accent-text);
+  --wt-on-accent: var(--color-text-on-accent);
+  /* A ticked checkbox or an on switch: the mark on top is --wt-surface. */
+  --wt-control: var(--color-control);
+  --wt-control-hover: var(--color-control-hover);
+  --wt-control-pressed: var(--color-control-pressed);
+  --wt-link: var(--color-link);
+  --wt-link-hover: var(--color-link-hover);
+  /* The single strongest action on a coloured band (Night soil), and destructive actions. */
+  --wt-strong: var(--color-strong);
+  --wt-strong-hover: var(--color-strong-hover);
+  --wt-on-strong: var(--color-on-strong);
+  --wt-destructive: var(--color-destructive);
+  --wt-destructive-hover: var(--color-destructive-hover);
+  --wt-on-destructive: var(--color-on-destructive);
+  /* Focus: a 2 px ring with a 2 px gap in the ground colour, on everything focusable. */
+  --wt-focus: var(--color-focus);
+  --wt-focus-gap: var(--color-focus-gap);
+  --wt-focus-width: var(--stroke-2);
+  --wt-radius: var(--radius-control); /* controls */
+  --wt-radius-container: var(--radius-container); /* cards, tables */
+  --wt-radius-frame: var(--radius-frame); /* the app frame, dialogs */
+  --wt-leaf: var(--radius-leaf);
+  --wt-leaf-soft: var(--radius-leaf-soft);
+  --wt-shadow-float: var(--shadow-float); /* menus, popovers, toasts */
+  --wt-shadow-overlay: var(--shadow-overlay); /* dialogs */
+  --wt-overlay: var(--color-overlay);
+  --wt-font: var(--font-family-base);
+  --wt-font-head: var(--font-family-head);
+  --wt-font-mono: var(--font-family-mono);
 
   /* Status colours always come with an icon and text; colour is never the only signal. */
-  --uaf-ok: var(--color-ok);
-  --uaf-ok-bg: var(--color-ok-bg);
-  --uaf-ok-border: var(--color-ok-border);
-  --uaf-danger: var(--color-danger);
-  --uaf-danger-bg: var(--color-danger-bg);
-  --uaf-danger-border: var(--color-danger-border);
-  --uaf-warn: var(--color-warn);
-  --uaf-warn-bg: var(--color-warn-bg);
-  --uaf-warn-border: var(--color-warn-border);
-  --uaf-attention: var(--color-attention);
-  --uaf-attention-bg: var(--color-attention-bg);
-  --uaf-attention-border: var(--color-attention-border);
-  --uaf-dot-size: 8px;
+  --wt-ok: var(--color-ok);
+  --wt-ok-bg: var(--color-ok-bg);
+  --wt-ok-border: var(--color-ok-border);
+  --wt-danger: var(--color-danger);
+  --wt-danger-bg: var(--color-danger-bg);
+  --wt-danger-border: var(--color-danger-border);
+  --wt-warn: var(--color-warn);
+  --wt-warn-bg: var(--color-warn-bg);
+  --wt-warn-border: var(--color-warn-border);
+  --wt-attention: var(--color-attention);
+  --wt-attention-bg: var(--color-attention-bg);
+  --wt-attention-border: var(--color-attention-border);
+  --wt-running: var(--color-running);
+  --wt-running-bg: var(--color-running-bg);
+  --wt-running-border: var(--color-running-border);
+  --wt-dot-size: 8px;
 
   /* Density: compact by default (docs/04-ui-reimplementation-guide.md), comfortable on request. */
-  --uaf-row-height: 32px;
-  --uaf-cell-padding: var(--space-4) var(--space-12);
-  --uaf-control-height: 30px;
-  --uaf-gap: var(--space-8);
-  --uaf-page-padding: var(--space-16);
+  --wt-row-height: 34px;
+  --wt-cell-padding: var(--space-4) var(--space-12);
+  --wt-control-height: 30px;
+  --wt-gap: var(--space-8);
+  --wt-page-padding: var(--space-16);
 }
 
 :root[data-density='comfortable'] {
-  --uaf-row-height: 44px;
-  --uaf-cell-padding: var(--space-10) var(--space-16);
-  --uaf-control-height: 36px;
-  --uaf-gap: var(--space-12);
-  --uaf-page-padding: var(--space-24);
+  --wt-row-height: 42px;
+  --wt-cell-padding: var(--space-10) var(--space-16);
+  --wt-control-height: 34px;
+  --wt-gap: var(--space-12);
+  --wt-page-padding: var(--space-24);
 }
 
 *,
@@ -85,53 +101,54 @@ body {
 }
 
 body {
-  background: var(--uaf-page);
-  color: var(--uaf-text);
-  font-family: var(--uaf-font);
+  background: var(--wt-ground);
+  color: var(--wt-ink);
+  font-family: var(--wt-font);
   font-size: var(--font-size-14);
   line-height: var(--line-height-20);
 }
 
 :focus-visible {
-  outline: var(--uaf-focus-width) solid var(--uaf-focus);
-  outline-offset: var(--uaf-focus-width);
+  outline: var(--wt-focus-width) solid var(--wt-focus);
+  outline-offset: var(--wt-focus-width);
+  box-shadow: 0 0 0 var(--wt-focus-width) var(--wt-focus-gap);
 }
 
 /* The box shared by UTextInput, UTextArea and USelect, and the label above each one. */
 .u-control {
   width: 100%;
   min-width: 0;
-  min-height: var(--uaf-control-height);
+  min-height: var(--wt-control-height);
   margin: 0;
   padding: var(--space-4) var(--space-10);
-  border: var(--stroke-1) solid var(--uaf-border-control);
-  border-radius: var(--uaf-radius);
-  background: var(--uaf-surface);
-  color: var(--uaf-text);
+  border: var(--stroke-1) solid var(--wt-border-control);
+  border-radius: var(--wt-radius);
+  background: var(--wt-surface);
+  color: var(--wt-ink);
   font: inherit;
   font-size: var(--font-size-14);
   line-height: var(--line-height-20);
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 .u-control::placeholder {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   opacity: 1;
 }
 .u-control:hover:not(:disabled) {
-  border-color: var(--uaf-text-muted);
+  border-color: var(--wt-muted);
 }
 .u-control:focus-visible {
-  border-color: var(--uaf-accent-text);
+  border-color: var(--wt-accent-text);
   outline-offset: 1px;
 }
 .u-control:disabled {
-  border-color: var(--uaf-border);
-  background: var(--uaf-surface-disabled);
-  color: var(--uaf-text-disabled);
+  border-color: var(--wt-line);
+  background: var(--wt-surface-disabled);
+  color: var(--wt-text-disabled);
   cursor: not-allowed;
 }
 .u-control[aria-invalid='true'] {
-  border-color: var(--uaf-danger);
+  border-color: var(--wt-danger);
 }
 .u-field {
   display: grid;
@@ -139,32 +156,39 @@ body {
   min-width: 0;
 }
 .u-field__label {
-  color: var(--uaf-text-secondary);
+  color: var(--wt-text-secondary);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
   line-height: var(--line-height-16);
   overflow-wrap: anywhere;
 }
 .u-field__required {
-  color: var(--uaf-danger);
+  color: var(--wt-danger);
 }
 .u-field--disabled .u-field__label {
-  color: var(--uaf-text-disabled);
+  color: var(--wt-text-disabled);
 }
 
 h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: var(--weight-semibold);
+  font-family: var(--wt-font-head);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-head);
+}
+
+/* Numbers that change in place (durations, counts) keep their width. */
+.wt-num {
+  font-variant-numeric: tabular-nums;
 }
 
 a {
-  color: var(--uaf-link);
+  color: var(--wt-link);
 }
 
 a:hover {
-  color: var(--uaf-link-hover);
+  color: var(--wt-link-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

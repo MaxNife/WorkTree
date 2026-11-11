@@ -18,7 +18,7 @@ defineProps<{ fieldId: string; description?: string; error?: string }>()
 <style scoped>
 .field-message {
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   line-height: var(--line-height-16);
   overflow-wrap: anywhere;
@@ -26,6 +26,6 @@ defineProps<{ fieldId: string; description?: string; error?: string }>()
 .field-message--error {
   display: flex;
   gap: var(--space-4);
-  color: var(--uaf-danger);
+  color: var(--wt-danger);
 }
 </style>

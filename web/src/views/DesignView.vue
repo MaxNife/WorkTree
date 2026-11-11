@@ -83,43 +83,43 @@ const colourGroups: { title: string; tokens: [string, string][] }[] = [
   {
     title: 'Surfaces',
     tokens: [
-      ['--uaf-page', 'Page'],
-      ['--uaf-surface', 'Surface'],
-      ['--uaf-surface-sunken', 'Sunken'],
-      ['--uaf-surface-hover', 'Hover'],
-      ['--uaf-surface-selected', 'Selected'],
-      ['--uaf-border', 'Border'],
-      ['--uaf-border-strong', 'Strong border'],
-      ['--uaf-border-control', 'Control edge'],
+      ['--wt-ground', 'Page'],
+      ['--wt-surface', 'Surface'],
+      ['--wt-sunken', 'Sunken'],
+      ['--wt-surface-hover', 'Hover'],
+      ['--wt-surface-selected', 'Selected'],
+      ['--wt-line', 'Border'],
+      ['--wt-line-strong', 'Strong border'],
+      ['--wt-border-control', 'Control edge'],
     ],
   },
   {
     title: 'Text',
     tokens: [
-      ['--uaf-text', 'Text'],
-      ['--uaf-text-secondary', 'Secondary'],
-      ['--uaf-text-muted', 'Muted'],
-      ['--uaf-text-disabled', 'Disabled'],
-      ['--uaf-link', 'Link'],
-      ['--uaf-focus', 'Focus ring'],
+      ['--wt-ink', 'Text'],
+      ['--wt-text-secondary', 'Secondary'],
+      ['--wt-muted', 'Muted'],
+      ['--wt-text-disabled', 'Disabled'],
+      ['--wt-link', 'Link'],
+      ['--wt-focus', 'Focus ring'],
     ],
   },
   {
     title: 'Accent',
     tokens: [
-      ['--uaf-accent', 'Accent fill'],
-      ['--uaf-accent-hover', 'Accent hover'],
-      ['--uaf-accent-tint', 'Accent tint'],
-      ['--uaf-accent-text', 'Accent mark'],
+      ['--wt-accent', 'Accent fill'],
+      ['--wt-accent-hover', 'Accent hover'],
+      ['--wt-accent-tint', 'Accent tint'],
+      ['--wt-accent-text', 'Accent mark'],
     ],
   },
   {
     title: 'Status',
     tokens: [
-      ['--uaf-ok', 'Done'],
-      ['--uaf-warn', 'Waiting'],
-      ['--uaf-attention', 'Attention'],
-      ['--uaf-danger', 'Failed'],
+      ['--wt-ok', 'Done'],
+      ['--wt-warn', 'Waiting'],
+      ['--wt-attention', 'Attention'],
+      ['--wt-danger', 'Failed'],
     ],
   },
 ]
@@ -132,8 +132,8 @@ const typeScale = [
 ] as const
 const spacing = ['2', '4', '6', '8', '10', '12', '16', '20', '24', '32']
 const radii = [
-  ['--uaf-radius', 'Controls, 8px'],
-  ['--uaf-radius-container', 'Containers, 12px'],
+  ['--wt-radius', 'Controls, 8px'],
+  ['--wt-radius-container', 'Containers, 12px'],
 ] as const
 const icons = Object.keys(ICONS) as IconName[]
 const iconWeight = ref<'regular' | 'fill'>('regular')
@@ -563,20 +563,20 @@ const rejectOpen = ref(false)
   display: grid;
   gap: var(--space-2);
   padding: var(--space-8);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
 }
 .design__nav-link {
   padding: var(--space-4) var(--space-8);
-  border-radius: var(--uaf-radius);
-  color: var(--uaf-text-secondary);
+  border-radius: var(--wt-radius);
+  color: var(--wt-text-secondary);
   font-size: var(--font-size-12);
   text-decoration: none;
 }
 .design__nav-link:hover {
-  background: var(--uaf-surface-hover);
-  color: var(--uaf-text);
+  background: var(--wt-surface-hover);
+  color: var(--wt-ink);
 }
 .design__content {
   display: grid;
@@ -587,17 +587,17 @@ const rejectOpen = ref(false)
 .intro,
 .block {
   display: grid;
-  gap: var(--uaf-gap);
+  gap: var(--wt-gap);
   min-width: 0;
   padding: var(--space-20) var(--space-24);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
   scroll-margin-top: var(--space-16);
 }
 .intro {
   gap: var(--space-16);
-  background: var(--uaf-surface-sunken);
+  background: var(--wt-sunken);
 }
 .principles {
   display: grid;
@@ -613,14 +613,14 @@ const rejectOpen = ref(false)
 }
 .principle__icon {
   margin-top: 1px;
-  color: var(--uaf-accent-text);
+  color: var(--wt-accent-text);
 }
 .principle__title {
   font-size: var(--font-size-14);
 }
 .principle__text {
   margin: var(--space-2) 0 0;
-  color: var(--uaf-text-secondary);
+  color: var(--wt-text-secondary);
   font-size: var(--font-size-12);
   line-height: var(--line-height-16);
 }
@@ -635,7 +635,7 @@ const rejectOpen = ref(false)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--uaf-gap);
+  gap: var(--wt-gap);
 }
 .row--end {
   align-items: flex-end;
@@ -643,7 +643,7 @@ const rejectOpen = ref(false)
 .spec {
   min-width: 10ch;
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
 }
@@ -652,7 +652,7 @@ const rejectOpen = ref(false)
   margin: 0;
 }
 .note {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .fields {
   display: grid;
@@ -676,7 +676,7 @@ const rejectOpen = ref(false)
 .icons,
 .families {
   display: grid;
-  gap: var(--uaf-gap);
+  gap: var(--wt-gap);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -689,13 +689,13 @@ const rejectOpen = ref(false)
   gap: var(--space-2);
   min-width: 0;
   padding: var(--space-8);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius);
 }
 .swatch {
   height: 40px;
   margin-bottom: var(--space-4);
-  border: var(--stroke-1) solid var(--uaf-border);
+  border: var(--stroke-1) solid var(--wt-line);
   border-radius: 6px;
 }
 .swatch-card__name {
@@ -704,7 +704,7 @@ const rejectOpen = ref(false)
 }
 .swatch-card code {
   overflow: hidden;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -717,7 +717,7 @@ const rejectOpen = ref(false)
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
-  color: var(--uaf-text-secondary);
+  color: var(--wt-text-secondary);
   font-size: var(--font-size-12);
 }
 .canvas {
@@ -725,9 +725,9 @@ const rejectOpen = ref(false)
   flex-wrap: wrap;
   gap: var(--space-24) var(--space-8);
   padding: var(--space-24) var(--space-16);
-  border-radius: var(--uaf-radius-container);
-  background-color: var(--uaf-page);
-  background-image: radial-gradient(var(--uaf-border-strong) 1px, transparent 1px);
+  border-radius: var(--wt-radius-container);
+  background-color: var(--wt-ground);
+  background-image: radial-gradient(var(--wt-line-strong) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 .families {
@@ -738,10 +738,10 @@ const rejectOpen = ref(false)
   height: 12px;
   flex: none;
   border-radius: 50%;
-  box-shadow: 0 0 0 var(--stroke-1) var(--uaf-border-strong);
+  box-shadow: 0 0 0 var(--stroke-1) var(--wt-line-strong);
 }
 code {
-  font-family: var(--uaf-font-mono);
+  font-family: var(--wt-font-mono);
   font-size: var(--font-size-12);
 }
 .spacing {
@@ -749,21 +749,21 @@ code {
   justify-items: start;
   gap: var(--space-4);
   min-width: 5ch;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .spacing__bar {
   height: var(--space-8);
   border-radius: 2px;
-  background: var(--uaf-accent-text);
+  background: var(--wt-accent-text);
 }
 .radius {
-  padding: var(--uaf-cell-padding);
-  border: var(--stroke-1) solid var(--uaf-border-strong);
+  padding: var(--wt-cell-padding);
+  border: var(--stroke-1) solid var(--wt-line-strong);
 }
 .radius--float {
-  border-color: var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  box-shadow: var(--uaf-shadow-float);
+  border-color: var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  box-shadow: var(--wt-shadow-float);
 }
 @media (max-width: 900px) {
   .design {

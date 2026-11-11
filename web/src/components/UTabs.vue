@@ -53,7 +53,7 @@ function onKeydown(event: KeyboardEvent, index: number): void {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-4);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .tabs__tab {
   display: inline-flex;
@@ -63,9 +63,9 @@ function onKeydown(event: KeyboardEvent, index: number): void {
   padding: var(--space-8) var(--space-10);
   border: 0;
   border-bottom: 2px solid transparent;
-  border-radius: var(--uaf-radius) var(--uaf-radius) 0 0;
+  border-radius: var(--wt-radius) var(--wt-radius) 0 0;
   background: none;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font: inherit;
   cursor: pointer;
   transition:
@@ -73,23 +73,23 @@ function onKeydown(event: KeyboardEvent, index: number): void {
     background-color var(--duration-fast) var(--ease-standard);
 }
 .tabs__tab:hover {
-  background: var(--uaf-surface-hover);
-  color: var(--uaf-text);
+  background: var(--wt-surface-hover);
+  color: var(--wt-ink);
 }
 .tabs__tab:focus-visible {
-  outline-offset: calc(-1 * var(--uaf-focus-width));
+  outline-offset: calc(-1 * var(--wt-focus-width));
 }
 .tabs__tab--selected {
-  border-bottom-color: var(--uaf-accent-text);
-  color: var(--uaf-text);
+  border-bottom-color: var(--wt-accent-text);
+  color: var(--wt-ink);
   font-weight: var(--weight-semibold);
 }
 .tabs__count {
   min-width: 20px;
   padding: 0 var(--space-6);
   border-radius: var(--radius-full);
-  background: var(--uaf-surface-sunken);
-  color: var(--uaf-text-muted);
+  background: var(--wt-sunken);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
   line-height: var(--line-height-20);
@@ -97,7 +97,7 @@ function onKeydown(event: KeyboardEvent, index: number): void {
   text-align: center;
 }
 .tabs__tab--selected .tabs__count {
-  background: var(--uaf-accent-tint);
-  color: var(--uaf-accent-text);
+  background: var(--wt-accent-tint);
+  color: var(--wt-accent-text);
 }
 </style>

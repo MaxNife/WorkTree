@@ -65,16 +65,16 @@ async function submit(): Promise<void> {
   place-items: center;
   min-height: 100%;
   padding: var(--space-24) var(--space-16);
-  background: var(--uaf-surface-sunken);
+  background: var(--wt-sunken);
 }
 .login__card {
   display: grid;
   gap: var(--space-12);
   width: min(360px, 100%);
   padding: var(--space-24) var(--space-24);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
 }
 .login__title {
   font-size: var(--font-size-20);

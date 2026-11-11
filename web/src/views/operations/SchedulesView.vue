@@ -124,11 +124,11 @@ const toggle = useMutation({
   margin-inline-start: var(--space-8);
 }
 .cron {
-  font-family: var(--uaf-font-mono);
+  font-family: var(--wt-font-mono);
   font-size: var(--font-size-12);
 }
 .quiet {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 </style>

@@ -37,12 +37,12 @@ function next(): void {
   gap: var(--space-8);
 }
 .pagination__range {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
 }
 .pagination :deep(.u-button) {
-  border-color: var(--uaf-border-strong);
-  background: var(--uaf-surface);
+  border-color: var(--wt-line-strong);
+  background: var(--wt-surface);
 }
 </style>

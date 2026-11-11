@@ -38,15 +38,15 @@ const crumbs = useBreadcrumbs()
   min-width: 0;
 }
 .crumbs__sep {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .crumbs__link {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   text-decoration: none;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
 }
 .crumbs__link:hover {
-  color: var(--uaf-text);
+  color: var(--wt-ink);
   text-decoration: underline;
 }
 .crumbs__current {

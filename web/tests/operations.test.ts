@@ -822,7 +822,7 @@ describe('shared component gaps', () => {
 
   it('UTabs underlines with the accent text colour, which reads on every theme', () => {
     const source = readFileSync(resolve(__dirname, '../src/components/UTabs.vue'), 'utf8')
-    expect(source).toContain('border-bottom-color: var(--uaf-accent-text)')
+    expect(source).toContain('border-bottom-color: var(--wt-accent-text)')
     for (const theme of Object.values(THEMES)) {
       expect(contrastRatio(String(theme['color-accent-text']), String(theme['color-surface']))).toBeGreaterThanOrEqual(3)
     }

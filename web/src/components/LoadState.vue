@@ -41,16 +41,16 @@ const errorMessage = computed(() => {
   gap: var(--space-10);
   margin: 0;
   padding: var(--space-16);
-  border: var(--stroke-1) dashed var(--uaf-border-strong);
-  border-radius: var(--uaf-radius-container);
-  color: var(--uaf-text-muted);
+  border: var(--stroke-1) dashed var(--wt-line-strong);
+  border-radius: var(--wt-radius-container);
+  color: var(--wt-muted);
 }
 .load-state__spinner {
   width: 16px;
   height: 16px;
   flex: none;
-  border: var(--stroke-2) solid var(--uaf-border-strong);
-  border-top-color: var(--uaf-accent-text);
+  border: var(--stroke-2) solid var(--wt-line-strong);
+  border-top-color: var(--wt-accent-text);
   border-radius: var(--radius-full);
   animation: load-state-turn 0.9s linear infinite;
 }

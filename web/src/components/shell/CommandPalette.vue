@@ -137,27 +137,27 @@ function onKeydown(event: KeyboardEvent): void {
   justify-content: center;
   align-items: flex-start;
   padding: 12vh var(--space-16) 0;
-  background: var(--uaf-overlay);
+  background: var(--wt-overlay);
 }
 .palette {
   display: flex;
   flex-direction: column;
   width: min(640px, 100%);
   max-height: 70vh;
-  border: var(--stroke-1) solid var(--uaf-border-strong);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-raised);
-  color: var(--uaf-text);
+  border: var(--stroke-1) solid var(--wt-line-strong);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface-raised);
+  color: var(--wt-ink);
 }
 .palette__search {
   display: flex;
   align-items: center;
   gap: var(--space-8);
   padding: 0 var(--space-12);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .palette__search-icon {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .palette__input {
   flex: 1;
@@ -173,7 +173,7 @@ function onKeydown(event: KeyboardEvent): void {
   outline: none;
 }
 .palette__search:focus-within {
-  box-shadow: inset 0 calc(-1 * var(--stroke-2)) 0 var(--uaf-focus);
+  box-shadow: inset 0 calc(-1 * var(--stroke-2)) 0 var(--wt-focus);
 }
 .palette__list {
   flex: 1;
@@ -187,19 +187,19 @@ function onKeydown(event: KeyboardEvent): void {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  min-height: var(--uaf-row-height);
+  min-height: var(--wt-row-height);
   padding: 0 var(--space-8);
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   cursor: pointer;
 }
 .palette__option.is-active {
-  background: var(--uaf-surface-selected);
-  box-shadow: inset var(--stroke-2) 0 0 var(--uaf-focus);
+  background: var(--wt-surface-selected);
+  box-shadow: inset var(--stroke-2) 0 0 var(--wt-focus);
 }
 .palette__icon {
   flex: none;
   width: 16px;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .palette__label {
   flex: 1;
@@ -209,13 +209,13 @@ function onKeydown(event: KeyboardEvent): void {
   white-space: nowrap;
 }
 .palette__group {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 .palette__empty {
   margin: 0;
   padding: var(--space-12) var(--space-12);
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .palette__count {
   position: absolute;
@@ -228,12 +228,12 @@ function onKeydown(event: KeyboardEvent): void {
 .palette__hint {
   margin: 0;
   padding: var(--space-4) var(--space-12);
-  border-top: var(--stroke-1) solid var(--uaf-border);
-  color: var(--uaf-text-muted);
+  border-top: var(--stroke-1) solid var(--wt-line);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 kbd {
-  font-family: var(--uaf-font);
+  font-family: var(--wt-font);
   font-weight: var(--weight-semibold);
 }
 </style>

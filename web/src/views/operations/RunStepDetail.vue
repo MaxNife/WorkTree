@@ -36,7 +36,7 @@ const log = computed(() => stepLog(props.step))
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-12);
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 .incidents {

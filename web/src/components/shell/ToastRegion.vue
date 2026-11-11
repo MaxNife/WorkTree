@@ -59,23 +59,23 @@ const regions = computed(() => [
   align-items: flex-start;
   gap: var(--space-8);
   padding: var(--space-8) var(--space-12);
-  border: var(--stroke-1) solid var(--uaf-border-strong);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-raised);
+  border: var(--stroke-1) solid var(--wt-line-strong);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface-raised);
   pointer-events: auto;
 }
 .toast__icon {
   margin-top: 2px;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .toast--success .toast__icon {
-  color: var(--uaf-ok);
+  color: var(--wt-ok);
 }
 .toast--error {
-  border-color: var(--uaf-danger-border);
+  border-color: var(--wt-danger-border);
 }
 .toast--error .toast__icon {
-  color: var(--uaf-danger);
+  color: var(--wt-danger);
 }
 .toast__message {
   flex: 1;
@@ -85,12 +85,12 @@ const regions = computed(() => [
   display: inline-flex;
   padding: 2px;
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   cursor: pointer;
 }
 .toast__dismiss:hover {
-  color: var(--uaf-text);
+  color: var(--wt-ink);
 }
 </style>

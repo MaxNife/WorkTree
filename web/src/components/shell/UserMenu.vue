@@ -158,10 +158,10 @@ function signOut(): void {
   align-items: center;
   gap: var(--space-8);
   max-width: 220px;
-  height: var(--uaf-control-height);
+  height: var(--wt-control-height);
   padding: 0 var(--space-8);
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
   color: inherit;
   font: inherit;
@@ -169,7 +169,7 @@ function signOut(): void {
 }
 .user-menu__trigger:hover,
 .user-menu__trigger[aria-expanded='true'] {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .user-menu__name {
   overflow: hidden;
@@ -183,14 +183,14 @@ function signOut(): void {
   z-index: 20;
   min-width: 220px;
   padding: var(--space-4);
-  border: var(--stroke-1) solid var(--uaf-border-strong);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-raised);
+  border: var(--stroke-1) solid var(--wt-line-strong);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface-raised);
 }
 .user-menu__heading {
   margin: 0;
   padding: var(--space-4) var(--space-8);
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 .user-menu__item {
@@ -198,10 +198,10 @@ function signOut(): void {
   align-items: center;
   gap: var(--space-8);
   width: 100%;
-  min-height: var(--uaf-control-height);
+  min-height: var(--wt-control-height);
   padding: 0 var(--space-8);
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
   color: inherit;
   font: inherit;
@@ -210,7 +210,7 @@ function signOut(): void {
 }
 .user-menu__item:hover,
 .user-menu__item:focus-visible {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .user-menu__mark {
   flex: none;
@@ -218,6 +218,6 @@ function signOut(): void {
 }
 .user-menu__separator {
   margin: var(--space-4) 0;
-  border-top: var(--stroke-1) solid var(--uaf-border);
+  border-top: var(--stroke-1) solid var(--wt-line);
 }
 </style>

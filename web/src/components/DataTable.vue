@@ -126,11 +126,11 @@ function onRowKeydown(event: KeyboardEvent, row: T, index: number): void {
 <style scoped>
 .data-table {
   width: 100%;
-  border: var(--stroke-1) solid var(--uaf-border);
+  border: var(--stroke-1) solid var(--wt-line);
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
 }
 .data-table__caption {
   position: absolute;
@@ -142,32 +142,32 @@ function onRowKeydown(event: KeyboardEvent, row: T, index: number): void {
 }
 th,
 td {
-  height: var(--uaf-row-height);
-  padding: var(--uaf-cell-padding);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  height: var(--wt-row-height);
+  padding: var(--wt-cell-padding);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
   text-align: start;
 }
 tbody tr:last-child td {
   border-bottom: 0;
 }
 tbody tr:last-child td:first-child {
-  border-bottom-left-radius: var(--uaf-radius-container);
+  border-bottom-left-radius: var(--wt-radius-container);
 }
 tbody tr:last-child td:last-child {
-  border-bottom-right-radius: var(--uaf-radius-container);
+  border-bottom-right-radius: var(--wt-radius-container);
 }
 th:first-child {
-  border-top-left-radius: var(--uaf-radius-container);
+  border-top-left-radius: var(--wt-radius-container);
 }
 th:last-child {
-  border-top-right-radius: var(--uaf-radius-container);
+  border-top-right-radius: var(--wt-radius-container);
 }
 th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--uaf-surface-sunken);
-  color: var(--uaf-text-muted);
+  background: var(--wt-sunken);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
 }
@@ -186,14 +186,14 @@ th {
   cursor: pointer;
 }
 .data-table__sort:hover {
-  color: var(--uaf-text);
+  color: var(--wt-ink);
 }
 .data-table__row:hover {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .data-table__row--selected,
 .data-table__row--selected:hover {
-  background: var(--uaf-accent-tint);
+  background: var(--wt-accent-tint);
 }
 .data-table__row--selected td:first-child {
   font-weight: var(--weight-semibold);
@@ -202,7 +202,7 @@ th {
   cursor: pointer;
 }
 .data-table__row:focus-visible {
-  outline: var(--stroke-2) solid var(--uaf-focus);
+  outline: var(--stroke-2) solid var(--wt-focus);
   outline-offset: calc(var(--stroke-2) * -1);
 }
 </style>

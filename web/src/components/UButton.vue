@@ -54,12 +54,12 @@ function onClick(event: MouseEvent): void {
   align-items: center;
   justify-content: center;
   gap: var(--space-6);
-  min-height: var(--uaf-control-height);
+  min-height: var(--wt-control-height);
   padding: 0 var(--space-12);
   border: var(--stroke-1) solid transparent;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: transparent;
-  color: var(--uaf-text);
+  color: var(--wt-ink);
   font: inherit;
   font-size: var(--font-size-14);
   font-weight: var(--weight-semibold);
@@ -71,31 +71,31 @@ function onClick(event: MouseEvent): void {
     border-color var(--duration-fast) var(--ease-standard);
 }
 .u-button--primary {
-  background: var(--uaf-accent);
-  color: var(--uaf-on-accent);
+  background: var(--wt-accent);
+  color: var(--wt-on-accent);
 }
 .u-button--primary:hover {
-  background: var(--uaf-accent-hover);
+  background: var(--wt-accent-hover);
 }
 .u-button--primary:active {
-  background: var(--uaf-accent-pressed);
+  background: var(--wt-accent-pressed);
 }
 .u-button--secondary {
-  background: var(--uaf-surface);
-  border-color: var(--uaf-border-strong);
+  background: var(--wt-surface);
+  border-color: var(--wt-line-strong);
 }
 .u-button--outline {
-  border-color: var(--uaf-border-strong);
+  border-color: var(--wt-line-strong);
 }
 .u-button--secondary:hover,
 .u-button--outline:hover,
 .u-button--subtle:hover {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .u-button--secondary:active,
 .u-button--outline:active,
 .u-button--subtle:active {
-  background: var(--uaf-surface-pressed);
+  background: var(--wt-surface-pressed);
 }
 .u-button--subtle {
   font-weight: var(--weight-regular);
@@ -108,9 +108,9 @@ function onClick(event: MouseEvent): void {
   opacity: 0.8;
 }
 .u-button:disabled {
-  background: var(--uaf-surface-disabled);
+  background: var(--wt-surface-disabled);
   border-color: transparent;
-  color: var(--uaf-text-disabled);
+  color: var(--wt-text-disabled);
 }
 /* Windows High Contrast: every button gets a visible edge, and disabled reads as GrayText. */
 @media (forced-colors: active) {
@@ -123,7 +123,7 @@ function onClick(event: MouseEvent): void {
   }
 }
 .u-button--icon-only {
-  width: var(--uaf-control-height);
+  width: var(--wt-control-height);
   padding: 0;
 }
 .u-button__spinner {

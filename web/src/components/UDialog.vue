@@ -96,14 +96,14 @@ onBeforeUnmount(() => {
   width: calc(100% - 2 * var(--space-24));
   max-height: calc(100% - 2 * var(--space-24));
   padding: 0;
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
-  color: var(--uaf-text);
-  box-shadow: var(--uaf-shadow-overlay);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
+  color: var(--wt-ink);
+  box-shadow: var(--wt-shadow-overlay);
 }
 .u-dialog::backdrop {
-  background: var(--uaf-overlay);
+  background: var(--wt-overlay);
 }
 .u-dialog--small {
   max-width: 420px;

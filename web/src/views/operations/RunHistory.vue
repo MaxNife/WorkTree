@@ -178,6 +178,6 @@ const openRun = (row: RunSummary) => router.push({ name: 'operations.run', param
   white-space: nowrap;
 }
 .quiet {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 </style>

@@ -96,13 +96,13 @@ function toggle(): void {
   align-items: center;
   gap: var(--space-2);
   padding-left: calc(var(--depth) * var(--space-12));
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
 }
 .nav-item__row:hover {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .nav-item__row.is-active {
-  background: var(--uaf-surface-selected);
+  background: var(--wt-surface-selected);
 }
 .nav-item__row.is-active > .nav-item__link {
   font-weight: var(--weight-semibold);
@@ -117,7 +117,7 @@ function toggle(): void {
   display: inline-flex;
   align-items: center;
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
   color: inherit;
   font: inherit;
@@ -125,14 +125,14 @@ function toggle(): void {
 }
 .nav-item__toggle {
   justify-content: center;
-  height: var(--uaf-control-height);
-  color: var(--uaf-text-muted);
+  height: var(--wt-control-height);
+  color: var(--wt-muted);
 }
 .nav-item__link {
   flex: 1;
   gap: var(--space-8);
   min-width: 0;
-  min-height: var(--uaf-control-height);
+  min-height: var(--wt-control-height);
   padding: 0 var(--space-8) 0 var(--space-4);
   text-align: left;
   text-decoration: none;
@@ -141,7 +141,7 @@ function toggle(): void {
   padding-left: var(--space-2);
 }
 .nav-item__chevron {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .nav-item__row--rail .nav-item__link {
   justify-content: center;
@@ -159,7 +159,7 @@ function toggle(): void {
 .nav-item__note {
   list-style: none;
   padding: var(--space-4) 0 var(--space-4) calc(var(--depth) * var(--space-12) + 24px);
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 </style>

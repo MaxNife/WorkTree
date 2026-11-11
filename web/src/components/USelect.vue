@@ -70,7 +70,7 @@ function onChange(event: Event): void {
   right: var(--space-10);
   top: 50%;
   transform: translateY(-50%);
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   pointer-events: none;
 }
 </style>

@@ -180,7 +180,7 @@ watch(
   flex-direction: column-reverse;
 }
 .numbers__item dt {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   line-height: var(--line-height-16);
 }
@@ -188,7 +188,7 @@ watch(
   margin: 0;
 }
 .numbers__value {
-  color: var(--uaf-text);
+  color: var(--wt-ink);
   font-size: var(--font-size-24);
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -196,7 +196,7 @@ watch(
   text-decoration: none;
 }
 .numbers__value:hover {
-  color: var(--uaf-accent-text);
+  color: var(--wt-accent-text);
   text-decoration: underline;
 }
 .section-head {
@@ -211,7 +211,7 @@ watch(
   line-height: var(--line-height-22);
 }
 .quiet {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   white-space: nowrap;
 }
@@ -219,7 +219,7 @@ watch(
   margin: 0;
   padding: 0;
   list-style: none;
-  border-top: var(--stroke-1) solid var(--uaf-border);
+  border-top: var(--stroke-1) solid var(--wt-line);
 }
 /* Each row is its own grid, so the columns are fixed to line up. */
 .attention__item {
@@ -227,16 +227,16 @@ watch(
   grid-template-columns: 12ch minmax(0, 2fr) minmax(0, 3fr) 9ch;
   align-items: center;
   gap: var(--space-12);
-  min-height: var(--uaf-row-height);
-  padding: var(--uaf-cell-padding);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  min-height: var(--wt-row-height);
+  padding: var(--wt-cell-padding);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .attention__name {
   overflow-wrap: anywhere;
 }
 .attention__error {
   overflow: hidden;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

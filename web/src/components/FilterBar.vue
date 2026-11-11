@@ -55,9 +55,9 @@ onBeforeUnmount(() => clearTimeout(timer))
   align-items: flex-end;
   gap: var(--space-8) var(--space-12);
   padding: var(--space-10) var(--space-12);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-sunken);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-sunken);
 }
 .filter-bar__search {
   position: relative;
@@ -70,8 +70,8 @@ onBeforeUnmount(() => clearTimeout(timer))
 .filter-bar__search-icon {
   position: absolute;
   left: var(--space-10);
-  bottom: calc((var(--uaf-control-height) - 16px) / 2);
-  color: var(--uaf-text-muted);
+  bottom: calc((var(--wt-control-height) - 16px) / 2);
+  color: var(--wt-muted);
   pointer-events: none;
 }
 .filter-bar__clear {

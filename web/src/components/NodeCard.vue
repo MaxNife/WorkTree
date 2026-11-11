@@ -100,7 +100,7 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
   stroke-width: 1;
 }
 .node__ring--outer {
-  fill: var(--uaf-surface);
+  fill: var(--wt-surface);
   stroke-opacity: 0.35;
 }
 .node__ring--mid {
@@ -114,27 +114,27 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
 }
 .node__arc {
   fill: none;
-  stroke: var(--uaf-text-muted);
+  stroke: var(--wt-muted);
   stroke-width: 3.5;
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: 48px 48px;
 }
 .node__arc--ok {
-  stroke: var(--uaf-ok);
+  stroke: var(--wt-ok);
 }
 .node__arc--danger {
-  stroke: var(--uaf-danger);
+  stroke: var(--wt-danger);
   stroke-dasharray: 12 4;
 }
 .node__arc--running {
-  stroke: var(--uaf-accent-text);
+  stroke: var(--wt-accent-text);
 }
 .node__arc--warn {
-  stroke: var(--uaf-warn);
+  stroke: var(--wt-warn);
 }
 .node__arc--attention {
-  stroke: var(--uaf-attention);
+  stroke: var(--wt-attention);
 }
 .node__icon {
   position: absolute;
@@ -144,7 +144,7 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
 }
 .node--selected .node__rings {
   border-radius: 50%;
-  outline: var(--stroke-2) solid var(--uaf-accent-text);
+  outline: var(--stroke-2) solid var(--wt-accent-text);
   outline-offset: 3px;
 }
 .node__ports {
@@ -160,12 +160,12 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
 .node__port {
   width: 12px;
   height: 12px;
-  border: var(--stroke-2) solid var(--uaf-surface);
+  border: var(--stroke-2) solid var(--wt-surface);
   border-radius: 50%;
-  background: var(--uaf-ok);
+  background: var(--wt-ok);
 }
 .node__port--failed {
-  background: var(--uaf-danger);
+  background: var(--wt-danger);
 }
 .node__port-name {
   position: absolute;
@@ -187,7 +187,7 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
   font-weight: var(--weight-semibold);
 }
 .node__activity {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
 }
 .node__run {
@@ -197,7 +197,7 @@ const arcClass = computed(() => (props.status ? `node__arc--${statusStyle(props.
   font-size: var(--font-size-12);
 }
 .node__time {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-variant-numeric: tabular-nums;
 }
 </style>

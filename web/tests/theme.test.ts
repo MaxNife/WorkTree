@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { applyTheme, resolveTheme } from '@/theme/apply'
 import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
-import { BRAND, contrastRatio, THEMES, type ThemeName } from '@/theme/tokens'
+import { contrastRatio, FLOWER_NAMES, FLOWERS, NIGHT_SOIL, THEMES, type ThemeName } from '@/theme/tokens'
 
 const asMedia = (matching: string[]) => (query: string) => matching.includes(query)
 
@@ -18,7 +18,7 @@ function filesIn(folder: string): string[] {
   })
 }
 
-/** The theme token behind a --uaf-* variable, as base.css maps it. */
+/** The theme token behind a --wt-* variable, as base.css maps it. */
 function tokenBehind(variable: string): string {
   const match = new RegExp(`${variable}: var\\(--([\\w-]+)\\)`).exec(baseCss)
   if (!match?.[1]) throw new Error(`${variable} is not mapped in base.css`)
@@ -55,26 +55,56 @@ describe('applyTheme', () => {
     expect(root.dataset.theme).toBe('dark')
     expect(root.dataset.density).toBe('comfortable')
     expect(root.style.getPropertyValue('--color-surface')).toBe(String(THEMES.dark['color-surface']))
-    expect(root.style.getPropertyValue('--color-accent')).toBe(BRAND.base)
+    expect(root.style.getPropertyValue('--color-accent')).toBe(FLOWERS.iris.strong)
+    expect(root.style.getPropertyValue('--wt-fern')).toBe(FLOWERS.fern.strong)
   })
 })
 
 describe('tokens', () => {
   const names = Object.keys(THEMES) as ThemeName[]
-  const surfaces = ['--uaf-page', '--uaf-surface', '--uaf-surface-sunken']
+  const surfaces = ['--wt-ground', '--wt-surface', '--wt-sunken']
 
   it('defines the same tokens in every theme', () => {
     const light = Object.keys(THEMES.light).sort()
     for (const name of names) expect(Object.keys(THEMES[name]).sort()).toEqual(light)
   })
 
-  it('has a green Work and a brown Tree in the wordmark', () => {
-    expect(THEMES.light['wordmark-work']).toBe('#107C10')
-    expect(THEMES.light['wordmark-tree']).toBe('#7a4a1e')
+  it('uses the garden palette: Iris for the main action, Night soil ink on a light violet ground', () => {
+    expect(THEMES.light['color-accent']).toBe('#6246EA')
+    expect(THEMES.light['color-text']).toBe(NIGHT_SOIL)
+    expect(THEMES.light['color-page']).toBe('#FBFAFE')
+    expect(THEMES.light['color-focus']).toBe(NIGHT_SOIL)
   })
 
-  it('uses WorkTree green as the accent', () => {
-    expect(THEMES.light['color-accent']).toBe('#107C10')
+  it('keeps the seven strong flower colours in light and dark', () => {
+    for (const name of FLOWER_NAMES) {
+      expect(THEMES.light[`wt-${name}`]).toBe(FLOWERS[name].strong)
+      expect(THEMES.dark[`wt-${name}`]).toBe(FLOWERS[name].strong)
+    }
+  })
+
+  // Body-size text on colour always uses the soft tint with its deep value.
+  it.each(names)('%s: every flower deep value meets 4.5:1 on its soft tint', (theme) => {
+    for (const name of FLOWER_NAMES) {
+      const t = THEMES[theme]
+      expect(contrastRatio(String(t[`wt-${name}-deep`]), String(t[`wt-${name}-soft`])), name).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  // Text on a strong colour is for bold text and icons only (3:1, WCAG large text and marks).
+  it.each(FLOWER_NAMES)('%s: its text colour meets 3:1 on the strong colour', (name) => {
+    expect(contrastRatio(FLOWERS[name].on, FLOWERS[name].strong)).toBeGreaterThanOrEqual(3)
+  })
+
+  // White on strong Hibiscus is only 3.9:1, so a destructive button fills with the deep value.
+  it.each(names)('%s: destructive and strong buttons carry body-size text at 4.5:1', (theme) => {
+    const t = THEMES[theme]
+    for (const fill of ['color-destructive', 'color-destructive-hover']) {
+      expect(contrastRatio(String(t['color-on-destructive']), String(t[fill])), fill).toBeGreaterThanOrEqual(4.5)
+    }
+    for (const fill of ['color-strong', 'color-strong-hover']) {
+      expect(contrastRatio(String(t['color-on-strong']), String(t[fill])), fill).toBeGreaterThanOrEqual(4.5)
+    }
   })
 
   it('names no token after another design system', () => {
@@ -83,15 +113,16 @@ describe('tokens', () => {
 
   // WCAG AA: 4.5:1 for normal text.
   const textPairs: [string, string][] = [
-    ['--uaf-text-secondary', '--uaf-surface'],
-    ['--uaf-on-accent', '--uaf-accent'],
-    ['--uaf-on-accent', '--uaf-accent-hover'],
-    ['--uaf-on-accent', '--uaf-accent-pressed'],
-    ['--uaf-accent-text', '--uaf-accent-tint'],
-    ['--uaf-ok', '--uaf-ok-bg'],
-    ['--uaf-danger', '--uaf-danger-bg'],
-    ['--uaf-warn', '--uaf-warn-bg'],
-    ['--uaf-attention', '--uaf-attention-bg'],
+    ['--wt-text-secondary', '--wt-surface'],
+    ['--wt-on-accent', '--wt-accent'],
+    ['--wt-on-accent', '--wt-accent-hover'],
+    ['--wt-on-accent', '--wt-accent-pressed'],
+    ['--wt-accent-text', '--wt-accent-tint'],
+    ['--wt-ok', '--wt-ok-bg'],
+    ['--wt-danger', '--wt-danger-bg'],
+    ['--wt-warn', '--wt-warn-bg'],
+    ['--wt-attention', '--wt-attention-bg'],
+    ['--wt-running', '--wt-running-bg'],
   ]
   for (const theme of names) {
     it.each(textPairs)(`${theme}: %s on %s meets 4.5:1`, (fg, bg) => {
@@ -100,24 +131,16 @@ describe('tokens', () => {
   }
 
   it.each(names)('%s: body, muted, link, accent and error text meet 4.5:1 on every surface', (theme) => {
-    for (const text of ['--uaf-text', '--uaf-text-muted', '--uaf-link', '--uaf-accent-text', '--uaf-danger']) {
+    for (const text of ['--wt-ink', '--wt-muted', '--wt-link', '--wt-accent-text', '--wt-danger']) {
       for (const surface of surfaces) {
         expect(contrastRatio(colour(theme, text), colour(theme, surface)), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5)
       }
     }
   })
 
-  it.each(names)('%s: the wordmark meets 4.5:1 on the page and the surface', (theme) => {
-    for (const part of ['wordmark-work', 'wordmark-tree']) {
-      for (const surface of ['--uaf-page', '--uaf-surface']) {
-        expect(contrastRatio(String(THEMES[theme][part]), colour(theme, surface)), `${part} on ${surface}`).toBeGreaterThanOrEqual(4.5)
-      }
-    }
-  })
-
   // Everything a status dot can be painted with, read from the component so a remap is caught.
   const badge = readFileSync(join(SRC, 'components', 'StatusBadge.vue'), 'utf8')
-  const dots = [...badge.matchAll(/--dot: var\((--uaf-[\w-]+)\)/g)].map((match) => match[1] ?? '')
+  const dots = [...badge.matchAll(/--dot: var\((--wt-[\w-]+)\)/g)].map((match) => match[1] ?? '')
 
   it('finds a colour for every status kind', () => {
     expect(dots).toHaveLength(6)
@@ -134,21 +157,21 @@ describe('tokens', () => {
 
   it.each(names)('%s: the edge of a text field, checkbox or switch meets 3:1 on every surface', (theme) => {
     for (const surface of surfaces) {
-      expect(contrastRatio(colour(theme, '--uaf-border-control'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(colour(theme, '--wt-border-control'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
     }
   })
 
   // The tick of a checkbox and the thumb of a switch sit in the surface colour on these fills.
   it.each(names)('%s: a checked checkbox or switch keeps 3:1 for its mark and against the page', (theme) => {
-    for (const fill of ['--uaf-control', '--uaf-control-hover', '--uaf-control-pressed']) {
-      expect(contrastRatio(colour(theme, '--uaf-surface'), colour(theme, fill)), fill).toBeGreaterThanOrEqual(3)
-      expect(contrastRatio(colour(theme, fill), colour(theme, '--uaf-page')), fill).toBeGreaterThanOrEqual(3)
+    for (const fill of ['--wt-control', '--wt-control-hover', '--wt-control-pressed']) {
+      expect(contrastRatio(colour(theme, '--wt-surface'), colour(theme, fill)), fill).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(colour(theme, fill), colour(theme, '--wt-ground')), fill).toBeGreaterThanOrEqual(3)
     }
   })
 
   it.each(names)('%s: the focus ring stays visible on every surface and on the accent', (theme) => {
     for (const surface of surfaces) {
-      expect(contrastRatio(colour(theme, '--uaf-focus'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
+      expect(contrastRatio(colour(theme, '--wt-focus'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
     }
   })
 

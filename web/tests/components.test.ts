@@ -68,15 +68,17 @@ describe('StatusBadge', () => {
 })
 
 describe('WorkTreeLogo', () => {
-  it('is named WorkTree for assistive tech and shows the two-tone wordmark', () => {
+  it('is named WorkTree for assistive tech and shows the Bloom with a one-word wordmark', () => {
     const logo = mount(WorkTreeLogo)
     expect(logo.attributes('aria-label')).toBe('WorkTree')
-    expect(logo.get('.logo__work').text()).toBe('Work')
-    expect(logo.get('.logo__tree').text()).toBe('Tree')
-    expect(logo.find('svg').exists()).toBe(true)
+    expect(logo.get('.logo__word').text()).toBe('WorkTree')
+    // Five petals, clockwise from the top: Hibiscus, Marigold, Fern, Morning glory, Orchid.
+    const petals = logo.findAll('.logo__mark--colour path').map((petal) => petal.attributes('fill'))
+    expect(petals).toEqual(['var(--wt-hibiscus)', 'var(--wt-marigold)', 'var(--wt-fern)', 'var(--wt-morning-glory)', 'var(--wt-orchid)'])
+    expect(logo.findAll('.logo__mark--mono path')).toHaveLength(5)
   })
 
-  it('can show the sprout mark alone', () => {
+  it('can show the Bloom mark alone', () => {
     const logo = mount(WorkTreeLogo, { props: { markOnly: true } })
     expect(logo.find('.logo__word').exists()).toBe(false)
     expect(logo.find('svg').exists()).toBe(true)

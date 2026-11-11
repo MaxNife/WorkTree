@@ -21,8 +21,8 @@ defineProps<{ title: string; subtitle?: string }>()
 .page-header {
   display: grid;
   gap: var(--space-4);
-  padding-bottom: var(--uaf-gap);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  padding-bottom: var(--wt-gap);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .page-header__row {
   display: flex;
@@ -43,7 +43,7 @@ defineProps<{ title: string; subtitle?: string }>()
 .page-header__subtitle {
   margin: 0;
   max-width: 80ch;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   overflow-wrap: anywhere;
 }
 .page-header__actions {

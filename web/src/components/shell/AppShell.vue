@@ -99,9 +99,9 @@ async function run(command: PaletteCommand): Promise<void> {
   left: var(--space-8);
   z-index: 50;
   padding: var(--space-4) var(--space-8);
-  border-radius: var(--uaf-radius);
-  background: var(--uaf-accent);
-  color: var(--uaf-on-accent);
+  border-radius: var(--wt-radius);
+  background: var(--wt-accent);
+  color: var(--wt-on-accent);
   transform: translateY(-200%);
 }
 .shell__skip:focus {
@@ -124,8 +124,8 @@ async function run(command: PaletteCommand): Promise<void> {
   justify-content: space-between;
   gap: var(--space-16);
   min-height: 44px;
-  padding: var(--space-4) var(--uaf-page-padding);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  padding: var(--space-4) var(--wt-page-padding);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .shell__tools {
   display: flex;
@@ -137,21 +137,21 @@ async function run(command: PaletteCommand): Promise<void> {
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  height: var(--uaf-control-height);
+  height: var(--wt-control-height);
   padding: 0 var(--space-8);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius);
-  background: var(--uaf-surface);
-  color: var(--uaf-text-muted);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius);
+  background: var(--wt-surface);
+  color: var(--wt-muted);
   font: inherit;
   cursor: pointer;
 }
 .shell__search:hover {
-  border-color: var(--uaf-border-strong);
-  color: var(--uaf-text);
+  border-color: var(--wt-line-strong);
+  color: var(--wt-ink);
 }
 .shell__kbd {
-  font-family: var(--uaf-font);
+  font-family: var(--wt-font);
   font-size: var(--font-size-12);
 }
 .shell__main {
@@ -159,7 +159,7 @@ async function run(command: PaletteCommand): Promise<void> {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: var(--uaf-page-padding);
+  padding: var(--wt-page-padding);
 }
 .shell__main:focus {
   outline: none;

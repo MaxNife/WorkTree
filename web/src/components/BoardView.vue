@@ -34,14 +34,14 @@ defineSlots<{ default(props: { item: T }): unknown }>()
   gap: var(--space-8);
   flex: 0 0 280px;
   padding: var(--space-10);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-sunken);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-sunken);
 }
 .board__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--uaf-gap);
+  gap: var(--wt-gap);
   padding: var(--space-2) var(--space-4);
 }
 .board__title {
@@ -51,8 +51,8 @@ defineSlots<{ default(props: { item: T }): unknown }>()
   min-width: 22px;
   padding: 0 var(--space-6);
   border-radius: var(--radius-full);
-  background: var(--uaf-surface);
-  color: var(--uaf-text-muted);
+  background: var(--wt-surface);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
   line-height: var(--line-height-20);
@@ -67,16 +67,16 @@ defineSlots<{ default(props: { item: T }): unknown }>()
 }
 .board__item {
   padding: var(--space-10) var(--space-12);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius);
+  background: var(--wt-surface);
   overflow-wrap: anywhere;
 }
 .board__none {
   padding: var(--space-12);
-  border: var(--stroke-1) dashed var(--uaf-border-strong);
-  border-radius: var(--uaf-radius);
-  color: var(--uaf-text-muted);
+  border: var(--stroke-1) dashed var(--wt-line-strong);
+  border-radius: var(--wt-radius);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   text-align: center;
 }

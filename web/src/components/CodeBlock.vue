@@ -29,9 +29,9 @@ async function copy(): Promise<void> {
 <style scoped>
 .code-block {
   overflow: hidden;
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-sunken);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-sunken);
 }
 .code-block__bar {
   display: flex;
@@ -39,12 +39,12 @@ async function copy(): Promise<void> {
   justify-content: space-between;
   gap: var(--space-8);
   padding: var(--space-2) var(--space-4) var(--space-2) var(--space-12);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
-  background: var(--uaf-surface);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
+  background: var(--wt-surface);
 }
 .code-block__label {
   overflow: hidden;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-weight: var(--weight-semibold);
   text-overflow: ellipsis;
@@ -53,14 +53,14 @@ async function copy(): Promise<void> {
 .code-block__text {
   margin: 0;
   padding: var(--space-10) var(--space-12);
-  color: var(--uaf-text);
-  font-family: var(--uaf-font-mono, monospace);
+  color: var(--wt-ink);
+  font-family: var(--wt-font-mono, monospace);
   font-size: var(--font-size-12);
   line-height: var(--line-height-20);
   overflow: auto;
 }
 .code-block__text:focus-visible {
-  outline-offset: calc(-1 * var(--uaf-focus-width));
+  outline-offset: calc(-1 * var(--wt-focus-width));
 }
 .code-block__text--wrap {
   white-space: pre-wrap;

@@ -25,7 +25,7 @@ defineProps<{ title: string; subtitle?: string; commandsLabel?: string }>()
 <style scoped>
 .app-page {
   display: grid;
-  gap: var(--uaf-gap);
+  gap: var(--wt-gap);
   min-width: 0;
 }
 .app-page__commands {
@@ -33,8 +33,8 @@ defineProps<{ title: string; subtitle?: string; commandsLabel?: string }>()
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
-  padding-bottom: var(--uaf-gap);
-  border-bottom: var(--stroke-1) solid var(--uaf-border);
+  padding-bottom: var(--wt-gap);
+  border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .app-page__messages {
   display: grid;

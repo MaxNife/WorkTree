@@ -34,34 +34,34 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
   align-items: flex-start;
   gap: var(--space-10);
   padding: var(--space-10) var(--space-12);
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface-sunken);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-sunken);
 }
 .message-bar__icon {
   margin-top: 2px;
-  color: var(--uaf-text-secondary);
+  color: var(--wt-text-secondary);
 }
 .message-bar--success {
-  border-color: var(--uaf-ok-border);
-  background: var(--uaf-ok-bg);
+  border-color: var(--wt-ok-border);
+  background: var(--wt-ok-bg);
 }
 .message-bar--success .message-bar__icon {
-  color: var(--uaf-ok);
+  color: var(--wt-ok);
 }
 .message-bar--warning {
-  border-color: var(--uaf-warn-border);
-  background: var(--uaf-warn-bg);
+  border-color: var(--wt-warn-border);
+  background: var(--wt-warn-bg);
 }
 .message-bar--warning .message-bar__icon {
-  color: var(--uaf-warn);
+  color: var(--wt-warn);
 }
 .message-bar--error {
-  border-color: var(--uaf-danger-border);
-  background: var(--uaf-danger-bg);
+  border-color: var(--wt-danger-border);
+  background: var(--wt-danger-bg);
 }
 .message-bar--error .message-bar__icon {
-  color: var(--uaf-danger);
+  color: var(--wt-danger);
 }
 .message-bar__text {
   flex: 1;
@@ -82,12 +82,12 @@ const ICONS: Record<MessageIntent, IconName> = { info: 'info', success: 'check-c
   display: inline-flex;
   padding: 2px;
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   cursor: pointer;
 }
 .message-bar__dismiss:hover {
-  color: var(--uaf-text);
+  color: var(--wt-ink);
 }
 </style>

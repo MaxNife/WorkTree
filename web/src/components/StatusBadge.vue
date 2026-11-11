@@ -67,22 +67,22 @@ const mark = computed(() => MARKS[style.value.kind])
   }
 }
 .status--ok {
-  --dot: var(--uaf-ok);
+  --dot: var(--wt-ok);
 }
 .status--danger {
-  --dot: var(--uaf-danger);
+  --dot: var(--wt-danger);
 }
 .status--warn {
-  --dot: var(--uaf-warn);
+  --dot: var(--wt-warn);
 }
 .status--attention {
-  --dot: var(--uaf-attention);
+  --dot: var(--wt-attention);
 }
 .status--running {
-  --dot: var(--uaf-accent-text);
+  --dot: var(--wt-accent-text);
 }
 .status--neutral {
-  --dot: var(--uaf-text-muted);
+  --dot: var(--wt-muted);
 }
 /* Forced colours: the shapes still tell the kinds apart, drawn in the text colour. */
 @media (forced-colors: active) {

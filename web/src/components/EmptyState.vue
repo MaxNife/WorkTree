@@ -17,8 +17,8 @@ withDefaults(defineProps<{ title: string; description?: string; headingLevel?: 2
   justify-items: start;
   gap: var(--space-4);
   padding: var(--space-20) var(--space-24);
-  border: var(--stroke-1) dashed var(--uaf-border-strong);
-  border-radius: var(--uaf-radius-container);
+  border: var(--stroke-1) dashed var(--wt-line-strong);
+  border-radius: var(--wt-radius-container);
 }
 .empty__text {
   max-width: 52ch;
@@ -31,7 +31,7 @@ withDefaults(defineProps<{ title: string; description?: string; headingLevel?: 2
 }
 .empty__text {
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .empty__action {
   margin-top: var(--space-8);

@@ -46,8 +46,8 @@ const items = computed(() => AREAS.flatMap((area) => area.navItems).filter((item
   flex-direction: column;
   width: 240px;
   min-height: 0;
-  border-right: var(--stroke-1) solid var(--uaf-border);
-  background: var(--uaf-surface-sunken);
+  border-right: var(--stroke-1) solid var(--wt-line);
+  background: var(--wt-sunken);
 }
 .sidebar--collapsed {
   width: 52px;
@@ -65,24 +65,24 @@ const items = computed(() => AREAS.flatMap((area) => area.navItems).filter((item
 }
 .sidebar__brand {
   display: inline-flex;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   text-decoration: none;
 }
 .sidebar__toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--uaf-control-height);
-  height: var(--uaf-control-height);
+  width: var(--wt-control-height);
+  height: var(--wt-control-height);
   border: 0;
-  border-radius: var(--uaf-radius);
+  border-radius: var(--wt-radius);
   background: none;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   cursor: pointer;
 }
 .sidebar__toggle:hover {
-  background: var(--uaf-surface-hover);
-  color: var(--uaf-text);
+  background: var(--wt-surface-hover);
+  color: var(--wt-ink);
 }
 .sidebar__nav {
   flex: 1;

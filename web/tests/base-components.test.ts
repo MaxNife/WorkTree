@@ -222,7 +222,7 @@ describe('WorkTreeLogo', () => {
   it('scales the wordmark with the mark', () => {
     const size = (props: { size?: number }) => mount(WorkTreeLogo, { props }).get<HTMLElement>('.logo__word').element.style.fontSize
     expect(size({})).toBe('16px')
-    expect(size({ size: 28 })).toBe('22px')
+    expect(size({ size: 20 })).toBe('12px')
   })
 })
 

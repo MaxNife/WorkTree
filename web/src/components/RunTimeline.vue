@@ -56,13 +56,13 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   list-style: none;
   margin: 0;
   padding: var(--space-4) 0;
-  border: var(--stroke-1) solid var(--uaf-border);
-  border-radius: var(--uaf-radius-container);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-line);
+  border-radius: var(--wt-radius-container);
+  background: var(--wt-surface);
 }
 .run-timeline__empty {
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .run-timeline__item {
   position: relative;
@@ -75,14 +75,14 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   bottom: 0;
   left: 15px;
   width: var(--stroke-2);
-  background: var(--uaf-border);
+  background: var(--wt-line);
 }
 .run-timeline__item:first-child::before {
-  top: calc(var(--uaf-row-height) / 2);
+  top: calc(var(--wt-row-height) / 2);
 }
 .run-timeline__item:last-child::before {
   bottom: auto;
-  height: calc(var(--uaf-row-height) / 2);
+  height: calc(var(--wt-row-height) / 2);
 }
 .run-timeline__item:only-child::before {
   display: none;
@@ -90,7 +90,7 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
 .run-timeline__item::after {
   content: '';
   position: absolute;
-  top: calc(var(--uaf-row-height) / 2 - 6px);
+  top: calc(var(--wt-row-height) / 2 - 6px);
   left: 10px;
   width: 12px;
   height: 12px;
@@ -98,28 +98,28 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   border: var(--stroke-2) solid var(--bud);
   border-radius: var(--radius-full);
   background: var(--bud);
-  box-shadow: 0 0 0 3px var(--uaf-surface);
+  box-shadow: 0 0 0 3px var(--wt-surface);
 }
 .run-timeline__item--ok {
-  --bud: var(--uaf-ok);
+  --bud: var(--wt-ok);
 }
 .run-timeline__item--danger {
-  --bud: var(--uaf-danger);
+  --bud: var(--wt-danger);
 }
 .run-timeline__item--warn {
-  --bud: var(--uaf-warn);
+  --bud: var(--wt-warn);
 }
 .run-timeline__item--attention {
-  --bud: var(--uaf-attention);
+  --bud: var(--wt-attention);
 }
 .run-timeline__item--running {
-  --bud: var(--uaf-accent-text);
+  --bud: var(--wt-accent-text);
 }
 .run-timeline__item--neutral {
-  --bud: var(--uaf-text-muted);
+  --bud: var(--wt-muted);
 }
 .run-timeline__item--neutral::after {
-  background: var(--uaf-surface);
+  background: var(--wt-surface);
 }
 /* Fixed columns, because each row is its own grid and they still have to line up. */
 .run-timeline__summary {
@@ -127,10 +127,10 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   grid-template-columns: auto minmax(0, 1fr) 10ch minmax(11ch, max-content) 9ch;
   align-items: center;
   gap: var(--space-12);
-  min-height: var(--uaf-row-height);
+  min-height: var(--wt-row-height);
   margin-right: var(--space-4);
-  padding: var(--uaf-cell-padding);
-  border-radius: var(--uaf-radius);
+  padding: var(--wt-cell-padding);
+  border-radius: var(--wt-radius);
   list-style: none;
   cursor: pointer;
 }
@@ -138,13 +138,13 @@ const failed = (step: TimelineStep): boolean => statusStyle(step.state).kind ===
   display: none;
 }
 .run-timeline__summary:hover {
-  background: var(--uaf-surface-hover);
+  background: var(--wt-surface-hover);
 }
 .run-timeline__summary:focus-visible {
-  outline-offset: calc(-1 * var(--uaf-focus-width));
+  outline-offset: calc(-1 * var(--wt-focus-width));
 }
 .run-timeline__chevron {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   transition: transform var(--duration-fast) var(--ease-standard);
 }
 details[open] > .run-timeline__summary .run-timeline__chevron {
@@ -155,7 +155,7 @@ details[open] > .run-timeline__summary .run-timeline__chevron {
   overflow-wrap: anywhere;
 }
 .run-timeline__meta {
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
   font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -166,16 +166,16 @@ details[open] > .run-timeline__summary .run-timeline__chevron {
   min-width: 0;
   margin: 0 var(--space-12) var(--space-8) var(--space-8);
   padding: var(--space-10) var(--space-12);
-  border-radius: var(--uaf-radius);
-  background: var(--uaf-surface-sunken);
+  border-radius: var(--wt-radius);
+  background: var(--wt-sunken);
   overflow-wrap: anywhere;
 }
 .run-timeline__message {
   margin: 0;
-  color: var(--uaf-text-muted);
+  color: var(--wt-muted);
 }
 .run-timeline__message--failed {
-  color: var(--uaf-danger);
+  color: var(--wt-danger);
 }
 @media (forced-colors: active) {
   .run-timeline__item::after {

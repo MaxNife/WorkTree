@@ -54,7 +54,7 @@ function onChange(event: Event): void {
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  min-height: var(--uaf-control-height);
+  min-height: var(--wt-control-height);
   cursor: pointer;
 }
 .u-toggle__box {
@@ -66,8 +66,8 @@ function onChange(event: Event): void {
 .u-toggle__input {
   appearance: none;
   margin: 0;
-  border: var(--stroke-1) solid var(--uaf-border-control);
-  background: var(--uaf-surface);
+  border: var(--stroke-1) solid var(--wt-border-control);
+  background: var(--wt-surface);
   cursor: inherit;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
@@ -84,23 +84,23 @@ function onChange(event: Event): void {
   border-radius: var(--radius-full);
 }
 .u-toggle__input:checked {
-  border-color: var(--uaf-control);
-  background: var(--uaf-control);
+  border-color: var(--wt-control);
+  background: var(--wt-control);
 }
 .u-toggle__input:checked:hover {
-  border-color: var(--uaf-control-hover);
-  background: var(--uaf-control-hover);
+  border-color: var(--wt-control-hover);
+  background: var(--wt-control-hover);
 }
 .u-toggle__input:focus-visible {
-  outline: var(--uaf-focus-width) solid var(--uaf-focus);
-  outline-offset: var(--uaf-focus-width);
+  outline: var(--wt-focus-width) solid var(--wt-focus);
+  outline-offset: var(--wt-focus-width);
 }
 .u-toggle__input[aria-invalid='true'] {
-  border-color: var(--uaf-danger);
+  border-color: var(--wt-danger);
 }
 .u-toggle__tick {
   position: absolute;
-  color: var(--uaf-surface);
+  color: var(--wt-surface);
   opacity: 0;
   pointer-events: none;
 }
@@ -114,12 +114,12 @@ function onChange(event: Event): void {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--uaf-border-control);
+  background: var(--wt-border-control);
   pointer-events: none;
   transition: transform var(--duration-normal) var(--ease-standard);
 }
 .u-toggle__input:checked + .u-toggle__thumb {
-  background: var(--uaf-surface);
+  background: var(--wt-surface);
   transform: translateX(16px);
 }
 .u-toggle__label {
@@ -155,10 +155,10 @@ function onChange(event: Event): void {
   cursor: not-allowed;
 }
 .u-toggle--disabled .u-toggle__input {
-  border-color: var(--uaf-border);
-  background: var(--uaf-surface-disabled);
+  border-color: var(--wt-line);
+  background: var(--wt-surface-disabled);
 }
 .u-toggle--disabled .u-toggle__label {
-  color: var(--uaf-text-disabled);
+  color: var(--wt-text-disabled);
 }
 </style>
