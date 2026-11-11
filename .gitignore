@@ -45,3 +45,6 @@ tests/generated/
 Thumbs.db
 .idea/
 .vscode/
+
+# Miscellaneous
+docs/
