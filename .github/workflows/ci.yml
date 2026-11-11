@@ -1,0 +1,105 @@
+# Every gate from docs/03-upgrade-guide.md phase 0 item 1. Any failure fails the run.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # WorkTree installs on Windows servers; Linux keeps the POSIX paths honest.
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy --strict
+        run: uv run mypy --strict app activities fixtures
+
+      - name: Import layers
+        run: uv run lint-imports
+
+      - name: Generated reference files are fresh
+        run: |
+          uv run python scripts/export_openapi.py --check
+          uv run python scripts/gen_schemas.py --check
+          uv run python scripts/gen_activity_docs.py --check
+          uv run python scripts/gen_data_model.py --check
+
+      - name: Tests with coverage
+        run: uv run pytest --cov --cov-report=term
+
+      - name: Dependency audit
+        if: matrix.os == 'ubuntu-latest'
+        # The project itself is installed editable and is not on PyPI, so it is skipped.
+        run: uv run pip-audit --skip-editable --progress-spinner off
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: API types are fresh
+        run: npm run api:check
+
+      - name: Icons are fresh
+        run: npm run icons:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --omit=dev
