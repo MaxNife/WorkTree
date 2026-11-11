@@ -347,7 +347,7 @@ class SqliteDatabase(SqlDatabase):
 
 
 class OracleDatabase(SqlDatabase):
-    """Oracle 19c+ thin-mode implementation (untested here; see KNOWN_GAPS G2)."""
+    """Oracle 19c+ thin-mode implementation (never run against a real Oracle; upgrade guide P3)."""
 
 
 def open_database(url: str, *, protected: Sequence[Path] | None = None) -> Database:

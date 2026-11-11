@@ -139,7 +139,7 @@ def test_concurrent_claimers_never_process_a_job_twice(bus: DbMessageBus) -> Non
 
 def test_unavailable_bus_adapter_is_refused() -> None:
     # The engine enqueues jobs inside its own transaction (an outbox), which a broker cannot
-    # join, so only the database bus exists (DECISIONS 9.12; RabbitMQ removed, upgrade guide D8).
+    # join, so only the database bus exists (RabbitMQ removed, upgrade guide D8).
     from pydantic import ValidationError
 
     from app.config import BusSettings

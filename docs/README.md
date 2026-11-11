@@ -47,7 +47,7 @@ Code depends on `docs/reference/`. Do not move or rename it without changing the
 | `tests/integration/test_api.py` | `docs/reference/openapi.json` |
 | `web/scripts/generate-api.mjs` | `docs/reference/openapi.json` |
 | `.pre-commit-config.yaml` | `docs/reference/openapi.json` |
-| `CLAUDE.md`, `AGENTS.md` | `docs/reference/COMMIT_GUIDELINES.md`, `docs/04-ui-reimplementation-guide.md` |
+| `CLAUDE.md` | `docs/reference/COMMIT_GUIDELINES.md`, `docs/04-ui-reimplementation-guide.md` |
 
 ## What the earlier folder held that is not here
 
@@ -56,3 +56,7 @@ All of it is in git history: the 20 research notes, `HANDOFF.md`, `BUILD_PROMPT_
 `SYSTEM_DESIGN.md` and `SECURITY.md` (their still-true content is folded into documents 03 and
 06), `design-language.md` (replaced by document 04) and `adr/0001-secret-usage-policy.md` (its four
 rules are in document 06 section B3 and document 02 section 9.3).
+
+The root files `DECISIONS.md`, `KNOWN_GAPS.md`, `LICENSES.md`, `AGENTS.md` and `BUILD_PROGRESS.md` were removed
+the same day and are also in git history. Gap numbers such as G2 to G5, G10 and G15 in these
+documents refer to `KNOWN_GAPS.md`.

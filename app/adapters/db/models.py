@@ -1,6 +1,6 @@
 """SQLAlchemy 2.x models for the control-plane database.
 
-Column and table names are recorded in ``docs/reference/DATA_MODEL.md`` and ``DECISIONS.md`` §5.
+Column and table names are recorded in ``docs/reference/DATA_MODEL.md``.
 The audit table is append-only; ``app.audit.guard`` installs ORM events that reject
 UPDATE/DELETE on it.
 """

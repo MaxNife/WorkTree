@@ -1,6 +1,6 @@
 """Word-processing activities on plain ``.docx`` XML (zipfile + lxml): text, info, convert to
 txt/md/html, and mail merge. The merge logic is ported from WordCraft (CraftApps, MIT OR
-Apache-2.0); there is no external binary and no PDF rendering (KNOWN_GAPS).
+Apache-2.0); there is no external binary and no PDF rendering.
 
 Every path is resolved inside the run workspace by ``safe_path``. The template is never modified:
 the merged document is written to a separate file.

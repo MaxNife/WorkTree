@@ -2,7 +2,7 @@
 
 Every path goes through ``safe_path`` so it must stay inside the workspace. Passwords exist only
 in memory for the duration of the call. Text-level redaction, OCR and scripted tool calls are not
-offered (KNOWN_GAPS): redaction that only hides text is worse than none.
+offered: redaction that only hides text is worse than none.
 """
 
 from __future__ import annotations

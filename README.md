@@ -6,7 +6,6 @@ steps, run on a schedule or on demand, paused for human decisions, with a full a
 
 - Documentation, in reading order: [`docs/README.md`](docs/README.md)
 - Upgrade plan and current defects: [`docs/03-upgrade-guide.md`](docs/03-upgrade-guide.md)
-- Decisions and known gaps: [`DECISIONS.md`](DECISIONS.md), [`KNOWN_GAPS.md`](KNOWN_GAPS.md)
 
 Work in progress. The engine, workers, triggers, tasks, audit and the API are built; the console has
 sign-in and Operations, and the other areas are placeholders (see `docs/01-product-overview.md`).
