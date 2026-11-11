@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import smtplib
 from email.message import EmailMessage
 from typing import Any
 
@@ -11,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.adapters.db.models import Notification
 from app.adapters.secrets.base import SecretStore
+from app.adapters.smtp import smtp_connection
 from app.config import NotificationSettings
 from app.domain.clock import Clock
 from app.logging_setup import get_logger
@@ -73,11 +73,13 @@ class NotificationService:
                 message["To"] = self.settings.smtp_to
                 message.set_content(f"{body}\n\n{link}")
                 password = self.secret_store.get(self.settings.smtp_password_secret) or ""
-                with smtplib.SMTP(
-                    self.settings.smtp_host, self.settings.smtp_port, timeout=5
-                ) as smtp:
-                    if self.settings.smtp_user and password:
-                        smtp.login(self.settings.smtp_user, password)
+                with smtp_connection(
+                    self.settings.smtp_host,
+                    self.settings.smtp_port,
+                    user=self.settings.smtp_user,
+                    password=password,
+                    timeout=5,
+                ) as (smtp, _encrypted):
                     smtp.send_message(message)
             except Exception as exc:
                 self.log.warning("notification_smtp_failed", error=type(exc).__name__)

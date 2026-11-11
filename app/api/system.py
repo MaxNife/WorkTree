@@ -545,6 +545,9 @@ async def events(websocket: WebSocket) -> None:
         return
     user = current_user()
     if user is None:
+        # Accept first: closing before the handshake completes looks like a failed upgrade
+        # (code 1006) to a browser, which then retries for ever.
+        await websocket.accept()
         await websocket.close(code=1008)
         return
     await websocket.accept()

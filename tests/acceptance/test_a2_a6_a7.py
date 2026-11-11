@@ -769,7 +769,7 @@ def test_a7_every_action_is_audited_and_the_chain_verifies_via_api_and_cli(
     for username in ("admin", "author", "approver", "operator"):
         assert ("auth.login", username) in seen_any_resource
     expected = {
-        ("auth.login.failed", "operator", ""),
+        ("auth.login.failed", "anonymous", ""),
         ("user.create", "admin", newcomer),
         ("user.roles.change", "admin", newcomer),
         ("user.deactivate", "admin", newcomer),

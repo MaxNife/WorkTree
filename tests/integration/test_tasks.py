@@ -249,6 +249,15 @@ def test_notification_is_delivered_to_webhook_and_smtp_and_masks_secrets(
         def __exit__(self, *exc: object) -> None:
             return None
 
+        def ehlo(self) -> None:
+            return None
+
+        def has_extn(self, name: str) -> bool:
+            return name == "starttls"
+
+        def starttls(self, **kwargs: Any) -> None:
+            return None
+
         def login(self, user: str, password: str) -> None:
             assert password == PLANTED
 

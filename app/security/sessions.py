@@ -7,6 +7,7 @@ protocol in ``app/services/auth.py``; an SSO backend replaces that, not the rout
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 from dataclasses import dataclass
 from datetime import datetime
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
     from app.adapters.db.models import SessionRow
 
 SESSION_SALT = "uaf-session-v1"
+# Internal namespace (see ``is_internal_secret``): workflows can never read it.
+AUDIT_HMAC_KEY_NAME = "uaf_internal_audit_hmac_key"
 
 
 def hash_token(raw: str) -> str:
@@ -36,9 +39,17 @@ class IssuedSession:
 
 
 class SessionCodec:
-    def __init__(self, secret_store: SecretStore) -> None:
+    def __init__(self, secret_store: SecretStore, max_age_seconds: int = 60 * 60 * 24 * 30) -> None:
         key = secret_store.ensure("session_signing_key")
         self._serializer = URLSafeTimedSerializer(key, salt=SESSION_SALT)
+        self._secret_store = secret_store
+        # ``SessionFactory`` narrows this to the configured session TTL.
+        self.max_age_seconds = max_age_seconds
+
+    def keyed_hash(self, text: str) -> str:
+        """HMAC-SHA256 of ``text`` under an internal key, as hex (never reversible to text)."""
+        key = self._secret_store.ensure(AUDIT_HMAC_KEY_NAME)
+        return hmac.new(key.encode("utf-8"), text.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def sign(self, session_id: str) -> str:
         value: str = self._serializer.dumps({"sid": session_id})
@@ -46,7 +57,7 @@ class SessionCodec:
 
     def unsign(self, value: str) -> str | None:
         try:
-            data: Any = self._serializer.loads(value, max_age=60 * 60 * 24 * 30)
+            data: Any = self._serializer.loads(value, max_age=self.max_age_seconds)
         except BadSignature:
             return None
         if not isinstance(data, dict):
@@ -60,6 +71,8 @@ class SessionFactory:
         self.codec = codec
         self.clock = clock
         self.ttl_minutes = ttl_minutes
+        # A cookie signed longer ago than the session TTL is refused even if its row is live.
+        codec.max_age_seconds = ttl_minutes * 60
 
     def create(self, user_id: str, source_ip: str, user_agent: str) -> IssuedSession:
         raw = secrets.token_urlsafe(32)

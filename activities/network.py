@@ -7,8 +7,6 @@ import json
 import mimetypes
 import os
 import shutil
-import smtplib
-import ssl
 import stat
 from datetime import UTC, datetime
 from email.message import EmailMessage
@@ -20,6 +18,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from activities._common import artifact_for, safe_path, sha256_file, validate_url
+from app.adapters.smtp import SmtpCredentialsRefused, smtp_connection
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 
 
@@ -274,22 +273,17 @@ class EmailActivity(Activity[EmailInputs]):
                 subtype=subtype or "octet-stream",
                 filename=path.name,
             )
-        with smtplib.SMTP(inputs.smtp_host, inputs.smtp_port, timeout=30) as smtp:
-            smtp.ehlo()
-            encrypted = False
-            if smtp.has_extn("starttls"):
-                smtp.starttls(context=ssl.create_default_context())
-                smtp.ehlo()
-                encrypted = True
-            if inputs.smtp_user and inputs.smtp_password:
-                if not encrypted:
-                    # A fallback relay that does not offer STARTTLS would receive the
-                    # password in clear text; refuse rather than leak it.
-                    return ActivityResult.failed(
-                        "refusing to send SMTP credentials without STARTTLS"
-                    )
-                smtp.login(inputs.smtp_user, inputs.smtp_password)
-            smtp.send_message(message)
+        try:
+            with smtp_connection(
+                inputs.smtp_host,
+                inputs.smtp_port,
+                user=inputs.smtp_user,
+                password=inputs.smtp_password,
+                timeout=30,
+            ) as (smtp, encrypted):
+                smtp.send_message(message)
+        except SmtpCredentialsRefused as exc:
+            return ActivityResult.failed(str(exc))
         return ActivityResult.done(
             {"provider": "smtp", "to": inputs.to, "starttls": encrypted}, "mail sent"
         )

@@ -285,10 +285,10 @@ def test_every_route_but_the_public_ones_refuses_an_anonymous_request(
 
 def test_the_websocket_refuses_an_anonymous_connection(client: TestClient) -> None:
     with (
+        TestClient(client.app).websocket_connect("/api/events") as socket,
         pytest.raises(WebSocketDisconnect) as caught,
-        TestClient(client.app).websocket_connect("/api/events"),
     ):
-        pass
+        socket.receive_json()
     assert caught.value.code == 1008
 
 
@@ -1366,3 +1366,191 @@ def test_identifier_helpers_reject_injection_and_positional_binds() -> None:
             database.delete_all("t; DROP TABLE x")
     finally:
         database.close()
+
+
+# ---- phase 1 quick fixes -----------------------------------------------------------------
+def test_run_responses_mask_secrets_and_hide_the_workspace_path(
+    client: TestClient, container: Container, actors: Any
+) -> None:
+    """S4: run-level inputs and outputs are masked, and the server path never leaves."""
+    from app.adapters.db.models import Run
+    from app.domain.workflow import WorkflowDefinition
+    from app.security.masking import get_masker
+
+    planted = "run-level-secret-value-9931"
+    get_masker().register(planted)
+    with container.database.session() as session:
+        workflow, _ = container.workflows.save(
+            session,
+            WorkflowDefinition.model_validate(SAFE_WORKFLOW),
+            actor="admin",
+            actor_roles=[Role.ADMIN],
+        )
+        workflow_id = str(workflow.id)
+    run = container.engine.start_run(workflow_id=workflow_id, inputs={"token": planted})
+    with container.database.session() as session:
+        row = session.get(Run, run.id)
+        assert row is not None
+        row.outputs = {"echo": f"seen {planted}"}
+        workspace = row.workspace
+    assert workspace
+    viewer = actors("viewer")
+    listing = viewer.client.get("/api/runs")
+    fetched = viewer.client.get(f"/api/runs/{run.id}")
+    assert listing.status_code == 200 and fetched.status_code == 200
+    for response in (listing, fetched):
+        assert planted not in response.text
+        assert workspace not in response.text
+        assert '"workspace"' not in response.text
+    item = next(entry for entry in listing.json()["items"] if entry["id"] == run.id)
+    assert item["inputs"] == {"token": "***"}
+    assert fetched.json()["run"]["outputs"] == {"echo": "seen ***"}
+    assert item["has_workspace"] is True
+    assert fetched.json()["run"]["has_workspace"] is True
+
+
+class _NoStartTlsSmtp:
+    """An SMTP stand-in that never offers STARTTLS and records every call."""
+
+    instances: list[_NoStartTlsSmtp] = []
+
+    def __init__(self, host: str, port: int, timeout: float = 5) -> None:
+        self.calls: list[str] = []
+        _NoStartTlsSmtp.instances.append(self)
+
+    def __enter__(self) -> _NoStartTlsSmtp:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def ehlo(self) -> None:
+        self.calls.append("ehlo")
+
+    def has_extn(self, name: str) -> bool:
+        return False
+
+    def starttls(self, **kwargs: Any) -> None:
+        self.calls.append("starttls")
+
+    def login(self, user: str, password: str) -> None:
+        self.calls.append("login")
+
+    def send_message(self, message: Any) -> None:
+        self.calls.append("send_message")
+
+
+def test_the_alert_mailer_never_sends_credentials_without_starttls(
+    container: Container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S6: no STARTTLS means no login and no mail; the failure is logged, not raised."""
+    import smtplib
+
+    from app.adapters.secrets.local import LocalSecretStore
+    from app.config import NotificationSettings
+    from app.services.notifications import NotificationService
+
+    _NoStartTlsSmtp.instances.clear()
+    monkeypatch.setattr(smtplib, "SMTP", _NoStartTlsSmtp)
+    store = LocalSecretStore(container.settings.secrets.file, container.clock)
+    store.set("smtp_password", "mailer-password-5521")
+    service = NotificationService(
+        container.clock,
+        NotificationSettings(
+            smtp_host="smtp.local",
+            smtp_to="ops@example.test",
+            smtp_user="uaf",
+            smtp_password_secret="smtp_password",
+        ),
+        store,
+    )
+    failures: list[str] = []
+    monkeypatch.setattr(service.log, "warning", lambda event, **kw: failures.append(event))
+    with container.database.session() as session:
+        service.notify(session, title="t", body="b", role="operator", link="/x")
+    assert len(_NoStartTlsSmtp.instances) == 1
+    calls = _NoStartTlsSmtp.instances[0].calls
+    assert "login" not in calls and "send_message" not in calls
+    assert failures == ["notification_smtp_failed"]
+
+
+def test_the_alert_mailer_still_delivers_without_credentials_over_plain_smtp(
+    container: Container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import smtplib
+
+    from app.adapters.secrets.local import LocalSecretStore
+    from app.config import NotificationSettings
+    from app.services.notifications import NotificationService
+
+    _NoStartTlsSmtp.instances.clear()
+    monkeypatch.setattr(smtplib, "SMTP", _NoStartTlsSmtp)
+    store = LocalSecretStore(container.settings.secrets.file, container.clock)
+    service = NotificationService(
+        container.clock,
+        NotificationSettings(smtp_host="relay.local", smtp_to="ops@example.test"),
+        store,
+    )
+    with container.database.session() as session:
+        service.notify(session, title="t", body="b", role="operator", link="/x")
+    assert _NoStartTlsSmtp.instances[0].calls == ["ehlo", "send_message"]
+
+
+def test_a_failed_login_is_audited_without_the_typed_name(
+    client: TestClient, container: Container
+) -> None:
+    """S11: the typed text may be a password; only a keyed hash of it is stored."""
+    typed = "hunter2-password"
+    for name in (typed, f"  {typed.upper()} "):
+        response = client.post("/api/auth/login", json={"username": name, "password": "x" * 12})
+        assert response.status_code == 401
+    with container.database.session() as session:
+        rows = list(
+            session.execute(select(AuditLog).where(AuditLog.action == "auth.login.failed"))
+            .scalars()
+            .all()
+        )
+    assert len(rows) == 2
+    for row in rows:
+        assert row.actor == "anonymous"
+        stored = json.dumps(
+            [row.actor, row.resource_id, row.before, row.after, row.source_ip], default=str
+        )
+        assert typed not in stored.lower()
+    hashes = {(row.after or {}).get("username_hmac") for row in rows}
+    assert len(hashes) == 1
+    assert re.fullmatch(r"[0-9a-f]{64}", str(next(iter(hashes))))
+    other = client.post("/api/auth/login", json={"username": "someone-else", "password": "x" * 12})
+    assert other.status_code == 401
+    with container.database.session() as session:
+        everything = list(
+            session.execute(select(AuditLog).where(AuditLog.action == "auth.login.failed"))
+            .scalars()
+            .all()
+        )
+    assert len({(row.after or {}).get("username_hmac") for row in everything}) == 2
+
+
+def test_a_session_cookie_older_than_the_ttl_is_refused_by_the_codec(
+    container: Container, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S13: the signature age follows session_ttl_minutes, not a fixed 30 days."""
+    import time
+
+    codec = container.auth.sessions.codec
+    ttl_seconds = container.settings.security.session_ttl_minutes * 60
+    cookie = codec.sign("raw-session-token")
+    assert codec.unsign(cookie) == "raw-session-token"
+    real_time = time.time
+    monkeypatch.setattr(time, "time", lambda: real_time() + ttl_seconds + 60)
+    assert codec.unsign(cookie) is None
+
+
+def test_an_anonymous_websocket_is_accepted_then_closed_with_1008(client: TestClient) -> None:
+    """S14: closing before accept shows browsers 1006 and they retry for ever."""
+    with (
+        TestClient(client.app).websocket_connect("/api/events") as socket,
+        pytest.raises(WebSocketDisconnect) as caught,
+    ):
+        socket.receive_json()
+    assert caught.value.code == 1008

@@ -243,9 +243,12 @@ class AuthService:
             self.limiter.record_failure(username, source_ip)
             self.audit.write(
                 session,
-                actor=username[:100] or "unknown",
+                # The typed text may be a password put in the wrong box: keep only a keyed
+                # hash (normalised like the lookup) so repeated attempts still correlate.
+                actor="anonymous",
                 action="auth.login.failed",
                 resource_type="session",
+                after={"username_hmac": self.sessions.codec.keyed_hash(username.strip().lower())},
                 source_ip=source_ip,
                 correlation_id=correlation_id,
             )

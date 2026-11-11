@@ -70,7 +70,7 @@ def test_failed_login_is_audited(client, container) -> None:
         failed = session.execute(
             select(AuditLog).where(AuditLog.action == "auth.login.failed")
         ).scalar_one_or_none()
-    assert failed is not None and failed.actor == "admin"
+    assert failed is not None and failed.actor == "anonymous"
 
 
 # ------------------------------------------------------------------------- engine
