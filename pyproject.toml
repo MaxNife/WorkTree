@@ -43,7 +43,6 @@ dependencies = [
 
 [project.optional-dependencies]
 vault = ["hvac>=2.3"]
-rabbitmq = ["aio-pika>=9.5"]
 otel = ["opentelemetry-api>=1.28", "opentelemetry-sdk>=1.28"]
 
 [project.scripts]
@@ -108,7 +107,7 @@ exclude = ["app/api/generated"]
 follow_imports = "normal"
 
 [[tool.mypy.overrides]]
-module = ["pyzipper.*", "calamine.*", "apscheduler.*", "oracledb.*", "paramiko.*", "hvac.*", "pandas.*", "openpyxl.*", "xlsxwriter.*", "pyarrow.*", "opentelemetry.*", "aio_pika.*"]
+module = ["pyzipper.*", "calamine.*", "apscheduler.*", "oracledb.*", "paramiko.*", "hvac.*", "pandas.*", "openpyxl.*", "xlsxwriter.*", "pyarrow.*", "opentelemetry.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

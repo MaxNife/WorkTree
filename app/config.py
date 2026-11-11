@@ -75,10 +75,9 @@ class WorkerSettings(BaseModel):
 
 
 class BusSettings(BaseModel):
-    adapter: Literal["db", "rabbitmq"] = "db"
+    adapter: Literal["db"] = "db"
     visibility_timeout_seconds: int = Field(default=300, ge=1)
     max_attempts: int = Field(default=3, ge=1)
-    rabbitmq_url: str = ""
 
 
 class SecretSettings(BaseModel):

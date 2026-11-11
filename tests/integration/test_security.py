@@ -715,7 +715,7 @@ def test_activity_children_do_not_inherit_the_control_plane_configuration(
     monkeypatch.setenv("UAF_SECRET_X", "s3cret-value")
     monkeypatch.setenv("VAULT_TOKEN", "vault-token-value")
     monkeypatch.setenv("UAF_DATABASE__URL", "oracle+oracledb://app:dbpass@db/svc")
-    monkeypatch.setenv("UAF_BUS__RABBITMQ_URL", "amqp://user:pw@broker/")
+    monkeypatch.setenv("UAF_SECRETS__VAULT_URL", "https://user:pw@vault/")
     env = _base_env()
     assert "UAF_SECRET_X" not in env and "VAULT_TOKEN" not in env  # DECISIONS 11.5
     leaked = sorted(key for key in env if key.startswith("UAF_") and key != "UAF_CHILD_RUN_ID")

@@ -137,12 +137,12 @@ def test_concurrent_claimers_never_process_a_job_twice(bus: DbMessageBus) -> Non
         assert stored is not None and stored.metadata["state"] == DONE
 
 
-def test_unavailable_bus_adapter_is_refused(settings) -> None:
-    from app.container import build_container
+def test_unavailable_bus_adapter_is_refused() -> None:
+    # The engine enqueues jobs inside its own transaction (an outbox), which a broker cannot
+    # join, so only the database bus exists (DECISIONS 9.12; RabbitMQ removed, upgrade guide D8).
+    from pydantic import ValidationError
 
-    with pytest.raises(ValueError, match="not available"):
-        build_container(
-            settings.model_copy(
-                update={"bus": settings.bus.model_copy(update={"adapter": "rabbitmq"})}
-            )
-        )
+    from app.config import BusSettings
+
+    with pytest.raises(ValidationError):
+        BusSettings.model_validate({"adapter": "rabbitmq"})

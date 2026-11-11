@@ -710,18 +710,6 @@ class RunEngine:
             )
             self._advance(session, run, definition)
             return
-        token = session.execute(
-            select(ResumeToken)
-            .where(
-                ResumeToken.run_id == run.id,
-                ResumeToken.step_id == step.id,
-                ResumeToken.consumed_at.is_(None),
-            )
-            .order_by(ResumeToken.created_at.desc())
-            .limit(1)
-        ).scalar_one_or_none()
-        if token is None:
-            return
 
     # ------------------------------------------------------------- completion
     def on_result(self, envelope: JobEnvelope, result: ResultEnvelope) -> None:

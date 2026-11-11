@@ -143,12 +143,6 @@ def build_container(
     settings = settings or load_settings()
     clock = clock or SystemClock()
     install_audit_guard()
-    if settings.bus.adapter != "db":
-        # The engine enqueues jobs inside its own transaction (an outbox), which a broker cannot
-        # join. Refuse rather than silently fall back to the DB bus (DECISIONS 9.12).
-        raise ValueError(
-            f"bus.adapter {settings.bus.adapter!r} is not available in this build; use 'db'"
-        )
     database = Database(settings.database.url, echo=settings.database.echo)
     if create_schema:
         database.create_all()

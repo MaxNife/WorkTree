@@ -45,10 +45,9 @@ workers:
   default_timeout_seconds: 300
 
 bus:
-  adapter: "db"           # db | rabbitmq
+  adapter: "db"
   visibility_timeout_seconds: 300
   max_attempts: 3
-  rabbitmq_url: ""        # e.g. amqp://guest:guest@localhost/
 
 secrets:
   adapter: "local"        # local | vault

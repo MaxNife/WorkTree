@@ -33,7 +33,7 @@ class ProcessOutcome:
 
 # The only ``UAF_*`` variables a child inherits from the server's own environment. None: the
 # child does not load config.yaml, and every setting it needs arrives as a ``UAF_CHILD_*``
-# variable chosen below, so ``UAF_DATABASE__URL``, ``UAF_BUS__RABBITMQ_URL`` and the rest of
+# variable chosen below, so ``UAF_DATABASE__URL``, ``UAF_SECRETS__VAULT_URL`` and the rest of
 # the control-plane configuration never reach activity code (SEC-4).
 INHERITED_UAF_VARIABLES: frozenset[str] = frozenset()
 
