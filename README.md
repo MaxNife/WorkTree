@@ -4,9 +4,8 @@ An on-premise automation control plane: a workflow engine, a worker/robot fabric
 activity library. A Vue 3 console is planned but not built yet. Elsa (MIT) is the engine reference;
 n8n is a reference for workflow behaviour and builder UX. Neither is a dependency.
 
-- Process rules for the build agent: [`docs/AGENT_START_PROMPT.md`](docs/AGENT_START_PROMPT.md)
-- Full specification: [`docs/BUILD_PROMPT_python_mvp.md`](docs/BUILD_PROMPT_python_mvp.md)
-- Checkpoints and progress: [`docs/BUILD_CHECKPOINTS.md`](docs/BUILD_CHECKPOINTS.md), [`BUILD_PROGRESS.md`](BUILD_PROGRESS.md)
+- Documentation, in reading order: [`docs/README.md`](docs/README.md)
+- Upgrade plan and current defects: [`docs/03-upgrade-guide.md`](docs/03-upgrade-guide.md)
 - Decisions and known gaps: [`DECISIONS.md`](DECISIONS.md), [`KNOWN_GAPS.md`](KNOWN_GAPS.md)
 
 This is a work in progress. See `BUILD_PROGRESS.md` for the checkpoints that are actually verified.

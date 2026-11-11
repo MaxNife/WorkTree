@@ -7,9 +7,9 @@ each section. Every deviation from the reference design and every resolved `[UNK
 
 **Decision:** Elsa is the primary workflow reference (engine and workflow semantics); n8n is a
 secondary reference for workflow behaviour and Studio UX. Neither is a dependency. The explicit
-text of `docs/BUILD_PROMPT_python_mvp.md` wins over both.
+text of `docs/BUILD_PROMPT_python_mvp.md` (removed 2026-11-11, in git history) wins over both.
 
-**Why:** user direction of 2026-10-22, recorded in `docs/SYSTEM_DESIGN.md` §0.4. Re-implementing
+**Why:** user direction of 2026-10-22, recorded in `docs/SYSTEM_DESIGN.md` §0.4 (removed 2026-11-11, in git history). Re-implementing
 Elsa's concepts in Python keeps the semantics the reference .NET design assumes (named outcomes,
 bookmarks, retries, versioned activities, rebuilt schedules) without a .NET runtime.
 
@@ -57,7 +57,7 @@ letting the engine use the bus and workers.
 
 ## 5. Data contract and DB choices (closes SD §6.5 / §13 q18-q20)
 
-Table and column names: `docs/DATA_MODEL.md` (generated from the models; `scripts/gen_data_model.py --check` keeps it current).
+Table and column names: `docs/reference/DATA_MODEL.md` (generated from the models; `scripts/gen_data_model.py --check` keeps it current).
 
 **Workflow YAML (version `1`)** — top level: `schema_version`, `name`, `description`, `owner`,
 `tags`, `settings` (`duplicate_guard: allow|reject|queue`, `duplicate_guard_key`,
@@ -70,7 +70,7 @@ Table and column names: `docs/DATA_MODEL.md` (generated from the models; `script
 **Envelope (version `1`)** — in: `schema_version`, `run_id`, `step_id`, `activity`, `inputs`,
 `secret_refs`, `workspace`, `correlation_id`, `timeout_seconds`; out: `schema_version`, `run_id`,
 `step_id`, `outcome` (`done|failed`), `outputs`, `message`, `artifacts` (list of
-`{name, path, sha256, bytes}`), `correlation_id`. `docs/ENVELOPE.md` carries the JSON Schema.
+`{name, path, sha256, bytes}`), `correlation_id`. `docs/reference/ENVELOPE.md` carries the JSON Schema.
 
 **Tables** (SQLAlchemy/Alembic): `users`, `roles`, `user_roles`, `sessions`, `workflows`,
 `workflow_versions`, `environments`, `promotions`, `schedules`, `runs`, `run_steps`,
@@ -103,7 +103,7 @@ clock, log, secrets)`.
 | # | Decision | Why |
 |---|---|---|
 | 7.1 | Vite + Vue 3 + TS strict, Pinia for client state, TanStack Query for server state, Vue Router, Vue Flow, Fluent UI Web Components wrapped in thin local components | exactly the specified stack. |
-| 7.2 | The generated API client (`web/src/api/generated.ts`) is produced from `docs/openapi.json`; `npm run check:client` regenerates and diffs | CI fails when the client is stale, as required. |
+| 7.2 | The generated API client (`web/src/api/generated.ts`) is produced from `docs/reference/openapi.json`; `npm run check:client` regenerates and diffs | CI fails when the client is stale, as required. |
 | 7.3 | The built bundle is committed under `web/dist/` and served by FastAPI at `/` | running the platform must not need Node. |
 | 7.4 | Fluent web components are used where they fit; the data grid, canvas, property panel and command palette are our own components on the same tokens | the spec explicitly permits building missing components ourselves rather than adding a second UI kit. |
 
@@ -111,7 +111,7 @@ clock, log, secrets)`.
 
 | # | Decision | Why |
 |---|---|---|
-| 8.1 | Local git only, no remote, no history rewrite; checkpoint commits plus `wip()` commits | `docs/AGENT_START_PROMPT.md` §6. |
+| 8.1 | Local git only, no remote, no history rewrite; checkpoint commits plus `wip()` commits | `docs/AGENT_START_PROMPT.md` §6 (removed 2026-11-11, in git history). |
 | 8.2 | Fixtures are real local servers started by pytest; large generated data is written under `tests/generated/` (git-ignored) | deterministic and no production systems. |
 | 8.3 | The `.pptx` named in the tracker is absent from the working tree. The baseline commit contains every file that exists. | cannot commit a file that is not present; logged in `KNOWN_GAPS.md`. |
 
@@ -160,7 +160,7 @@ clock, log, secrets)`.
 | 11.13 | Word-processing work edits plain `.docx` XML with zipfile + lxml (`activities/_docx.py`): text, info, convert to txt/md/html, and mail merge ported from WordCraft (CraftApps, MIT OR Apache-2.0): MERGEFIELD as fldSimple or fldChar runs, one section per record, template untouched, recipients from CSV/TSV/XLSX or inline rows, drawing ids renumbered. No binary, no PDF rendering. Supersedes the earlier WordCraft-CLI design | Binding decision: no binaries at runtime; XML is parsed without entity resolution or network access and parts are size-capped |
 | 11.14 | Spreadsheet calculation uses our own Python engine (`activities/_formula`: parser, evaluator and ~140 functions ported from GridCraft, MIT OR Apache-2.0) for the `spreadsheet` activity and `excel` recalculation. Results are written back by editing the sheet XML (charts and images survive, `calcChain` dropped, `fullCalcOnLoad` set) with Excel-valid error codes (`#CIRC!` is written as `#VALUE!`); LibreOffice is never used. Protections kept: data starting with `=` stays text, formulas only from the `formulas` input, leading-zero numerals stay text, no nan/inf. Supersedes the GridCraft-CLI design | Binding decision 3: recalculation must not use LibreOffice; evaluation uses an explicit work stack so long dependency chains do not hit the recursion limit |
 | 11.15 | Frontend dependencies are pinned exactly (`web/.npmrc` save-exact, lockfile committed). Beyond the packages named in CP-27 only tooling was added: vitest, @vue/test-utils and jsdom (component tests), typescript-eslint, eslint-plugin-vue, vue-eslint-parser and globals (ESLint, including no explicit `any`), @vitejs/plugin-vue, openapi-typescript (the API type generator), @types/node, and Fluent's two required peers. TypeScript stays on 5.9.x because typescript-eslint (<6.1) and openapi-typescript (^5) do not support later majors. No HTTP client, UI kit or icon library is added | Advisor-approved dependency list for CP-27; keeps the supply chain small |
-| 11.16 | Theme tokens live in one TypeScript source (`web/src/theme/tokens.ts`) that uses Fluent's token names and is written as CSS custom properties, so wrapped Fluent components and our CSS share it; three themes (light, dark, high contrast) follow the OS with a manual override, accent Fluent green #107C10 as one token, compact density by default. Text/background pairs are unit-tested against WCAG AA 4.5:1 (this caught a failing dark-theme button hover). Screens never use Fluent elements directly; they use our `U*` wrappers. UI choices are in `docs/design-language.md` | Product owner's UI decisions of 2026-10-23; one colour source avoids drift |
+| 11.16 | Theme tokens live in one TypeScript source (`web/src/theme/tokens.ts`) that uses Fluent's token names and is written as CSS custom properties, so wrapped Fluent components and our CSS share it; three themes (light, dark, high contrast) follow the OS with a manual override, accent Fluent green #107C10 as one token, compact density by default. Text/background pairs are unit-tested against WCAG AA 4.5:1 (this caught a failing dark-theme button hover). Screens never use Fluent elements directly; they use our `U*` wrappers. UI choices are in `docs/design-language.md` (superseded by `docs/04-ui-reimplementation-guide.md`) | Product owner's UI decisions of 2026-10-23; one colour source avoids drift |
 | 11.17 | After the owner flagged "AI-designed tells" on the first design page, the visual language was simplified: Fluent System Icons (MIT, `@fluentui/svg-icons` as a dev dependency, paths generated into `src/icons/paths.ts`) replace our hand-drawn set; status is a dot plus text; node cards and panels are flat; empty states are plain text; the logo is a two-tone WorkTree wordmark (green Work, brown Tree) with the sprout beside it. The product name is WorkTree everywhere user-visible; the `uaf` command, `UAF_*` variables and package names are unchanged | Owner decisions of 2026-10-23 (icons: use a real set; logo: wordmark with sprout); avoids generic AI-generated styling |
 
 ## 12. Wave 1 review (2026-11-05)
@@ -192,6 +192,6 @@ clock, log, secrets)`.
 | 13.3 | Icons are Phosphor (MIT, `@phosphor-icons/core` 2.1.1 as a dev dependency), regular and fill weights, generated into `src/icons/paths.ts`; icon names in the app did not change. Supersedes the icon part of 11.17 | the owner chose Phosphor from a shortlist of Phosphor, Solar (CC BY 4.0, attribution, no plant icons) and Hugeicons (MIT free set is outline only) |
 | 13.4 | The node card is the Rings and Bloom activity node: a ring cross-section in the family colour, run state as an arc on the outer ring, ports on the right edge. Family colours live in `web/src/theme/families.ts` and are used on the canvas only | owner chose Rings and Bloom for the canvas on 2026-11-05 |
 | 13.5 | The type stays a system stack (`Segoe UI Variable Text`, `Segoe UI`, then the platform font) | an on-premise install must not fetch a web font, and a licensed font needs the owner's approval |
-| 13.6 | The sidebar has eight areas: Home, Operations, Inbox, Studio, Data, Connections, Insights, Admin. The screen designs for every area are on the design board, listed in `docs/research/canvas-design/HANDOFF.md` | owner approved the full-app screen designs on 2026-11-09; Home, Connections and Insights give the dashboard, connections with secrets, and reporting their own places |
+| 13.6 | The sidebar has eight areas: Home, Operations, Inbox, Studio, Data, Connections, Insights, Admin. The screen designs for every area are on the design board, listed in `docs/design-source/canvas-design/HANDOFF.md` | owner approved the full-app screen designs on 2026-11-09; Home, Connections and Insights give the dashboard, connections with secrets, and reporting their own places |
 | 13.7 | Family colours mark workflow identity across the app (canvas nodes, ring avatars, workflow cards, chart series), never controls, tables, panels, text or status. Replaces the "canvas only" limit of 13.4 | owner approved on 2026-11-09 to carry the nature, vibrant and flowing theme beyond the canvas while the interface stays calm |
 | 13.8 | A Workers and queues screen is planned. Workers need a spec and work queues need engine work first | owner approved the design on 2026-11-09; neither exists in the engine today |
