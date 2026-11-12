@@ -21,7 +21,7 @@ from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.domain.workflow import substitute_secrets
 from app.security.masking import SecretMasker, get_masker
 
-MARKER = "__UAF_RESULT__"
+MARKER = "__WORKTREE_RESULT__"
 
 
 def _configure_child_logging() -> None:
@@ -60,16 +60,16 @@ def main() -> int:
         workspace=Path(envelope.workspace),
         clock=SystemClock(),
         correlation_id=envelope.correlation_id,
-        logger=structlog.get_logger("uaf.activity"),
+        logger=structlog.get_logger("worktree.activity"),
         resolved_secrets=secrets,
-        ai_enabled=os.environ.get("UAF_CHILD_AI_ENABLED", "0") == "1",
-        ai_endpoint=os.environ.get("UAF_CHILD_AI_ENDPOINT", ""),
+        ai_enabled=os.environ.get("WORKTREE_CHILD_AI_ENABLED", "0") == "1",
+        ai_endpoint=os.environ.get("WORKTREE_CHILD_AI_ENDPOINT", ""),
     )
     result_payload: dict[str, Any]
     try:
         from app.domain.activity_registry import ActivityRegistry
 
-        extra = os.environ.get("UAF_CHILD_ACTIVITIES_EXTRA") or None
+        extra = os.environ.get("WORKTREE_CHILD_ACTIVITIES_EXTRA") or None
         registry = ActivityRegistry(Path(extra) if extra else None).discover()
         activity = registry.get(envelope.activity)
         if activity is None:

@@ -11,14 +11,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app import compat
 from app.adapters.secrets.base import SecretInfo, SecretNotFound
 from app.domain.clock import Clock
 
 
 class LocalSecretStore:
-    """Resolution order: ``UAF_SECRET_<NAME>`` environment variable, then the local file.
+    """Resolution order: ``WORKTREE_SECRET_<NAME>`` environment variable (or, for one release,
+    the old ``UAF_SECRET_<NAME>``), then the local file.
 
-    Only the ``UAF_SECRET_`` prefix is consulted in the environment: resolving arbitrary
+    Only these prefixes are consulted in the environment: resolving arbitrary
     variable names would let a workflow read the server's own environment (``VAULT_TOKEN``,
     cloud credentials, ...). The file holds ``{"values": {name: value}, "rotated": {name:
     iso8601}}``, is created with owner-only permissions, is git-ignored and is never served.
@@ -51,10 +53,10 @@ class LocalSecretStore:
 
     @staticmethod
     def env_name(name: str) -> str:
-        return "UAF_SECRET_" + name.upper().replace("-", "_").replace(".", "_").replace("/", "_")
+        return "SECRET_" + name.upper().replace("-", "_").replace(".", "_").replace("/", "_")
 
     def get(self, name: str) -> str | None:
-        prefixed = os.environ.get(self.env_name(name))
+        prefixed = compat.env(self.env_name(name))
         if prefixed is not None:
             return prefixed
         value = self._load()["values"].get(name)
@@ -82,13 +84,18 @@ class LocalSecretStore:
         data = self._load()
         names = set(data["values"])
         for key in os.environ:
-            if key.startswith("UAF_SECRET_"):
-                names.add(key[len("UAF_SECRET_") :].lower())
+            for prefix in (compat.PREFIX + "SECRET_", compat.LEGACY_PREFIX + "SECRET_"):
+                if key.startswith(prefix):
+                    names.add(key[len(prefix) :].lower())
         result: list[SecretInfo] = []
         for name in sorted(names):
             rotated_raw = data["rotated"].get(name)
             rotated = datetime.fromisoformat(rotated_raw) if rotated_raw else None
-            source = "env" if self.env_name(name) in os.environ else "file"
+            in_env = any(
+                prefix + self.env_name(name) in os.environ
+                for prefix in (compat.PREFIX, compat.LEGACY_PREFIX)
+            )
+            source = "env" if in_env else "file"
             result.append(SecretInfo(name=name, last_rotated_at=rotated, source=source))
         return result
 

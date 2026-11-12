@@ -86,7 +86,7 @@ def test_check_fails_when_behind(url: str) -> None:
     status = schema_status(url)
     assert not status.up_to_date and status.current == "a3c9e41d7b20"
     problems = check_database(url)
-    assert len(problems) == 1 and "uaf db upgrade" in problems[0]
+    assert len(problems) == 1 and "worktree db upgrade" in problems[0]
 
 
 def test_check_fails_when_the_models_drift_from_the_database(url: str) -> None:
@@ -97,12 +97,12 @@ def test_check_fails_when_the_models_drift_from_the_database(url: str) -> None:
 
 
 def test_the_start_guard_refuses_an_empty_or_behind_database(url: str) -> None:
-    with pytest.raises(SchemaNotCurrent, match="uaf db upgrade"):
+    with pytest.raises(SchemaNotCurrent, match="worktree db upgrade"):
         ensure_schema_current(url)
     upgrade_database(url)
     ensure_schema_current(url)
     _execute(url, "UPDATE alembic_version SET version_num = '609dab07d40f'")
-    with pytest.raises(SchemaNotCurrent, match=r"behind.*uaf db upgrade"):
+    with pytest.raises(SchemaNotCurrent, match=r"behind.*worktree db upgrade"):
         ensure_schema_current(url)
     _execute(url, "UPDATE alembic_version SET version_num = 'ffffffffffff'")
     with pytest.raises(SchemaNotCurrent, match="does not know"):
@@ -116,7 +116,7 @@ def test_serve_refuses_to_start_when_behind(
     assert serve(args, settings) == 2
     err = capsys.readouterr().err
     assert err.count("\n") == 1, "one clear line"
-    assert "uaf db upgrade" in err
+    assert "worktree db upgrade" in err
 
 
 def test_db_subcommands_report_through_exit_codes(
@@ -124,7 +124,7 @@ def test_db_subcommands_report_through_exit_codes(
 ) -> None:
     args = argparse.Namespace()
     assert db_check(args, settings) == 1
-    assert "uaf db upgrade" in capsys.readouterr().err
+    assert "worktree db upgrade" in capsys.readouterr().err
     assert db_current(args, settings) == 0
     assert "not up to date" in capsys.readouterr().out
     assert db_upgrade(args, settings) == 0

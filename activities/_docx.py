@@ -401,7 +401,7 @@ def merge_document(template: Path, records: list[dict[str, str]], target: Path) 
 
 def _rewrite(source: Path, target: Path, replacements: dict[str, bytes]) -> None:
     """Copy ``source`` to ``target`` replacing some parts; all other members are copied as-is."""
-    temp = target.with_name(f".{target.name}.uaf-tmp")
+    temp = target.with_name(f".{target.name}.worktree-tmp")
     try:
         with zipfile.ZipFile(source) as src, zipfile.ZipFile(temp, "w") as dst:
             for item in src.infolist():

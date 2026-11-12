@@ -442,9 +442,20 @@ describe('api client CSRF', () => {
     const fetchMock = vi.fn().mockResolvedValue(json(200, {}))
     vi.stubGlobal('fetch', fetchMock)
     setCsrfToken(null)
-    document.cookie = 'uaf_csrf=from-cookie'
+    document.cookie = 'worktree_csrf=from-cookie'
     await apiSend('POST', '/api/x', {})
     expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ 'X-CSRF-Token': 'from-cookie' })
+    document.cookie = 'worktree_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  })
+
+  // A session from before the rename has only the old cookie; it works for one release.
+  it('falls back to the CSRF cookie set before the rename', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json(200, {}))
+    vi.stubGlobal('fetch', fetchMock)
+    setCsrfToken(null)
+    document.cookie = 'uaf_csrf=from-old-cookie'
+    await apiSend('POST', '/api/x', {})
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ 'X-CSRF-Token': 'from-old-cookie' })
     document.cookie = 'uaf_csrf=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   })
 })

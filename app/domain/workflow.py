@@ -447,7 +447,7 @@ def validate_definition(
                 ValidationIssue(
                     code="unknown_activity",
                     step_id=step.id,
-                    message=f"unknown activity {step.activity!r}; run 'uaf list-activities'",
+                    message=f"unknown activity {step.activity!r}; run 'worktree list-activities'",
                 )
             )
         for target_field in ("on_done", "on_failed"):

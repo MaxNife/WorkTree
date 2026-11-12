@@ -56,7 +56,7 @@ class RunPythonActivity(Activity[RunPythonInputs]):
         script_path = safe_path(ctx, inputs.script_path) if inputs.script_path else None
         inline = script_path is None
         if script_path is None:
-            script_path = workspace / ".uaf-script.py"
+            script_path = workspace / ".worktree-script.py"
             script_path.write_text(inputs.script, encoding="utf-8")
         if not script_path.is_file():
             return ActivityResult.failed("script not found")
@@ -136,8 +136,8 @@ class LegacyRobotWrapperActivity(Activity[LegacyWrapperInputs]):
         for name in inputs.env:
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name):
                 return ActivityResult.failed(f"invalid environment variable name: {name!r}")
-            if name.upper().startswith("UAF_"):
-                return ActivityResult.failed(f"UAF_* variables are reserved: {name}")
+            if name.upper().startswith(("WORKTREE_", "UAF_")):
+                return ActivityResult.failed(f"WORKTREE_* and UAF_* variables are reserved: {name}")
         executable = shutil.which(inputs.executable)
         if executable is None:
             return ActivityResult.failed(f"executable not found on PATH: {inputs.executable}")
@@ -402,6 +402,9 @@ def _safe_env(ctx: ActivityContext) -> dict[str, str]:
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
         "TEMP": tempfile.gettempdir(),
         "TMP": tempfile.gettempdir(),
+        "WORKTREE_RUN_ID": ctx.run_id,
+        "WORKTREE_STEP_ID": ctx.step_id,
+        # The old names, for robots written before the rename; removed next release.
         "UAF_RUN_ID": ctx.run_id,
         "UAF_STEP_ID": ctx.step_id,
         "PYTHONIOENCODING": "utf-8",

@@ -1,6 +1,6 @@
 """HashiCorp Vault adapter (optional dependency).
 
-Enabled with ``secrets.adapter: vault`` and ``pip install 'uaf[vault]'``. The client is
+Enabled with ``secrets.adapter: vault`` and ``pip install 'worktree[vault]'``. The client is
 injectable so the adapter can be unit-tested without a live Vault.
 """
 
@@ -31,7 +31,7 @@ class VaultSecretStore:
                 import hvac
             except ImportError as exc:
                 raise RuntimeError(
-                    "Vault adapter requires the optional dependency: pip install 'uaf[vault]'"
+                    "Vault adapter requires the optional dependency: pip install 'worktree[vault]'"
                 ) from exc
             self._client = hvac.Client(url=url, token=token)
         self._cache: dict[str, SecretInfo] = {}

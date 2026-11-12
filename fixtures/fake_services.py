@@ -46,7 +46,7 @@ def start_server(app: FastAPI, *, state: FixtureState | None = None) -> RunningS
     port = _free_port()
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
-    thread = threading.Thread(target=server.run, name="uaf-fixture", daemon=True)
+    thread = threading.Thread(target=server.run, name="worktree-fixture", daemon=True)
     thread.start()
     deadline = time.monotonic() + 10
     while not server.started and time.monotonic() < deadline:
@@ -94,7 +94,7 @@ def _parse_graph_time(value: str) -> datetime:
 
 def build_fake_app(state: FixtureState | None = None) -> FastAPI:
     state = state or FixtureState()
-    app = FastAPI(title="UAF local fixtures")
+    app = FastAPI(title="WorkTree local fixtures")
     app.state.fixture = state
 
     @app.get("/health")
@@ -362,7 +362,7 @@ def start_smtp_sink() -> FakeSmtpServer:
                     else:
                         connection.sendall(b"250 ok\r\n")
 
-    thread = threading.Thread(target=serve, daemon=True, name="uaf-smtp")
+    thread = threading.Thread(target=serve, daemon=True, name="worktree-smtp")
     thread.start()
     return FakeSmtpServer(port, messages, listener, thread)
 

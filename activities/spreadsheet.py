@@ -339,7 +339,7 @@ def _workbook_for(
         return
     if suffix in TABLE_FORMATS:
         descriptor, name = tempfile.mkstemp(
-            prefix=f".{source.stem}.uaf-", suffix=".xlsx", dir=workspace
+            prefix=f".{source.stem}.worktree-", suffix=".xlsx", dir=workspace
         )
         os.close(descriptor)
         temporary = Path(name)

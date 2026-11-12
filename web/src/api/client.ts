@@ -1,5 +1,6 @@
 // A small typed fetch client over the generated OpenAPI types (schema.d.ts).
 import type { paths } from './schema'
+import { csrfCookie } from '@/compat'
 
 type Json<Op> = Op extends { responses: { 200: { content: { 'application/json': infer R } } } } ? R : unknown
 
@@ -82,8 +83,7 @@ export async function apiGet<P extends GetPath>(path: P, options: RequestOptions
 }
 
 // Mutating routes require the session's CSRF token in `X-CSRF-Token`. The session store sets it from
-// the login and /api/auth/me responses; the readable `uaf_csrf` cookie is the fallback.
-const CSRF_COOKIE = 'uaf_csrf'
+// the login and /api/auth/me responses; the readable CSRF cookie is the fallback.
 let csrfToken: string | null = null
 
 export function setCsrfToken(token: string | null): void {
@@ -92,9 +92,7 @@ export function setCsrfToken(token: string | null): void {
 
 function currentCsrfToken(): string | null {
   if (csrfToken) return csrfToken
-  if (typeof document === 'undefined') return null
-  const match = document.cookie.split('; ').find((part) => part.startsWith(`${CSRF_COOKIE}=`))
-  return match ? decodeURIComponent(match.slice(CSRF_COOKIE.length + 1)) : null
+  return csrfCookie()
 }
 
 // Headers the client sets itself; a caller's value for one of these is dropped.

@@ -3,13 +3,13 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "uaf"
+name = "worktree"
 version = "0.1.0"
 description = "WorkTree - Python/FastAPI MVP"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "Proprietary" }
-authors = [{ name = "UAF Build Agent" }]
+authors = [{ name = "Hope" }]
 dependencies = [
   "alembic>=1.14",
   "apscheduler>=3.10,<4",
@@ -46,6 +46,8 @@ vault = ["hvac>=2.3"]
 otel = ["opentelemetry-api>=1.28", "opentelemetry-sdk>=1.28"]
 
 [project.scripts]
+worktree = "app.cli:main"
+# The old command, for one release after the rename.
 uaf = "app.cli:main"
 
 [dependency-groups]

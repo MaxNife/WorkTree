@@ -159,13 +159,13 @@ def test_role_change_for_an_unknown_user_is_not_found(api) -> None:
 
 # ----------------------------------------------------------------------------- workers
 def test_activity_children_never_inherit_platform_credentials(monkeypatch, settings) -> None:
-    monkeypatch.setenv("UAF_SECRET_SESSION_SIGNING_KEY", "signing-key-value")
+    monkeypatch.setenv("WORKTREE_SECRET_SESSION_SIGNING_KEY", "signing-key-value")
     monkeypatch.setenv("VAULT_TOKEN", "vault-token-value")
     monkeypatch.setenv("CORP_VAULT_TOKEN", "custom-token-value")
     monkeypatch.setenv("HARMLESS_SETTING", "kept")
     env = _base_env(("CORP_VAULT_TOKEN",))
-    assert "UAF_SECRET_SESSION_SIGNING_KEY" not in env
+    assert "WORKTREE_SECRET_SESSION_SIGNING_KEY" not in env
     assert "VAULT_TOKEN" not in env
     assert "CORP_VAULT_TOKEN" not in env
     assert env["HARMLESS_SETTING"] == "kept"
-    assert child_environment(settings)["UAF_CHILD_PLAYWRIGHT_STATE"].endswith("playwright")
+    assert child_environment(settings)["WORKTREE_CHILD_PLAYWRIGHT_STATE"].endswith("playwright")

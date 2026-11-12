@@ -26,7 +26,7 @@ _POSITIONAL_BIND = re.compile(r"\?|%s|%\(\w+\)s|(?<!:):\d+")
 
 # The child learns where the control-plane database is from this variable (set by the worker
 # from ``database.url``); a SQL activity must never open that file, whoever wrote the step.
-PROTECTED_DB_ENV = "UAF_CHILD_PROTECTED_DB"
+PROTECTED_DB_ENV = "WORKTREE_CHILD_PROTECTED_DB"
 
 
 def protected_paths_from_env() -> tuple[Path, ...]:

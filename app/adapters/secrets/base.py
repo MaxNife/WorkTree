@@ -40,7 +40,8 @@ INTERNAL_SECRET_NAMES = frozenset({"session_signing_key"})
 
 
 def is_internal_secret(name: str) -> bool:
-    return name in INTERNAL_SECRET_NAMES or name.startswith("uaf_internal_")
+    # ``uaf_internal_`` stays reserved: secrets created before the rename (the audit key) keep it.
+    return name in INTERNAL_SECRET_NAMES or name.startswith(("worktree_internal_", "uaf_internal_"))
 
 
 class SecretNotFound(LookupError):

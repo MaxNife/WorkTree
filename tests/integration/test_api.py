@@ -223,7 +223,7 @@ def test_health_metrics_and_capabilities(api, container) -> None:
     metrics = api.client.get("/api/metrics")
     assert metrics.status_code == 200
     assert metrics.headers["content-type"].startswith("text/plain")
-    assert "uaf_runs_total" in metrics.text and "uaf_bus_pending" in metrics.text
+    assert "worktree_runs_total" in metrics.text and "worktree_bus_pending" in metrics.text
 
     activities = api.client.get("/api/activities").json()
     assert any(item["name"] == "echo" for item in activities)

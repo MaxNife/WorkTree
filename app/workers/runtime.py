@@ -88,7 +88,7 @@ class WorkerRuntime:
             correlation_scope(
                 envelope.correlation_id, run_id=envelope.run_id, step_id=envelope.step_id
             ),
-            span("uaf.activity", activity=envelope.activity, run_id=envelope.run_id),
+            span("worktree.activity", activity=envelope.activity, run_id=envelope.run_id),
         ):
             self._execute(job.id, envelope)
         return True

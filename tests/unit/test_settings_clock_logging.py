@@ -21,9 +21,10 @@ REPO = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def no_config_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("UAF_CONFIG", str(tmp_path / "absent.yaml"))
+    monkeypatch.setenv("WORKTREE_CONFIG", str(tmp_path / "absent.yaml"))
     for key in list(__import__("os").environ):
-        if key.startswith("UAF_") and key != "UAF_CONFIG":
+        # Both prefixes configure settings (UAF_ for one release after the rename).
+        if key.upper().startswith(("WORKTREE_", "UAF_")) and key != "WORKTREE_CONFIG":
             monkeypatch.delenv(key)
 
 
@@ -55,7 +56,7 @@ def test_repository_config_matches_defaults_and_holds_no_secrets(
 
     forbidden = {"vault_token", "password", "api_key", "client_secret", "token", "secret"}
     assert not forbidden & {key.lower() for key in keys(raw)}, "config.yaml must hold no secrets"
-    monkeypatch.setenv("UAF_CONFIG", str(REPO / "config.yaml"))
+    monkeypatch.setenv("WORKTREE_CONFIG", str(REPO / "config.yaml"))
     settings = Settings()
     assert settings.ai.enabled is False and settings.otel.enabled is False
     assert settings.audit.retention_years == 7
@@ -64,8 +65,8 @@ def test_repository_config_matches_defaults_and_holds_no_secrets(
 def test_override_file_and_env_layering(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     override = tmp_path / "site.yaml"
     override.write_text("workers:\n  count: 5\nai:\n  enabled: true\n", encoding="utf-8")
-    monkeypatch.setenv("UAF_CONFIG", str(override))
-    monkeypatch.setenv("UAF_WORKERS__COUNT", "7")
+    monkeypatch.setenv("WORKTREE_CONFIG", str(override))
+    monkeypatch.setenv("WORKTREE_WORKERS__COUNT", "7")
     settings = Settings()
     assert settings.ai.enabled is True, "file overrides defaults"
     assert settings.workers.count == 7, "environment overrides the file"
@@ -113,7 +114,7 @@ def test_container_wires_shared_dependencies(container) -> None:
 def log_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     settings = Settings(logging={"directory": tmp_path / "logs", "json_logs": True})
     configure_logging(settings, console=False)
-    yield tmp_path / "logs" / "uaf.log"
+    yield tmp_path / "logs" / "worktree.log"
     monkeypatch.setattr("app.logging_setup._configured", False)
     get_masker().clear()
 
@@ -161,7 +162,7 @@ def test_worker_log_lines_carry_the_runs_correlation_id(container, log_file: Pat
 def test_telemetry_is_off_by_default_and_span_is_a_no_op() -> None:
     assert configure_telemetry(Settings()) is False
     assert not is_enabled()
-    with span("uaf.test", attempt=1):
+    with span("worktree.test", attempt=1):
         pass
 
 

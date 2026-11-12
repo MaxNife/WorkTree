@@ -32,7 +32,7 @@ DASHBOARD_INDEXES = {
 @pytest.fixture
 def alembic_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Config, str]:
     url = f"sqlite:///{(tmp_path / 'migrated.db').as_posix()}"
-    monkeypatch.setenv("UAF_DATABASE__URL", url)
+    monkeypatch.setenv("WORKTREE_DATABASE__URL", url)
     monkeypatch.chdir(REPO)
     config = Config(str(REPO / "alembic.ini"))
     return config, url

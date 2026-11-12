@@ -29,8 +29,17 @@ describe('preferences store', () => {
     expect(reloaded.density).toBe('comfortable')
   })
 
+  it('moves preferences saved before the rename to the new key once', () => {
+    window.localStorage.setItem('uaf.preferences', '{"mode":"dark","density":"comfortable"}')
+    const preferences = usePreferences()
+    expect(preferences.mode).toBe('dark')
+    expect(preferences.density).toBe('comfortable')
+    expect(window.localStorage.getItem('uaf.preferences')).toBeNull()
+    expect(window.localStorage.getItem('worktree.preferences')).toContain('dark')
+  })
+
   it('ignores a corrupt saved value', () => {
-    window.localStorage.setItem('uaf.preferences', '{"mode":"neon","density":7}')
+    window.localStorage.setItem('worktree.preferences', '{"mode":"neon","density":7}')
     const preferences = usePreferences()
     expect(preferences.mode).toBe('system')
     expect(preferences.density).toBe('compact')

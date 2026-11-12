@@ -467,7 +467,7 @@ class PlaywrightScriptActivity(Activity[ScriptInputs]):
             validate_url(inputs.start_url)
         path = safe_path(ctx, inputs.script_path)
         if inputs.script:
-            path = ctx.workspace / ".uaf-browser-script.py"
+            path = ctx.workspace / ".worktree-browser-script.py"
             path.write_text(inputs.script, encoding="utf-8")
         if not path.is_file():
             return ActivityResult.failed("Playwright script not found")
@@ -581,9 +581,11 @@ def _session_is_valid(context: BrowserContext, inputs: RobotInputs) -> bool:
 def _state_root(ctx: ActivityContext) -> Path:
     settings = getattr(ctx, "settings", None)
     data = getattr(settings, "data", None)
-    # In a worker child the folder arrives as UAF_CHILD_PLAYWRIGHT_STATE (data.playwright_state).
-    root = getattr(data, "playwright_state", None) or os.environ.get("UAF_CHILD_PLAYWRIGHT_STATE")
-    path = Path(root) if root else Path(tempfile.gettempdir()) / "uaf-playwright-state"
+    # In a worker child the folder arrives as WORKTREE_CHILD_PLAYWRIGHT_STATE (data.playwright_state).
+    root = getattr(data, "playwright_state", None) or os.environ.get(
+        "WORKTREE_CHILD_PLAYWRIGHT_STATE"
+    )
+    path = Path(root) if root else Path(tempfile.gettempdir()) / "worktree-playwright-state"
     path.mkdir(parents=True, exist_ok=True)
     with contextlib.suppress(OSError):
         path.chmod(0o700)

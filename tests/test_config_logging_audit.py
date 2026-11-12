@@ -29,8 +29,8 @@ def test_yaml_then_env_then_init_precedence(
         "app:\n  environment: test\ndatabase:\n  url: sqlite:///./yaml.db\nworkers:\n  count: 3\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("UAF_CONFIG", str(config))
-    monkeypatch.setenv("UAF_DATABASE__URL", "sqlite:///./env.db")
+    monkeypatch.setenv("WORKTREE_CONFIG", str(config))
+    monkeypatch.setenv("WORKTREE_DATABASE__URL", "sqlite:///./env.db")
     settings = load_settings()
     assert settings.database.url.endswith("env.db")
     assert settings.workers.count == 3
@@ -80,7 +80,7 @@ def test_logs_are_masked_and_carry_correlation_id(
         clear_correlation_id()
     for handler in logging.getLogger().handlers:
         handler.flush()
-    content = (tmp_path / "logs" / "uaf.log").read_text(encoding="utf-8")
+    content = (tmp_path / "logs" / "worktree.log").read_text(encoding="utf-8")
     assert "planted-secret-value" not in content
     assert "***" in content
     parsed = json.loads(content.strip().splitlines()[-1])

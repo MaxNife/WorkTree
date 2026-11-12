@@ -128,6 +128,7 @@ def test_output_patterns_cannot_collect_files_outside_the_workspace(tmp_path: Pa
 
 def test_reserved_and_malformed_env_names_are_refused(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
+    assert "reserved" in _legacy(ctx, env={"WORKTREE_RUN_ID": "x"}).message
     assert "reserved" in _legacy(ctx, env={"UAF_RUN_ID": "x"}).message
     assert "invalid environment variable" in _legacy(ctx, env={"BAD NAME": "x"}).message
 
@@ -173,7 +174,7 @@ def test_run_python_returns_the_json_result_file(tmp_path: Path) -> None:
     script = (
         "import json, os\n"
         "json.dump({'cwd_is_workspace': os.path.exists('robot.py'),"
-        " 'sees_platform_env': 'UAF_SECRET_X' in os.environ}, open('script-result.json', 'w'))\n"
+        " 'sees_platform_env': 'WORKTREE_SECRET_X' in os.environ}, open('script-result.json', 'w'))\n"
     )
     result = RunPythonActivity().execute(ctx, {"script": script})
     assert result.outcome == Outcome.DONE, result.message
@@ -181,7 +182,7 @@ def test_run_python_returns_the_json_result_file(tmp_path: Path) -> None:
 
 
 def test_legacy_robot_runs_under_the_worker_envelope(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("UAF_SECRET_SESSION_SIGNING_KEY", "never-in-a-child")
+    monkeypatch.setenv("WORKTREE_SECRET_SESSION_SIGNING_KEY", "never-in-a-child")
     workspace = tmp_path / "ws"
     workspace.mkdir()
     (workspace / "robot.py").write_text(LEGACY_ROBOT, encoding="utf-8")

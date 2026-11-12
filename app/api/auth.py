@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
+from app import compat
 from app.api.deps import (
     CurrentUser,
     client_ip,
@@ -87,6 +88,9 @@ def logout(
     )
     response.delete_cookie(container.settings.security.cookie_name, path="/")
     response.delete_cookie(container.settings.security.csrf_cookie_name, path="/")
+    # Cookies set before the rename (accepted for one release) go too.
+    response.delete_cookie(compat.LEGACY_SESSION_COOKIE, path="/")
+    response.delete_cookie(compat.LEGACY_CSRF_COOKIE, path="/")
     return {"ok": True}
 
 

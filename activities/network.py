@@ -247,7 +247,7 @@ class EmailInputs(BaseModel):
     smtp_port: int = Field(default=25, ge=1, le=65535)
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "uaf@localhost"
+    smtp_from: str = "worktree@localhost"
     tenant_id: str = ""
     client_id: str = ""
     client_secret: str = ""
@@ -423,12 +423,12 @@ class UncArchiveInputs(BaseModel):
 
 def _archive_roots(ctx: ActivityContext) -> list[Path]:
     """The folders ``unc_archive`` may write into: ``activities.archive_roots`` in-process, or
-    the ``UAF_CHILD_ARCHIVE_ROOTS`` JSON list the worker passes to a child."""
+    the ``WORKTREE_CHILD_ARCHIVE_ROOTS`` JSON list the worker passes to a child."""
     activities = getattr(getattr(ctx, "settings", None), "activities", None)
     if activities is not None:
         return [Path(root) for root in activities.archive_roots]
     try:
-        roots = json.loads(os.environ.get("UAF_CHILD_ARCHIVE_ROOTS") or "[]")
+        roots = json.loads(os.environ.get("WORKTREE_CHILD_ARCHIVE_ROOTS") or "[]")
     except ValueError:
         return []
     return [Path(root) for root in roots] if isinstance(roots, list) else []
@@ -438,7 +438,7 @@ def _extra_folder(ctx: ActivityContext) -> Path | None:
     activities = getattr(getattr(ctx, "settings", None), "activities", None)
     if activities is not None:
         return Path(activities.extra_folder)
-    raw = os.environ.get("UAF_CHILD_ACTIVITIES_EXTRA")
+    raw = os.environ.get("WORKTREE_CHILD_ACTIVITIES_EXTRA")
     return Path(raw) if raw else None
 
 

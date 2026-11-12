@@ -19,14 +19,15 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, inspect
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.exc import SQLAlchemyError
 
+from app import compat
 from app.adapters.db.database import build_engine
 from app.adapters.db.models import Base
 
 MIGRATIONS = Path(__file__).resolve().parent / "migrations"
-UPGRADE_COMMAND = "uaf db upgrade"
+UPGRADE_COMMAND = "worktree db upgrade"
 
 
 class SchemaNotCurrent(Exception):
@@ -163,8 +164,38 @@ def stamp_head(url: str) -> None:
     command.stamp(migrations_config(url), "head")
 
 
+class LegacyDatabaseFound(SchemaNotCurrent):
+    """The configured database does not exist yet, but the pre-rename one sits beside it."""
+
+
+def refuse_beside_legacy_database(url: str) -> None:
+    """Refuse to create a new, empty ``worktree.db`` next to an existing ``uaf.db``.
+
+    The rename changed the default file name. Creating the new file would leave the real data
+    unused, and from then on nothing would point at it, so every command stops here instead and
+    names the move. The file is never renamed automatically.
+    """
+    try:
+        parsed = make_url(url)
+    except Exception:
+        return
+    if not parsed.drivername.startswith("sqlite") or not parsed.database:
+        return
+    if parsed.database == ":memory:":
+        return
+    target = Path(parsed.database)
+    legacy = target.with_name(compat.LEGACY_DATABASE_FILE)
+    if target.exists() or target.name == legacy.name or not legacy.exists():
+        return
+    raise LegacyDatabaseFound(
+        f"{target} does not exist but {legacy} does: the default database file was renamed. "
+        f"Stop the server and move {legacy} to {target}, or set database.url to the old file."
+    )
+
+
 def upgrade_database(url: str) -> UpgradeOutcome:
     """Bring ``url`` to head, adopting an unversioned database that already matches it."""
+    refuse_beside_legacy_database(url)
     config = migrations_config(url)
     status = schema_status(url)  # also creates the parent folder of a SQLite file
     if status.current is None and status.app_tables_present:
@@ -228,6 +259,7 @@ def not_current_message(status: SchemaStatus) -> str | None:
 
 def ensure_schema_current(url: str) -> None:
     """Raise ``SchemaNotCurrent`` unless the database is at head."""
+    refuse_beside_legacy_database(url)
     try:
         status = schema_status(url)
     except SQLAlchemyError as exc:

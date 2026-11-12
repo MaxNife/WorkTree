@@ -21,8 +21,10 @@ from app.domain.clock import Clock
 if TYPE_CHECKING:
     from app.adapters.db.models import SessionRow
 
+# Kept from before the rename: a new salt would sign every user out.
 SESSION_SALT = "uaf-session-v1"
 # Internal namespace (see ``is_internal_secret``): workflows can never read it.
+# Kept from before the rename: the stored key goes by this name.
 AUDIT_HMAC_KEY_NAME = "uaf_internal_audit_hmac_key"
 
 

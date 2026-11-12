@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { applyTheme, DENSITIES, resolveTheme, THEME_MODES, type Density, type ThemeMode } from '@/theme/apply'
+import { readStored } from '@/compat'
 
-const STORAGE_KEY = 'uaf.preferences'
+const STORAGE_KEY = 'worktree.preferences'
 const SYSTEM_QUERIES = ['(prefers-color-scheme: dark)', '(forced-colors: active)', '(prefers-contrast: more)']
 
 interface Saved {
@@ -22,7 +23,7 @@ function isDensity(value: unknown): value is Density {
 function load(): Saved {
   const fallback: Saved = { mode: 'system', density: 'compact' }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
+    const raw = readStored(STORAGE_KEY, 'uaf.preferences')
     if (!raw) return fallback
     const data = JSON.parse(raw) as Partial<Saved>
     return {

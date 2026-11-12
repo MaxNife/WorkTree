@@ -69,7 +69,7 @@ class NotificationService:
             try:
                 message = EmailMessage()
                 message["Subject"] = title
-                message["From"] = self.settings.smtp_from or "uaf@localhost"
+                message["From"] = self.settings.smtp_from or "worktree@localhost"
                 message["To"] = self.settings.smtp_to
                 message.set_content(f"{body}\n\n{link}")
                 password = self.secret_store.get(self.settings.smtp_password_secret) or ""

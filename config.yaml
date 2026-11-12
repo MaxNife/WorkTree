@@ -1,14 +1,14 @@
-# UAF configuration. Defaults are safe for a local single-machine install.
+# WorkTree configuration. Defaults are safe for a local single-machine install.
 # No secret values belong in this file. Override any key with environment variables,
-# using the UAF_ prefix and __ between levels (for example UAF_DATABASE__URL).
+# using the WORKTREE_ prefix and __ between levels (for example WORKTREE_DATABASE__URL).
 
 app:
-  name: UAF
+  name: WorkTree
   environment: dev
   base_url: "http://127.0.0.1:8000"
 
 database:
-  url: "sqlite:///./runtime/uaf.db"
+  url: "sqlite:///./runtime/worktree.db"
   echo: false
   # Oracle example (python-oracledb thin mode):
   # url: "oracle+oracledb://user:password@host:1521/?service_name=ORCLPDB1"
@@ -33,7 +33,7 @@ audit:
 security:
   session_ttl_minutes: 480
   cookie_secure: false
-  cookie_name: "uaf_session"
+  cookie_name: "worktree_session"
   login_rate_limit_attempts: 10
   login_rate_limit_window_seconds: 60
   login_rate_limit_address_attempts: 50   # failures per window from one address, any username

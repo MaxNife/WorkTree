@@ -1,4 +1,4 @@
-"""``uaf secrets list|policy`` and the upgrade notice (ADR 0001)."""
+"""``worktree secrets list|policy`` and the upgrade notice (ADR 0001)."""
 
 from __future__ import annotations
 
@@ -71,4 +71,4 @@ def test_the_upgrade_names_the_secrets_that_will_be_refused(
     out = capsys.readouterr().out
     assert "2 secret(s) have no policy" in out
     assert "old_one, old_two" in out and "ready" not in out.split(":")[1]
-    assert "uaf secrets policy" in out and PLANTED not in out
+    assert "worktree secrets policy" in out and PLANTED not in out

@@ -11,7 +11,7 @@ def test_login_me_logout_and_cookie_flags(api) -> None:
     assert me.status_code == 200
     assert me.json()["user"]["username"] == "admin"
     assert "admin.users" in me.json()["permissions"]
-    session_cookie = client.cookies.get("uaf_session")
+    session_cookie = client.cookies.get("worktree_session")
     assert session_cookie
     logout = client.post("/api/auth/logout", headers=api.headers)
     assert logout.status_code == 200

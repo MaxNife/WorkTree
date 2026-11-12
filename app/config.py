@@ -7,30 +7,32 @@ they are referenced by name and resolved through the secret store.
 from __future__ import annotations
 
 import ipaddress
-import os
 from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
+    EnvSettingsSource,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
     YamlConfigSettingsSource,
 )
+
+from app import compat
 
 DEFAULT_CONFIG_PATH = Path("config.yaml")
 INSECURE_PASSWORDS = {"admin", "password", "changeme", "letmein", "123456", "admin123"}
 
 
 class AppInfo(BaseModel):
-    name: str = "UAF"
+    name: str = "WorkTree"
     environment: Literal["dev", "test", "prod"] = "dev"
     base_url: str = "http://127.0.0.1:8000"
 
 
 class DatabaseSettings(BaseModel):
-    url: str = "sqlite:///./runtime/uaf.db"
+    url: str = "sqlite:///./runtime/worktree.db"
     echo: bool = False
 
 
@@ -57,7 +59,7 @@ class AuditSettings(BaseModel):
 class SecuritySettings(BaseModel):
     session_ttl_minutes: int = Field(default=480, ge=1)
     cookie_secure: bool = False
-    cookie_name: str = "uaf_session"
+    cookie_name: str = "worktree_session"
     login_rate_limit_attempts: int = Field(default=10, ge=1)
     login_rate_limit_window_seconds: int = Field(default=60, ge=1)
     # Failures per window from one address across all usernames (password spraying), and
@@ -65,7 +67,7 @@ class SecuritySettings(BaseModel):
     # so a person mistyping is stopped first by the pair limit.
     login_rate_limit_address_attempts: int = Field(default=50, ge=1)
     login_rate_limit_account_attempts: int = Field(default=30, ge=1)
-    csrf_cookie_name: str = "uaf_csrf"
+    csrf_cookie_name: str = "worktree_csrf"
     csrf_header_name: str = "X-CSRF-Token"
 
 
@@ -167,11 +169,12 @@ class Settings(BaseSettings):
     """Validated application settings.
 
     Precedence: constructor arguments, environment, ``.env``, ``config.yaml`` defaults.
-    Environment variables use the ``UAF_`` prefix and ``__`` between levels.
+    Environment variables use the ``WORKTREE_`` prefix and ``__`` between levels; the old
+    ``UAF_`` prefix is read below it for one release (``app.compat``).
     """
 
     model_config = SettingsConfigDict(
-        env_prefix="UAF_",
+        env_prefix="WORKTREE_",
         env_nested_delimiter="__",
         env_file=".env",
         env_file_encoding="utf-8",
@@ -203,10 +206,18 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        yaml_file = os.environ.get("UAF_CONFIG", str(DEFAULT_CONFIG_PATH))
+        yaml_file = compat.env("CONFIG", str(DEFAULT_CONFIG_PATH)) or str(DEFAULT_CONFIG_PATH)
+        # The old UAF_ prefix, below the new one so a WORKTREE_ variable always wins.
+        legacy_env = EnvSettingsSource(
+            settings_cls,
+            env_prefix=compat.LEGACY_PREFIX,
+            env_nested_delimiter="__",
+            case_sensitive=False,
+        )
         return (
             init_settings,
             env_settings,
+            legacy_env,
             dotenv_settings,
             YamlConfigSettingsSource(settings_cls, yaml_file=yaml_file),
             file_secret_settings,
@@ -223,6 +234,8 @@ class Settings(BaseSettings):
 def load_settings(**overrides: Any) -> Settings:
     """Load settings, creating the runtime directories referenced by the config."""
     settings = Settings(**overrides)
+    for old in compat.legacy_settings_variables():
+        compat.warn_legacy(old, compat.PREFIX + old[len(compat.LEGACY_PREFIX) :])
     for path in (
         settings.data.root,
         settings.data.workspaces,
@@ -250,13 +263,13 @@ def assert_startup_safe(settings: Settings) -> None:
         raise InsecureConfiguration(
             "app.environment is 'prod' but security.cookie_secure is false: the session cookie "
             "would be sent without the Secure flag. Set security.cookie_secure: true "
-            "(UAF_SECURITY__COOKIE_SECURE=true) and serve the app over HTTPS."
+            "(WORKTREE_SECURITY__COOKIE_SECURE=true) and serve the app over HTTPS."
         )
     if settings.app.environment == "prod" and not settings.secrets.enforce_policy:
         raise InsecureConfiguration(
             "app.environment is 'prod' but secrets.enforce_policy is false: any workflow could "
             "send any secret to any host. Set secrets.enforce_policy: true "
-            "(UAF_SECRETS__ENFORCE_POLICY=true) and give each secret its allowed hosts and "
+            "(WORKTREE_SECRETS__ENFORCE_POLICY=true) and give each secret its allowed hosts and "
             "environments."
         )
 

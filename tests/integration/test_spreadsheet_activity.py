@@ -83,7 +83,7 @@ def test_recalculate_gives_an_xlsxwriter_workbook_real_values(ctx) -> None:
     assert result.outputs["files"] == ["loan.xlsx"]
     assert cached(path, 1, 3) == pytest.approx(PAYMENT_300K)
     assert cached(path, 3, 3) == pytest.approx(PAYMENT_300K * 360)
-    assert not list(ctx.workspace.glob(".*uaf-*")), "no temporary file left behind"
+    assert not list(ctx.workspace.glob(".*worktree-*")), "no temporary file left behind"
 
     # The writer marks the workbook for a full recalculation in Excel.
     with zipfile.ZipFile(path) as archive:

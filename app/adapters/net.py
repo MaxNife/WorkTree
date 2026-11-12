@@ -6,7 +6,7 @@ allowed networks, and returns the addresses that passed. The clients below then 
 address that was checked, never resolving the name a second time, so a name that changes between
 the check and the connection cannot reach a denied address.
 
-The policy reaches an activity child through ``UAF_CHILD_EGRESS`` (the child does not load
+The policy reaches an activity child through ``WORKTREE_CHILD_EGRESS`` (the child does not load
 config.yaml); without it the defaults apply.
 
 Not covered, and documented as remaining risk: database drivers (their address is inside a
@@ -29,7 +29,7 @@ from typing import Any
 import httpcore
 import httpx
 
-EGRESS_ENV = "UAF_CHILD_EGRESS"
+EGRESS_ENV = "WORKTREE_CHILD_EGRESS"
 
 # Loopback, "this network", link-local (the cloud metadata address 169.254.169.254 among them)
 # and AWS's IPv6 metadata address. Private ranges stay open: internal systems are the normal case.
@@ -96,7 +96,7 @@ class EgressPolicy:
 
 
 def env_value(denied: Iterable[str], allowed: Iterable[str] = ()) -> str:
-    """The ``UAF_CHILD_EGRESS`` value for these settings."""
+    """The ``WORKTREE_CHILD_EGRESS`` value for these settings."""
     return json.dumps({"denied": list(denied), "allowed": list(allowed)})
 
 

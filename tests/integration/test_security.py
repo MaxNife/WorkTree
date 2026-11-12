@@ -150,7 +150,7 @@ def test_cookies_are_httponly_samesite_and_follow_the_secure_setting(client: Tes
     response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
     assert response.status_code == 200
     jar = _cookies(response)
-    session_cookie, csrf_cookie = jar["uaf_session"], jar["uaf_csrf"]
+    session_cookie, csrf_cookie = jar["worktree_session"], jar["worktree_csrf"]
     assert session_cookie["httponly"] is True
     assert session_cookie["samesite"].lower() == "lax"
     assert session_cookie["path"] == "/"
@@ -169,9 +169,9 @@ def test_secure_flag_is_set_when_configured(
     client, _ = make_client(security={"cookie_secure": True}, base_url="https://testserver")
     response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
     jar = _cookies(response)
-    assert jar["uaf_session"]["secure"] is True
-    assert jar["uaf_session"]["httponly"] is True
-    assert jar["uaf_csrf"]["secure"] is True
+    assert jar["worktree_session"]["secure"] is True
+    assert jar["worktree_session"]["httponly"] is True
+    assert jar["worktree_csrf"]["secure"] is True
     assert client.get("/api/auth/me").status_code == 200
 
 
@@ -190,7 +190,7 @@ def test_prod_environment_refuses_to_start_without_secure_cookies(
     application = create_app(settings, container=container, start_background=False)
     with TestClient(application, base_url="https://testserver") as client:
         response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
-    assert _cookies(response)["uaf_session"]["secure"] is True
+    assert _cookies(response)["worktree_session"]["secure"] is True
 
 
 def test_the_serve_command_prints_the_prod_cookie_error_and_exits(
@@ -204,14 +204,14 @@ def test_the_serve_command_prints_the_prod_cookie_error_and_exits(
 
 def test_logout_revokes_the_session_and_clears_both_cookies(client: TestClient) -> None:
     actor = Actor(client, "operator")
-    stolen = client.cookies.get("uaf_session")
+    stolen = client.cookies.get("worktree_session")
     response = actor.call("POST", "/api/auth/logout")
     assert response.status_code == 200
     for morsel in _cookies(response).values():
         assert morsel["max-age"] == "0" or morsel["expires"]
     # A copy of the old cookie no longer works: the session is revoked server-side.
     other = TestClient(client.app)
-    other.cookies.set("uaf_session", stolen)
+    other.cookies.set("worktree_session", stolen)
     assert other.get("/api/auth/me").status_code == 401
 
 
@@ -219,10 +219,10 @@ def test_forged_tampered_and_expired_session_cookies_are_refused(
     client: TestClient, fake_clock: FakeClock
 ) -> None:
     actor = Actor(client, "viewer")
-    good = client.cookies.get("uaf_session")
+    good = client.cookies.get("worktree_session")
     for bad in ("", "garbage", good[:-3] + "xxx", "." + good, good.split(".")[0]):
         probe = TestClient(client.app)
-        probe.cookies.set("uaf_session", bad)
+        probe.cookies.set("worktree_session", bad)
         assert probe.get("/api/auth/me").status_code == 401, bad
     assert actor.client.get("/api/auth/me").status_code == 200
     fake_clock.advance(minutes=481)  # session_ttl_minutes is 480
@@ -589,7 +589,7 @@ def test_an_unhandled_error_returns_no_stack_trace(
     actor = Actor(client, "admin")
 
     def explode(*_args: Any, **_kwargs: Any) -> Any:
-        raise RuntimeError("leak-marker /srv/uaf/app/secret_path.py password=hunter2-leak")
+        raise RuntimeError("leak-marker /srv/worktree/app/secret_path.py password=hunter2-leak")
 
     monkeypatch.setattr(container.schedules, "list", explode)
     response = actor.client.get("/api/schedules")
@@ -699,7 +699,7 @@ def test_secret_data_from_a_step_cannot_request_a_secret(actors: Any) -> None:
 
 def test_the_admin_api_refuses_to_overwrite_platform_secrets(actors: Any) -> None:
     admin = actors("admin")
-    for name in ("session_signing_key", "uaf_internal_anything"):
+    for name in ("session_signing_key", "worktree_internal_anything", "uaf_internal_anything"):
         response = admin.call("PUT", f"/api/admin/secrets/{name}", json={"value": "x" * 32})
         assert response.status_code in (403, 422), (name, response.status_code)
     # No route deletes a secret, so there is no DELETE to guard.
@@ -717,13 +717,20 @@ def test_the_admin_api_refuses_a_secret_name_over_100_characters(actors: Any) ->
 def test_activity_children_do_not_inherit_the_control_plane_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("UAF_SECRET_X", "s3cret-value")
+    # Both the new prefix and, for one release, the old one configure the platform.
+    for prefix in ("WORKTREE_", "UAF_"):
+        monkeypatch.setenv(f"{prefix}SECRET_X", "s3cret-value")
+        monkeypatch.setenv(f"{prefix}DATABASE__URL", "oracle+oracledb://app:dbpass@db/svc")
+        monkeypatch.setenv(f"{prefix}SECRETS__VAULT_URL", "https://user:pw@vault/")
     monkeypatch.setenv("VAULT_TOKEN", "vault-token-value")
-    monkeypatch.setenv("UAF_DATABASE__URL", "oracle+oracledb://app:dbpass@db/svc")
-    monkeypatch.setenv("UAF_SECRETS__VAULT_URL", "https://user:pw@vault/")
     env = _base_env()
-    assert "UAF_SECRET_X" not in env and "VAULT_TOKEN" not in env
-    leaked = sorted(key for key in env if key.startswith("UAF_") and key != "UAF_CHILD_RUN_ID")
+    assert "WORKTREE_SECRET_X" not in env and "UAF_SECRET_X" not in env
+    assert "VAULT_TOKEN" not in env
+    leaked = sorted(
+        key
+        for key in env
+        if key.upper().startswith(("WORKTREE_", "UAF_")) and key != "WORKTREE_CHILD_RUN_ID"
+    )
     assert leaked == [], leaked
 
 
@@ -928,7 +935,7 @@ def _sql_workflow(db_url: Any, name: str = "sql-flow") -> dict[str, Any]:
 @pytest.mark.parametrize(
     "db_url",
     [
-        "sqlite:///./runtime/uaf.db",
+        "sqlite:///./runtime/worktree.db",
         "oracle+oracledb://app:hunter2@db/svc",
         "{{ inputs.db_url }}",
         "{{ run.id }}",
@@ -1020,7 +1027,7 @@ def test_the_worker_passes_the_control_plane_database_to_activity_children(
 
     env = child_environment(container.settings)
     expected = Path(container.settings.database.url.removeprefix("sqlite:///")).resolve()
-    assert Path(env["UAF_CHILD_PROTECTED_DB"]) == expected
+    assert Path(env["WORKTREE_CHILD_PROTECTED_DB"]) == expected
 
 
 def test_open_database_refuses_the_protected_file_however_it_is_spelled(
@@ -1028,12 +1035,12 @@ def test_open_database_refuses_the_protected_file_however_it_is_spelled(
 ) -> None:
     from activities.database import open_database
 
-    protected = tmp_path / "control" / "uaf.db"
+    protected = tmp_path / "control" / "worktree.db"
     protected.parent.mkdir()
     sqlite3.connect(protected).close()
     spellings = [
         f"sqlite:///{protected.as_posix()}",
-        f"sqlite:///{(protected.parent / '..' / 'control' / 'uaf.db').as_posix()}",
+        f"sqlite:///{(protected.parent / '..' / 'control' / 'worktree.db').as_posix()}",
         f"sqlite:///{protected.as_posix().upper()}" if sys.platform == "win32" else None,
         f"sqlite:///file:{protected.as_posix()}?mode=ro&uri=true",
         f"sqlite+pysqlite:///{protected.as_posix()}",
@@ -1044,9 +1051,9 @@ def test_open_database_refuses_the_protected_file_however_it_is_spelled(
     # A relative path resolves against the working directory before it is compared.
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="platform's own"):
-        open_database("sqlite:///./control/uaf.db", protected=[protected])
+        open_database("sqlite:///./control/worktree.db", protected=[protected])
     # The worker announces the path through the environment, and open_database reads it there.
-    monkeypatch.setenv("UAF_CHILD_PROTECTED_DB", str(protected))
+    monkeypatch.setenv("WORKTREE_CHILD_PROTECTED_DB", str(protected))
     with pytest.raises(ValueError, match="platform's own"):
         open_database(f"sqlite:///{protected.as_posix()}")
     # Other files, and memory databases, still open.
@@ -1061,7 +1068,7 @@ def test_open_database_refuses_the_protected_file_however_it_is_spelled(
 def test_open_database_refuses_a_link_to_the_protected_file(tmp_path: Path) -> None:
     from activities.database import open_database
 
-    protected = tmp_path / "uaf.db"
+    protected = tmp_path / "worktree.db"
     sqlite3.connect(protected).close()
     link = tmp_path / "alias.db"
     try:
@@ -1093,7 +1100,7 @@ def test_open_database_does_not_create_folders_for_a_sqlite_file(tmp_path: Path)
 def test_a_sql_statement_cannot_attach_the_protected_file(tmp_path: Path) -> None:
     from activities.database import open_database
 
-    protected = tmp_path / "uaf.db"
+    protected = tmp_path / "worktree.db"
     with sqlite3.connect(protected) as connection:
         connection.execute("CREATE TABLE users (name TEXT)")
     harmless = tmp_path / "gl.db"
@@ -1240,9 +1247,9 @@ def test_the_worker_passes_the_archive_roots_to_activity_children(
 ) -> None:
     from app.workers.process import child_environment
 
-    assert json.loads(child_environment(container.settings)["UAF_CHILD_ARCHIVE_ROOTS"]) == []
+    assert json.loads(child_environment(container.settings)["WORKTREE_CHILD_ARCHIVE_ROOTS"]) == []
     container.settings.activities.archive_roots = [tmp_path / "a", tmp_path / "b"]
-    roots = json.loads(child_environment(container.settings)["UAF_CHILD_ARCHIVE_ROOTS"])
+    roots = json.loads(child_environment(container.settings)["WORKTREE_CHILD_ARCHIVE_ROOTS"])
     assert roots == [str((tmp_path / "a").resolve()), str((tmp_path / "b").resolve())]
 
 
@@ -1464,7 +1471,7 @@ def test_the_alert_mailer_never_sends_credentials_without_starttls(
         NotificationSettings(
             smtp_host="smtp.local",
             smtp_to="ops@example.test",
-            smtp_user="uaf",
+            smtp_user="worktree",
             smtp_password_secret="smtp_password",
         ),
         store,

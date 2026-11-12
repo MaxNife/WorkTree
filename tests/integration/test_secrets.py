@@ -40,16 +40,19 @@ def test_local_store_resolve_missing_and_metadata(tmp_path: Path, fake_clock: Fa
     assert store.ensure("generated_key") == store.ensure("generated_key")
 
 
-def test_environment_is_only_read_through_the_uaf_secret_prefix(
+def test_environment_is_only_read_through_the_worktree_secret_prefix(
     tmp_path: Path, fake_clock: FakeClock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = LocalSecretStore(tmp_path / "s.json", fake_clock)
     monkeypatch.setenv("VAULT_TOKEN", "server-own-credential")
-    monkeypatch.setenv("UAF_SECRET_GL_DB_URL", "sqlite:///gl.db")
+    monkeypatch.setenv("WORKTREE_SECRET_GL_DB_URL", "sqlite:///gl.db")
     assert store.get("VAULT_TOKEN") is None, "arbitrary process env must not be resolvable"
     assert store.get("gl_db_url") == "sqlite:///gl.db"
     assert store.get("gl-db.url") == "sqlite:///gl.db"
     assert {info.name: info.source for info in store.list_metadata()}["gl_db_url"] == "env"
+    # The old UAF_SECRET_ prefix resolves for one release; nothing else in the environment does.
+    monkeypatch.setenv("UAF_SECRET_LEGACY_KEY", "legacy")
+    assert store.get("legacy_key") == "legacy"
 
 
 class _InvalidPath(Exception):

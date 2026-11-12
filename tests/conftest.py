@@ -59,10 +59,10 @@ class Api:
 def archive_roots_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Let ``unc_archive`` write anywhere under the test's temp folder when it runs in-process.
 
-    A worker child learns its archive roots from ``UAF_CHILD_ARCHIVE_ROOTS``; the default is
+    A worker child learns its archive roots from ``WORKTREE_CHILD_ARCHIVE_ROOTS``; the default is
     none, which refuses every destination (see ``test_security.py`` for those cases).
     """
-    monkeypatch.setenv("UAF_CHILD_ARCHIVE_ROOTS", json.dumps([str(tmp_path)]))
+    monkeypatch.setenv("WORKTREE_CHILD_ARCHIVE_ROOTS", json.dumps([str(tmp_path)]))
     return tmp_path
 
 
@@ -117,7 +117,7 @@ def fake_clock() -> FakeClock:
 def settings(tmp_path: Path) -> Settings:
     return load_settings(
         app={"environment": "test", "base_url": "http://testserver"},
-        database={"url": f"sqlite:///{(tmp_path / 'uaf.db').as_posix()}"},
+        database={"url": f"sqlite:///{(tmp_path / 'worktree.db').as_posix()}"},
         data={
             "root": tmp_path,
             "workspaces": tmp_path / "workspaces",

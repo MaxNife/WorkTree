@@ -156,7 +156,7 @@ def test_serve_refuses_to_start_without_an_admin(tmp_path, capsys, restore_loggi
     )
     args = argparse.Namespace(host="127.0.0.1", port=0, log_level="error")
     assert serve(args, settings) == 2
-    assert "uaf db upgrade" in capsys.readouterr().err, "an unmigrated database is refused"
+    assert "worktree db upgrade" in capsys.readouterr().err, "an unmigrated database is refused"
     upgrade_database(settings.database.url)
     assert serve(args, settings) == 2
     assert "no active admin" in capsys.readouterr().err

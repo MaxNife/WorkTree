@@ -97,7 +97,9 @@ class Container:
             get_logger(__name__).info("runs_recovered", steps=recovered)
         if start_background:
             self.workers.start()
-            self._thread = threading.Thread(target=self._loop, name="uaf-scheduler", daemon=True)
+            self._thread = threading.Thread(
+                target=self._loop, name="worktree-scheduler", daemon=True
+            )
             self._thread.start()
 
     def _loop(self) -> None:  # pragma: no cover - background loop

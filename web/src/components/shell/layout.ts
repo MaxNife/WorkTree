@@ -1,8 +1,9 @@
 // Shell layout state remembered per browser: sidebar collapse and which sidebar groups are open.
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { readStored } from '@/compat'
 
-const STORAGE_KEY = 'uaf.shell'
+const STORAGE_KEY = 'worktree.shell'
 
 interface Saved {
   collapsed: boolean
@@ -13,7 +14,7 @@ interface Saved {
 function load(): Saved {
   const fallback: Saved = { collapsed: false, expanded: [] }
   try {
-    const data = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? 'null') as Partial<Saved> | null
+    const data = JSON.parse(readStored(STORAGE_KEY, 'uaf.shell') ?? 'null') as Partial<Saved> | null
     if (!data) return fallback
     return {
       collapsed: data.collapsed === true,

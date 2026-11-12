@@ -1,4 +1,4 @@
-"""Secret policies (ADR 0001), shared by the Admin API and the ``uaf secrets`` command."""
+"""Secret policies (ADR 0001), shared by the Admin API and the ``worktree secrets`` command."""
 
 from __future__ import annotations
 

@@ -17,13 +17,13 @@ Needs [uv](https://docs.astral.sh/uv/) and, for the browser activities, Chromium
 ```bash
 uv sync
 uv run playwright install chromium
-uv run uaf db upgrade
-uv run uaf create-user --username admin --role admin --password 'choose-a-long-password'
-uv run uaf serve --host 127.0.0.1 --port 8000
+uv run worktree db upgrade
+uv run worktree create-user --username admin --role admin --password 'choose-a-long-password'
+uv run worktree serve --host 127.0.0.1 --port 8000
 ```
 
 Open <http://127.0.0.1:8000/>. API docs are at `/docs`. Settings are in `config.yaml`; any setting
-can be overridden with a `UAF_` environment variable (for example `UAF_DATABASE__URL`).
+can be overridden with a `WORKTREE_` environment variable (for example `WORKTREE_DATABASE__URL`).
 
 ## The database schema
 
@@ -32,9 +32,9 @@ Alembic migrations are the only way a database gets its tables. `serve`, `create
 
 | Command | What it does |
 |---|---|
-| `uv run uaf db upgrade` | Migrate to the latest revision. A database built by an older WorkTree without migration history is adopted only if it matches exactly; otherwise nothing is changed and the differences are listed |
-| `uv run uaf db current` | Show the current and latest revision |
-| `uv run uaf db check` | Exit non-zero unless the database is at the latest revision and matches the models |
+| `uv run worktree db upgrade` | Migrate to the latest revision. A database built by an older WorkTree without migration history is adopted only if it matches exactly; otherwise nothing is changed and the differences are listed |
+| `uv run worktree db current` | Show the current and latest revision |
+| `uv run worktree db check` | Exit non-zero unless the database is at the latest revision and matches the models |
 
 Back up the database file before upgrading.
 
@@ -42,17 +42,17 @@ Back up the database file before upgrading.
 
 Each secret says where it may be sent and in which environments (dev, test, prod). An empty
 policy refuses every use, so after the upgrade that adds policies every existing secret is
-refused until you set one; `uaf db upgrade` lists the secrets affected.
+refused until you set one; `worktree db upgrade` lists the secrets affected.
 
 ```bash
-uv run uaf secrets list
-uv run uaf secrets policy portal_password --env dev test --hosts portal.example.com
-uv run uaf secrets policy archive_password --env dev          # a local-only secret: no hosts
+uv run worktree secrets list
+uv run worktree secrets policy portal_password --env dev test --hosts portal.example.com
+uv run worktree secrets policy archive_password --env dev          # a local-only secret: no hosts
 ```
 
 A secret created through the Admin API starts as dev only, with no hosts. Activities also cannot
 reach loopback, link-local or cloud metadata addresses (`egress.denied_networks`). For local
-development only, `UAF_SECRETS__ENFORCE_POLICY=false` turns the host and environment checks
+development only, `WORKTREE_SECRETS__ENFORCE_POLICY=false` turns the host and environment checks
 off; a server with `app.environment: prod` refuses to start that way.
 
 ## Developer commands

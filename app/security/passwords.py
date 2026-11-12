@@ -21,7 +21,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-_DUMMY_HASH = _hasher.hash("uaf-timing-equaliser-not-a-password")
+_DUMMY_HASH = _hasher.hash("worktree-timing-equaliser-not-a-password")
 
 
 def burn_verify(password: str) -> None:

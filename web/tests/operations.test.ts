@@ -197,7 +197,7 @@ const socket = (): FakeSocket => FakeSocket.instances.at(-1)!
 beforeEach(() => {
   window.localStorage.clear()
   document.body.innerHTML = ''
-  document.cookie = 'uaf_csrf=tok-1'
+  document.cookie = 'worktree_csrf=tok-1'
   FakeSocket.instances = []
   vi.stubGlobal('WebSocket', FakeSocket)
 })

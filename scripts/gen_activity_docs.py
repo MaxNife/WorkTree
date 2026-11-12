@@ -35,7 +35,7 @@ def render() -> str:
         "",
         "Generated from the activity classes by `scripts/gen_activity_docs.py`; do not edit by",
         "hand. Drop-in activities from the configured extra folder appear in the Studio palette",
-        "and `uaf list-activities` but not here. How to write one: `docs/reference/WRITING_AN_ACTIVITY.md`.",
+        "and `worktree list-activities` but not here. How to write one: `docs/reference/WRITING_AN_ACTIVITY.md`.",
         "",
         "| Activity | Category | Version | Description |",
         "|---|---|---|---|",

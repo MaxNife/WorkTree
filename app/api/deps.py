@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app import compat
 from app.container import Container
 from app.domain.enums import Role
 from app.errors import Unauthorized
@@ -35,7 +36,7 @@ def get_current_user(
     session: Annotated[Session, Depends(get_session)],
 ) -> AuthUser:
     container: Container = request.app.state.container
-    cookie = request.cookies.get(container.settings.security.cookie_name)
+    cookie = compat.session_cookie(request.cookies, container.settings.security.cookie_name)
     user = container.auth.resolve_session(
         session, cookie_value=cookie, source_ip=client_ip(request)
     )

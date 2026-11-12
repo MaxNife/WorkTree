@@ -36,7 +36,7 @@ class ActivityRegistry:
             for path in sorted(self.extra_folder.glob("*.py")):
                 if path.name.startswith("_"):
                     continue
-                module_name = f"uaf_extra_{path.stem}"
+                module_name = f"worktree_extra_{path.stem}"
                 self._load_module(module_name, source=str(path), import_path=str(path))
         return self
 

@@ -83,7 +83,7 @@ def configure_logging(
     root.setLevel(settings.logging.level.upper())
 
     file_handler = logging.handlers.RotatingFileHandler(
-        log_dir / "uaf.log",
+        log_dir / "worktree.log",
         maxBytes=settings.logging.max_bytes,
         backupCount=settings.logging.backup_count,
         encoding="utf-8",
@@ -105,7 +105,7 @@ def configure_logging(
     _configured = True
 
 
-def get_logger(name: str = "uaf") -> structlog.stdlib.BoundLogger:
+def get_logger(name: str = "worktree") -> structlog.stdlib.BoundLogger:
     return structlog.stdlib.get_logger(name)
 
 

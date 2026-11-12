@@ -200,10 +200,10 @@ def start_sftp_server(root: Path, *, host: str = "127.0.0.1") -> FakeSftpServer:
             except OSError:
                 break
             threading.Thread(
-                target=handle, args=(client,), name="uaf-sftp-client", daemon=True
+                target=handle, args=(client,), name="worktree-sftp-client", daemon=True
             ).start()
 
-    thread = threading.Thread(target=serve, name="uaf-sftp", daemon=True)
+    thread = threading.Thread(target=serve, name="worktree-sftp", daemon=True)
     thread.start()
     return FakeSftpServer(host, port, root, listener, stop, thread, transports)
 

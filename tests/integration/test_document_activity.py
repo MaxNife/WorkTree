@@ -129,7 +129,7 @@ def test_mail_merge_from_inline_rows_and_excel(ctx) -> None:
     assert rows.outcome == Outcome.DONE, rows.message
     text = text_of(ctx, "rows.docx")
     assert "Dear Lin," in text and "Dear Case-insensitive," in text and "Amount: 2" in text
-    assert not any(p.name.startswith(".uaf") for p in ctx.workspace.iterdir())
+    assert not any(p.name.startswith(".worktree") for p in ctx.workspace.iterdir())
 
     book = openpyxl.Workbook()
     sheet = book.active

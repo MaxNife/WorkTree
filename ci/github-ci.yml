@@ -68,10 +68,10 @@ jobs:
       # Alembic is the only schema path: a fresh database must migrate to head with no drift.
       - name: Migrations build the schema and match the models
         env:
-          UAF_DATABASE__URL: sqlite:///${{ runner.temp }}/ci-schema.db
+          WORKTREE_DATABASE__URL: sqlite:///${{ runner.temp }}/ci-schema.db
         run: |
-          uv run uaf db upgrade
-          uv run uaf db check
+          uv run worktree db upgrade
+          uv run worktree db check
 
       - name: Tests with coverage
         run: uv run pytest --cov --cov-report=term

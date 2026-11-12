@@ -27,12 +27,12 @@ def configure_telemetry(settings: Settings) -> bool:
         from opentelemetry.sdk.trace import TracerProvider
     except ImportError:
         get_logger(__name__).warning(
-            "otel_unavailable", hint="install the optional extra: pip install 'uaf[otel]'"
+            "otel_unavailable", hint="install the optional extra: pip install 'worktree[otel]'"
         )
         return False
     if not isinstance(trace.get_tracer_provider(), TracerProvider):
         trace.set_tracer_provider(TracerProvider())
-    _tracer = trace.get_tracer("uaf")
+    _tracer = trace.get_tracer("worktree")
     return True
 
 

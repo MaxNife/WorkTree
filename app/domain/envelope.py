@@ -79,8 +79,8 @@ def envelope_schema() -> dict[str, Any]:
         branches.append(schema)
     document: dict[str, Any] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": f"https://uaf.local/schemas/envelope-v{ENVELOPE_SCHEMA_VERSION}.json",
-        "title": f"UAF job/result envelope v{ENVELOPE_SCHEMA_VERSION}",
+        "$id": f"https://worktree.local/schemas/envelope-v{ENVELOPE_SCHEMA_VERSION}.json",
+        "title": f"WorkTree job/result envelope v{ENVELOPE_SCHEMA_VERSION}",
         "oneOf": branches,
     }
     if defs:

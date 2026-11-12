@@ -610,8 +610,8 @@ def test_a6_planted_secrets_never_leave_the_secret_store(
 
     # The checks above did look at the places the secrets passed through.
     assert scanned >= 9
-    assert not list(Path(settings.data.root).rglob(".uaf-script.py")), "inline script left"
-    assert (file_logs / "uaf.log").stat().st_size > 0
+    assert not list(Path(settings.data.root).rglob(".worktree-script.py")), "inline script left"
+    assert (file_logs / "worktree.log").stat().st_size > 0
     assert database.is_file()
     assert len(recorder.bodies) > 20
     # The only place the values live is the secret store itself.
@@ -698,7 +698,7 @@ def write_cli_config(settings: Settings, path: Path) -> Path:
 
 
 def cli_verify_audit(config: Path) -> subprocess.CompletedProcess[str]:
-    env = {key: value for key, value in os.environ.items() if not key.startswith("UAF_")}
+    env = {key: value for key, value in os.environ.items() if not key.startswith("WORKTREE_")}
     return subprocess.run(
         [sys.executable, "-m", "app", "--config", str(config), "verify-audit"],
         cwd=REPO,

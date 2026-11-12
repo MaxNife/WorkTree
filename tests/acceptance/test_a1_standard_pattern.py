@@ -280,14 +280,14 @@ def test_the_cli_validates_the_reference_workflow(tmp_path: Path) -> None:
     env = {
         **os.environ,
         "PYTHONPATH": str(REPO),
-        "UAF_DATABASE__URL": f"sqlite:///{(tmp_path / 'cli.db').as_posix()}",
-        "UAF_DATA__ROOT": str(tmp_path),
-        "UAF_DATA__WORKSPACES": str(tmp_path / "workspaces"),
-        "UAF_DATA__ARTIFACTS": str(tmp_path / "artifacts"),
-        "UAF_DATA__PLAYWRIGHT_STATE": str(tmp_path / "playwright"),
-        "UAF_LOGGING__DIRECTORY": str(tmp_path / "logs"),
-        "UAF_SECRETS__FILE": str(tmp_path / "secrets.json"),
-        "UAF_ACTIVITIES__EXTRA_FOLDER": str(tmp_path / "extra"),
+        "WORKTREE_DATABASE__URL": f"sqlite:///{(tmp_path / 'cli.db').as_posix()}",
+        "WORKTREE_DATA__ROOT": str(tmp_path),
+        "WORKTREE_DATA__WORKSPACES": str(tmp_path / "workspaces"),
+        "WORKTREE_DATA__ARTIFACTS": str(tmp_path / "artifacts"),
+        "WORKTREE_DATA__PLAYWRIGHT_STATE": str(tmp_path / "playwright"),
+        "WORKTREE_LOGGING__DIRECTORY": str(tmp_path / "logs"),
+        "WORKTREE_SECRETS__FILE": str(tmp_path / "secrets.json"),
+        "WORKTREE_ACTIVITIES__EXTRA_FOLDER": str(tmp_path / "extra"),
     }
     result = subprocess.run(
         [sys.executable, "-m", "app", "validate", str(EXAMPLE)],

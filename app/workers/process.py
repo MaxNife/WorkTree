@@ -13,6 +13,7 @@ from pathlib import Path
 import psutil
 from sqlalchemy.engine import make_url
 
+from app import compat
 from app.adapters.net import EGRESS_ENV
 from app.adapters.net import env_value as egress_env_value
 from app.config import Settings
@@ -33,17 +34,19 @@ class ProcessOutcome:
     timed_out: bool = False
 
 
-# The only ``UAF_*`` variables a child inherits from the server's own environment. None: the
-# child does not load config.yaml, and every setting it needs arrives as a ``UAF_CHILD_*``
-# variable chosen below, so ``UAF_DATABASE__URL``, ``UAF_SECRETS__VAULT_URL`` and the rest of
+# The only platform variables (``WORKTREE_*``, or the old ``UAF_*``) a child inherits from the
+# server's own environment. None: the child does not load config.yaml, and every setting it
+# needs arrives as a ``WORKTREE_CHILD_*`` variable chosen below, so ``WORKTREE_DATABASE__URL``,
+# ``WORKTREE_SECRETS__VAULT_URL`` and the rest of
 # the control-plane configuration never reach activity code (SEC-4).
-INHERITED_UAF_VARIABLES: frozenset[str] = frozenset()
+INHERITED_PLATFORM_VARIABLES: frozenset[str] = frozenset()
 
 
 def _base_env(blocked: tuple[str, ...] = ()) -> dict[str, str]:
     """The child's environment: the parent's, minus the platform's own configuration.
 
-    Every ``UAF_*`` variable is dropped unless it is on ``INHERITED_UAF_VARIABLES``. The
+    Every ``WORKTREE_*`` and ``UAF_*`` variable is dropped unless it is on
+    ``INHERITED_PLATFORM_VARIABLES``. The
     Vault token (``blocked``) belongs to the control plane too; activity code, including
     drop-ins and admin scripts, must only see the secrets resolved for its job, which arrive
     on stdin. Other variables (``PATH``, proxy and certificate settings, the OS's own) are
@@ -54,23 +57,23 @@ def _base_env(blocked: tuple[str, ...] = ()) -> dict[str, str]:
         key: value
         for key, value in os.environ.items()
         if key.upper() not in denied
-        and (not key.upper().startswith("UAF_") or key.upper() in INHERITED_UAF_VARIABLES)
+        and (not compat.is_platform_variable(key) or key.upper() in INHERITED_PLATFORM_VARIABLES)
     }
     env["PYTHONPATH"] = str(ROOT) + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
     env["PYTHONUNBUFFERED"] = "1"
-    env["UAF_CHILD_RUN_ID"] = "1"
+    env["WORKTREE_CHILD_RUN_ID"] = "1"
     return env
 
 
 def child_environment(settings: Settings) -> dict[str, str]:
-    """Settings an activity child needs, passed as ``UAF_CHILD_*`` variables (the child does
+    """Settings an activity child needs, passed as ``WORKTREE_CHILD_*`` variables (the child does
     not load config.yaml)."""
     env = {
-        "UAF_CHILD_PLAYWRIGHT_STATE": str(Path(settings.data.playwright_state).resolve()),
+        "WORKTREE_CHILD_PLAYWRIGHT_STATE": str(Path(settings.data.playwright_state).resolve()),
         # unc_archive writes only inside these folders (SEC-3); an empty list refuses all.
-        "UAF_CHILD_ARCHIVE_ROOTS": json.dumps(
+        "WORKTREE_CHILD_ARCHIVE_ROOTS": json.dumps(
             [str(Path(root).resolve()) for root in settings.activities.archive_roots]
         ),
         # Where the child may connect (ADR 0001 rule 4).
@@ -81,7 +84,7 @@ def child_environment(settings: Settings) -> dict[str, str]:
     # SQL activities refuse to open the control-plane database file (SEC-1).
     control_plane = _sqlite_file(settings.database.url)
     if control_plane is not None:
-        env["UAF_CHILD_PROTECTED_DB"] = str(control_plane.resolve())
+        env["WORKTREE_CHILD_PROTECTED_DB"] = str(control_plane.resolve())
     return env
 
 
@@ -126,14 +129,18 @@ def run_activity_process(
     masker = get_masker()
     env = _base_env(blocked_env)
     env.update(
-        {key: value for key, value in (child_env or {}).items() if key.startswith("UAF_CHILD_")}
+        {
+            key: value
+            for key, value in (child_env or {}).items()
+            if key.startswith("WORKTREE_CHILD_")
+        }
     )
-    env["UAF_CHILD_AI_ENABLED"] = "1" if ai_enabled else "0"
-    env["UAF_CHILD_AI_ENDPOINT"] = ai_endpoint
+    env["WORKTREE_CHILD_AI_ENABLED"] = "1" if ai_enabled else "0"
+    env["WORKTREE_CHILD_AI_ENDPOINT"] = ai_endpoint
     if extra_folder:
         # Resolved here: the child runs in the run workspace, so a relative path would point
         # somewhere else there.
-        env["UAF_CHILD_ACTIVITIES_EXTRA"] = str(Path(extra_folder).resolve())
+        env["WORKTREE_CHILD_ACTIVITIES_EXTRA"] = str(Path(extra_folder).resolve())
     timeout = timeout_seconds or envelope.timeout_seconds
     creationflags = 0
     if os.name == "nt":  # pragma: no cover - platform branch

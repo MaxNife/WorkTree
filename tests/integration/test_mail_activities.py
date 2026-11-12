@@ -41,7 +41,7 @@ def test_smtp_sends_body_html_and_attachment(smtp_sink, tmp_path: Path) -> None:
             "attachments": ["report.csv"],
             "smtp_host": "127.0.0.1",
             "smtp_port": smtp_sink.port,
-            "smtp_from": "uaf@example.test",
+            "smtp_from": "worktree@example.test",
         },
     )
     assert result.outcome == Outcome.DONE, result.message
@@ -68,7 +68,7 @@ def test_smtp_refuses_credentials_when_starttls_is_not_offered(smtp_sink, tmp_pa
             "body": "secret",
             "smtp_host": "127.0.0.1",
             "smtp_port": smtp_sink.port,
-            "smtp_user": "uaf",
+            "smtp_user": "worktree",
             "smtp_password": "plaintext-password-123",
         },
     )
@@ -105,7 +105,7 @@ def test_graph_sendmail_uses_client_secret_and_attachments(fake_graph, tmp_path:
             "html": True,
             "attachments": ["report.csv"],
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "fixture-secret",
             "sender": "ops@example",
             **_graph_base(fake_graph),
@@ -134,7 +134,7 @@ def test_graph_sendmail_failures_are_failed_outcomes(fake_graph, tmp_path: Path)
             "to": ["ap@example.test"],
             "subject": "x",
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "wrong",
             **base,
         },
@@ -149,7 +149,7 @@ def test_graph_sendmail_failures_are_failed_outcomes(fake_graph, tmp_path: Path)
             "to": ["ap@example.test"],
             "subject": "x",
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "fixture-secret",
             "sender": "ops@example",
             **base,
@@ -167,7 +167,7 @@ def test_graph_read_mail_returns_the_newest_code(fake_graph, tmp_path: Path) -> 
         ctx,
         {
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "fixture-secret",
             "mailbox": "ops@example",
             "sender": "billing@acme.example",
@@ -192,7 +192,7 @@ def test_graph_read_mail_filters_by_sender_and_handles_no_code(fake_graph, tmp_p
         ctx,
         {
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "fixture-secret",
             "mailbox": "ops@example",
             "sender": "billing@old.example",
@@ -213,7 +213,7 @@ def test_graph_read_mail_rejects_bad_timestamps_and_tokens(fake_graph, tmp_path:
         ctx,
         {
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "fixture-secret",
             "mailbox": "ops@example",
             "since": "last tuesday",
@@ -227,7 +227,7 @@ def test_graph_read_mail_rejects_bad_timestamps_and_tokens(fake_graph, tmp_path:
         ctx,
         {
             "tenant_id": "contoso",
-            "client_id": "uaf-client",
+            "client_id": "worktree-client",
             "client_secret": "wrong",
             "mailbox": "ops@example",
             **base,

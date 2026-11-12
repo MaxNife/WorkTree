@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from app import compat
 from app.adapters.db.schema import (
     UPGRADE_COMMAND,
     AdoptionRefused,
@@ -51,7 +52,7 @@ def _container(settings: Settings) -> Any:
 
 
 def create_user(args: argparse.Namespace, settings: Settings) -> int:
-    password = args.password or os.environ.get("UAF_BOOTSTRAP_PASSWORD")
+    password = args.password or compat.env("BOOTSTRAP_PASSWORD")
     if not password:
         password = getpass.getpass("Password: ")
         confirm = getpass.getpass("Confirm: ")
@@ -186,7 +187,7 @@ def serve(args: argparse.Namespace, settings: Settings) -> int:
         container.shutdown()
         print(
             "refusing to start: no active admin user. "
-            "Run 'uaf create-user --username admin --role admin' first.",
+            "Run 'worktree create-user --username admin --role admin' first.",
             file=sys.stderr,
         )
         return 2
@@ -266,7 +267,7 @@ def _unpoliced_notice(settings: Settings) -> None:
         print(
             f"{len(refused)} secret(s) have no policy and every use will be refused: "
             + ", ".join(refused)
-            + ". Set one with: uaf secrets policy NAME --env dev --hosts HOST ..."
+            + ". Set one with: worktree secrets policy NAME --env dev --hosts HOST ..."
         )
 
 
@@ -311,8 +312,8 @@ def db_check(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="uaf", description="WorkTree")
-    parser.add_argument("--config", default=os.environ.get("UAF_CONFIG", "config.yaml"))
+    parser = argparse.ArgumentParser(prog="worktree", description="WorkTree")
+    parser.add_argument("--config", default=compat.env("CONFIG", "config.yaml"))
     sub = parser.add_subparsers(dest="command", required=True)
 
     serve_parser = sub.add_parser("serve", help="start the control plane")
@@ -375,7 +376,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    os.environ["UAF_CONFIG"] = args.config
+    os.environ[compat.PREFIX + "CONFIG"] = args.config
     settings = load_settings()
     result: int = args.func(args, settings)
     return result

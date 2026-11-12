@@ -24,9 +24,9 @@ def workflow_schema() -> dict[str, Any]:
     schema = WorkflowDefinition.model_json_schema()
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": f"https://uaf.local/schemas/workflow-v{SCHEMA_VERSION}.json",
+        "$id": f"https://worktree.local/schemas/workflow-v{SCHEMA_VERSION}.json",
         "description": (
-            "UAF workflow definition. References inside step inputs use "
+            "WorkTree workflow definition. References inside step inputs use "
             "{{ steps.<id>.<path> }}, {{ inputs.<path> }}, {{ run.<field> }} and "
             "{{ secret:<name> }}; the server-side validator also checks activities, routes, "
             "reachability and cycles (app/domain/workflow.py)."

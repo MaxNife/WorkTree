@@ -1,6 +1,7 @@
 // Query keys and calls for the Operations screens. Keys are stable: a time range stays a token here and
 // becomes a timestamp only inside the request, so it never changes the key.
 import { ApiError, apiGet, apiSend, buildUrl } from '@/api/client'
+import { csrfCookie } from '@/compat'
 import { sinceFor, type RunFilters } from './filters'
 import {
   readDashboard,
@@ -90,11 +91,8 @@ export type StartRunResult =
   /** The duplicate guard refused: this run with the same key is still active. */
   | { kind: 'duplicate'; activeRunId: string }
 
-const CSRF_COOKIE = 'uaf_csrf'
-
 function csrfToken(): string | null {
-  const match = document.cookie.split('; ').find((part) => part.startsWith(`${CSRF_COOKIE}=`))
-  return match ? decodeURIComponent(match.slice(CSRF_COOKIE.length + 1)) : null
+  return csrfCookie()
 }
 
 interface ErrorBody {

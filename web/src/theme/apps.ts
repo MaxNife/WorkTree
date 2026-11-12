@@ -43,7 +43,7 @@ export type AppKey = keyof typeof APPS
 
 const app = (key: AppKey): NodeLook => ({ kind: 'app', ...APPS[key] })
 
-/** Today's activity names (`uaf list-activities`) and how each one is drawn. */
+/** Today's activity names (`worktree list-activities`) and how each one is drawn. */
 export const ACTIVITY_LOOKS: Record<string, NodeLook> = {
   excel: app('spreadsheet'),
   csv: app('spreadsheet'),

@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisc
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app import compat
 from app.adapters.db.models import (
     Environment,
     Run,
@@ -563,7 +564,7 @@ async def events(websocket: WebSocket) -> None:
     database: Database = container.database
 
     def current_user() -> Any:
-        cookie = websocket.cookies.get(container.settings.security.cookie_name)
+        cookie = compat.session_cookie(websocket.cookies, container.settings.security.cookie_name)
         with database.session() as session:
             return container.auth.resolve_session(
                 session,
@@ -627,19 +628,19 @@ def metrics(
         if finished is not None and started is not None
     ]
     lines = [
-        "# HELP uaf_runs_total Runs by status.",
-        "# TYPE uaf_runs_total gauge",
+        "# HELP worktree_runs_total Runs by status.",
+        "# TYPE worktree_runs_total gauge",
     ]
     for status, count in sorted(counts.items()):
-        lines.append(f'uaf_runs_total{{status="{status}"}} {count}')
+        lines.append(f'worktree_runs_total{{status="{status}"}} {count}')
     lines.extend(
         [
-            "# HELP uaf_run_duration_seconds_total Sum of observed run durations.",
-            "# TYPE uaf_run_duration_seconds_total counter",
-            f"uaf_run_duration_seconds_total {sum(totals):.3f}",
-            "# HELP uaf_bus_pending Jobs waiting on the bus.",
-            "# TYPE uaf_bus_pending gauge",
-            f"uaf_bus_pending {_pending(session)}",
+            "# HELP worktree_run_duration_seconds_total Sum of observed run durations.",
+            "# TYPE worktree_run_duration_seconds_total counter",
+            f"worktree_run_duration_seconds_total {sum(totals):.3f}",
+            "# HELP worktree_bus_pending Jobs waiting on the bus.",
+            "# TYPE worktree_bus_pending gauge",
+            f"worktree_bus_pending {_pending(session)}",
         ]
     )
     return PlainTextResponse("\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
