@@ -35,6 +35,9 @@ const mark = computed(() => MARKS[style.value.kind])
 .status {
   display: inline-flex;
   align-items: center;
+  /* A pill keeps its own width when it is a grid or flex item. */
+  justify-self: start;
+  align-self: center;
   gap: var(--space-4);
   min-height: 20px;
   padding: 0 var(--space-8) 0 var(--space-4);

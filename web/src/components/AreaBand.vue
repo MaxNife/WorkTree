@@ -4,13 +4,17 @@
 // button in the `action` slot) and two drawn flowers. Tall on an area's landing page, short elsewhere.
 // When the page shows prod, a Night soil "prod" pill sits by the title and a 3 px line runs along the
 // bottom; other environments show a quiet outlined pill.
+// Given a `workflowId` instead of a colour, the band takes that workflow's colour and shows its flower
+// before the title (run detail, docs/04 8.2). The `badges` slot adds pills beside the title.
 import { computed } from 'vue'
+import { flowerFor } from '@/plants'
 import { colourVars, neighbour, type AreaColour } from '@/theme/areas'
 import WorkflowFlower from './WorkflowFlower.vue'
 
 const props = withDefaults(
   defineProps<{
-    colour: AreaColour
+    colour?: AreaColour
+    workflowId?: string
     title: string
     summary?: string
     size?: 'tall' | 'short'
@@ -19,22 +23,25 @@ const props = withDefaults(
   { size: 'short' },
 )
 
+const tint = computed<AreaColour>(() => props.colour ?? (props.workflowId ? flowerFor(props.workflowId).flower : 'night-soil'))
 const vars = computed(() => {
-  const { soft, deep } = colourVars(props.colour)
+  const { soft, deep } = colourVars(tint.value)
   return { '--band-fill': soft, '--band-deep': deep }
 })
-const first = computed(() => (props.colour === 'night-soil' ? 'iris' : props.colour))
-const second = computed(() => neighbour(props.colour))
+const first = computed(() => (tint.value === 'night-soil' ? 'iris' : tint.value))
+const second = computed(() => neighbour(tint.value))
 const isProd = computed(() => props.environment?.toLowerCase() === 'prod')
 const big = computed(() => (props.size === 'tall' ? 52 : 36))
 </script>
 
 <template>
-  <header class="band" :class="[`band--${size}`, { 'band--prod': isProd }]" :style="vars" :data-colour="colour">
+  <header class="band" :class="[`band--${size}`, { 'band--prod': isProd }]" :style="vars" :data-colour="tint">
     <div class="band__text">
       <div class="band__title-row">
+        <WorkflowFlower v-if="workflowId" :id="workflowId" :size="size === 'tall' ? 32 : 26" />
         <h1 class="band__title">{{ title }}</h1>
         <span v-if="environment" class="band__env" :class="{ 'band__env--prod': isProd }">{{ environment }}</span>
+        <slot name="badges" />
       </div>
       <p v-if="summary || $slots.summary" class="band__summary">
         <slot name="summary">{{ summary }}</slot>
@@ -45,7 +52,8 @@ const big = computed(() => (props.size === 'tall' ? 52 : 36))
     </div>
     <div class="band__garden" aria-hidden="true">
       <WorkflowFlower class="band__flower band__flower--small" :flower="second" :petals="5" :size="Math.round(big * 0.6)" />
-      <WorkflowFlower class="band__flower" :flower="first" :petals="7" :size="big" />
+      <WorkflowFlower v-if="workflowId" :id="workflowId" class="band__flower" :size="big" />
+      <WorkflowFlower v-else class="band__flower" :flower="first" :petals="7" :size="big" />
     </div>
   </header>
 </template>

@@ -353,7 +353,11 @@ describe('run detail', () => {
   it('shows the workflow name, status and counts on the tabs', async () => {
     await mountApp('/operations/runs/r1', { roles: ['viewer'], run: failed })
     expect(wrapper!.get('h1').text()).toBe('Reconcile')
-    expect(wrapper!.get('.page-header__actions [data-status]').attributes('data-status')).toBe('failed')
+    // The header is a band in the workflow's own colour, with its flower and the status pill by the title.
+    const band = wrapper!.get('.band')
+    expect(band.get('.band__title-row [data-status]').attributes('data-status')).toBe('failed')
+    expect(band.get('.band__title-row svg.workflow-flower').attributes('data-flower')).toBe(band.attributes('data-colour'))
+    expect(wrapper!.findAll('h1')).toHaveLength(1)
     expect(wrapper!.findAll('[role="tab"]').map((tab) => tab.text().replace(/\s+/g, ' '))).toEqual(['Steps 2', 'Artifacts 1', 'Incidents 1'])
   })
 
@@ -388,7 +392,9 @@ describe('run detail', () => {
     wrapper!.unmount()
     wrapper = null
     await mountApp('/operations/runs/r1', { roles: ['viewer'], run: runRow({ status: 'running', finished_at: null }) })
-    expect(wrapper!.get('.page-header__actions').text()).not.toContain('Cancel')
+    const band = wrapper!.get('.band')
+    expect(band.text()).toContain('Reconcile')
+    expect(band.findAll('button').map((button) => button.text())).not.toContain('Cancel')
   })
 
   it('answers a 403 politely', async () => {

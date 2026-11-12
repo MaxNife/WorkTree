@@ -12,6 +12,7 @@ import AppPage from '@/components/shell/AppPage.vue'
 import MessageBar from '@/components/shell/MessageBar.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import UButton from '@/components/UButton.vue'
+import WorkflowFlower from '@/components/WorkflowFlower.vue'
 import { formatCount } from '@/format'
 import { useSession } from '@/stores/session'
 import { fetchDashboard, fetchFailedRuns, operationsKeys } from './api'
@@ -81,9 +82,9 @@ watch(
 </script>
 
 <template>
-  <AppPage title="Dashboard" subtitle="What is running, what is waiting and what needs you.">
+  <AppPage title="Dashboard" subtitle="What is running, what is waiting and what needs you." band="hibiscus" band-size="tall">
     <template v-if="canRun" #actions>
-      <UButton appearance="primary" icon="play" @click="runNowOpen = true">Run now</UButton>
+      <UButton appearance="strong" icon="play" @click="runNowOpen = true">Run now</UButton>
     </template>
     <template v-if="live.paused.value" #messages>
       <MessageBar>Live updates paused. This page keeps refreshing every few seconds.</MessageBar>
@@ -122,7 +123,7 @@ watch(
               <li v-for="run in failedRuns.data.value" :key="run.id" class="attention__item">
                 <StatusBadge :status="run.status" />
                 <RouterLink class="attention__name" :to="{ name: 'operations.run', params: { runId: run.id } }">
-                  {{ run.workflowName }}
+                  <WorkflowFlower :id="run.workflowId" :size="18" />{{ run.workflowName }}
                 </RouterLink>
                 <span class="attention__error" :title="run.error">{{ run.error }}</span>
                 <RelativeTime class="quiet" :value="run.finishedAt ?? run.createdAt" />
@@ -152,6 +153,9 @@ watch(
             @row-open="openRun"
           >
             <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
+            <template #cell-workflowName="{ row }">
+              <span class="workflow-cell"><WorkflowFlower :id="row.workflowId" :size="18" />{{ row.workflowName }}</span>
+            </template>
             <template #cell-trigger="{ row }">{{ titleCase(row.trigger) }}</template>
             <template #cell-createdAt="{ row }"><RelativeTime :value="row.createdAt" /></template>
           </DataTable>
@@ -232,7 +236,15 @@ watch(
   border-bottom: var(--stroke-1) solid var(--wt-line);
 }
 .attention__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
   overflow-wrap: anywhere;
+}
+.workflow-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
 }
 .attention__error {
   overflow: hidden;

@@ -154,11 +154,17 @@ watch(runId, () => {
 </script>
 
 <template>
-  <AppPage :title="run?.workflowName || 'Run'" :subtitle="run ? run.id : undefined">
-    <template v-if="run" #actions>
-      <StatusBadge class="run-status" :status="run.status" />
+  <AppPage
+    :title="run?.workflowName || 'Run'"
+    :subtitle="run ? run.id : undefined"
+    :workflow-id="run?.workflowId || undefined"
+    :band="run?.workflowId ? undefined : 'hibiscus'"
+    :environment="run?.environment || undefined"
+  >
+    <template v-if="run" #badges><StatusBadge class="run-status" :status="run.status" /></template>
+    <template v-if="run && (canCancel || canRetry)" #actions>
       <UButton v-if="canCancel" icon="stop" @click="confirmCancel = true">Cancel</UButton>
-      <UButton v-if="canRetry" appearance="primary" icon="retry" :loading="retry.isPending.value" @click="retry.mutate()">
+      <UButton v-if="canRetry" appearance="strong" icon="retry" :loading="retry.isPending.value" @click="retry.mutate()">
         Retry from failed step
       </UButton>
     </template>
@@ -267,8 +273,5 @@ watch(runId, () => {
 }
 .detail__main :deep(td) {
   overflow-wrap: anywhere;
-}
-.run-status {
-  margin-inline-end: var(--space-8);
 }
 </style>

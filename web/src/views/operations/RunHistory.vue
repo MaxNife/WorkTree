@@ -10,6 +10,7 @@ import RelativeTime from '@/components/RelativeTime.vue'
 import AppPage from '@/components/shell/AppPage.vue'
 import MessageBar from '@/components/shell/MessageBar.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import WorkflowFlower from '@/components/WorkflowFlower.vue'
 import UPagination from '@/components/UPagination.vue'
 import USelect from '@/components/USelect.vue'
 import { formatDuration, statusStyle } from '@/status'
@@ -90,7 +91,7 @@ const openRun = (row: RunSummary) => router.push({ name: 'operations.run', param
 </script>
 
 <template>
-  <AppPage title="Runs" subtitle="Every run of every workflow.">
+  <AppPage title="Runs" subtitle="Every run of every workflow." band="hibiscus">
     <template v-if="live.paused.value" #messages>
       <MessageBar>Live updates paused. This page keeps refreshing every few seconds.</MessageBar>
     </template>
@@ -148,8 +149,10 @@ const openRun = (row: RunSummary) => router.push({ name: 'operations.run', param
           @row-open="openRun"
         >
           <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
-          <template #cell-workflow_name="{ row }">{{ row.workflowName }}</template>
-          <template #cell-trigger="{ row }">{{ titleCase(row.trigger) }}</template>
+          <template #cell-workflow_name="{ row }">
+            <span class="workflow-cell"><WorkflowFlower :id="row.workflowId" :size="18" />{{ row.workflowName }}</span>
+          </template>
+          <template #cell-trigger="{ row }"><span class="nowrap">{{ titleCase(row.trigger) }}</span></template>
           <template #cell-created_at="{ row }">
             <RelativeTime v-if="row.startedAt" :value="row.startedAt" />
             <span v-else class="quiet">Not started</span>
@@ -179,5 +182,14 @@ const openRun = (row: RunSummary) => router.push({ name: 'operations.run', param
 }
 .quiet {
   color: var(--wt-muted);
+}
+/* Cells may break anywhere so long ids never widen the table; one-word values must not. */
+.nowrap {
+  white-space: nowrap;
+}
+.workflow-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
 }
 </style>

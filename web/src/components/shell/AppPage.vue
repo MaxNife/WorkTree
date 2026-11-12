@@ -1,17 +1,42 @@
 <script setup lang="ts">
 // The frame of every screen: the page header, an optional command bar and the content. Breadcrumbs
 // are drawn by the shell from route meta, so pages do not repeat them.
-//   #actions   primary actions on the right of the title
-//   #commands  the page command bar (Azure style) under the title: UButtons, filters, view switches
+// With `band` (an area colour) or `workflowId`, the header is the area band (docs/04 5) instead of
+// the plain header; the title, subtitle and actions move into it, so the page still has one h1.
+//   #actions   primary actions on the right of the title (on a band: one `strong` button at most)
+//   #badges    pills beside the title (band only), for example a run's status
+//   #commands  the page command bar under the title: UButtons, filters, view switches
 //   #messages  MessageBars shown above the content
+import AreaBand from '@/components/AreaBand.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import type { AreaColour } from '@/theme/areas'
 
-defineProps<{ title: string; subtitle?: string; commandsLabel?: string }>()
+defineProps<{
+  title: string
+  subtitle?: string
+  commandsLabel?: string
+  band?: AreaColour
+  bandSize?: 'tall' | 'short'
+  workflowId?: string
+  environment?: string
+}>()
 </script>
 
 <template>
   <div class="app-page">
-    <PageHeader :title="title" :subtitle="subtitle">
+    <AreaBand
+      v-if="band || workflowId"
+      :colour="band"
+      :workflow-id="workflowId"
+      :title="title"
+      :summary="subtitle"
+      :size="bandSize"
+      :environment="environment"
+    >
+      <template v-if="$slots.badges" #badges><slot name="badges" /></template>
+      <template v-if="$slots.actions" #action><slot name="actions" /></template>
+    </AreaBand>
+    <PageHeader v-else :title="title" :subtitle="subtitle">
       <template v-if="$slots.actions" #actions><slot name="actions" /></template>
     </PageHeader>
     <div v-if="$slots.commands" class="app-page__commands" role="group" :aria-label="commandsLabel ?? 'Page commands'">
@@ -21,7 +46,6 @@ defineProps<{ title: string; subtitle?: string; commandsLabel?: string }>()
     <div class="app-page__body"><slot /></div>
   </div>
 </template>
-
 <style scoped>
 .app-page {
   display: grid;

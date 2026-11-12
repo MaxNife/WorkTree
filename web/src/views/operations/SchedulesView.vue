@@ -6,6 +6,7 @@ import { computed } from 'vue'
 import DataTable, { type DataTableColumn } from '@/components/DataTable.vue'
 import LoadState from '@/components/LoadState.vue'
 import RelativeTime from '@/components/RelativeTime.vue'
+import WorkflowFlower from '@/components/WorkflowFlower.vue'
 import AppPage from '@/components/shell/AppPage.vue'
 import MessageBar from '@/components/shell/MessageBar.vue'
 import USwitch from '@/components/USwitch.vue'
@@ -66,7 +67,7 @@ const toggle = useMutation({
 </script>
 
 <template>
-  <AppPage title="Schedules" subtitle="What starts workflows without anyone pressing Run now.">
+  <AppPage title="Schedules" subtitle="What starts workflows without anyone pressing Run now." band="hibiscus">
     <template v-if="live.paused.value" #messages>
       <MessageBar>Live updates paused. This page keeps refreshing every few seconds.</MessageBar>
     </template>
@@ -80,7 +81,9 @@ const toggle = useMutation({
     >
       <DataTable class="schedules" :columns="columns" :rows="schedules.data.value ?? []" :row-key="(row) => row.id" caption="Schedules">
         <template #cell-workflow="{ row }">
-          <RouterLink :to="{ name: 'studio.workflow', params: { workflowId: row.workflowId } }">{{ workflowName(row) }}</RouterLink>
+          <RouterLink class="workflow-cell" :to="{ name: 'studio.workflow', params: { workflowId: row.workflowId } }">
+            <WorkflowFlower :id="row.workflowId" :size="18" />{{ workflowName(row) }}
+          </RouterLink>
           <span v-if="row.name" class="quiet schedule-name">{{ row.name }}</span>
         </template>
         <template #cell-kind="{ row }">{{ titleCase(row.kind) }}</template>
@@ -130,5 +133,10 @@ const toggle = useMutation({
 .quiet {
   color: var(--wt-muted);
   font-size: var(--font-size-12);
+}
+.workflow-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
 }
 </style>
