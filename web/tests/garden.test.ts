@@ -75,13 +75,14 @@ describe('WorkflowFlower', () => {
     const svg = mount(WorkflowFlower, { props: { id: 'wf-42' } })
     expect(svg.attributes('aria-hidden')).toBe('true')
     expect(svg.attributes('data-flower')).toBe(flower)
-    expect(svg.findAll('g path')).toHaveLength(petals)
+    // One circle per petal, plus the body that joins them.
+    expect(svg.findAll('.workflow-flower__bloom circle')).toHaveLength(petals + 1)
   })
 
   it('takes an explicit colour and petal count, kept within five to nine', () => {
     const svg = mount(WorkflowFlower, { props: { id: 'wf-42', flower: 'orchid', petals: 12 } })
     expect(svg.attributes('data-flower')).toBe('orchid')
-    expect(svg.findAll('g path')).toHaveLength(9)
+    expect(svg.findAll('.workflow-flower__bloom circle')).toHaveLength(10)
   })
 })
 

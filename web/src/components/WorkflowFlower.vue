@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// A workflow's flower: its colour and petal count around a Night soil centre (docs/04 3.1). It is
-// derived from the workflow id until the backend stores a choice; `flower` and `petals` override it.
+// A workflow's flower: the solid, scalloped flower of the mockup sheet in its colour, with five to nine
+// round petals and a light core (docs/04 3.1). It is derived from the workflow id until the backend
+// stores a choice; `flower` and `petals` override it.
 // Decorative: the workflow's name always sits beside it.
 import { computed } from 'vue'
-import { clampPetals, flower as drawFlower, flowerFor } from '@/plants'
+import { clampPetals, flowerFor, roundFlower } from '@/plants'
+import { colourVars } from '@/theme/areas'
 import type { FlowerName } from '@/theme/tokens'
 
 const props = withDefaults(defineProps<{ id?: string; flower?: FlowerName; petals?: number; size?: number }>(), {
@@ -14,8 +16,8 @@ const props = withDefaults(defineProps<{ id?: string; flower?: FlowerName; petal
 const identity = computed(() => flowerFor(props.id))
 const colour = computed(() => props.flower ?? identity.value.flower)
 const count = computed(() => clampPetals(props.petals ?? identity.value.petals))
-// More petals need narrower ones, so the flower keeps the same weight from five to nine.
-const drawing = computed(() => drawFlower({ petals: count.value, length: 10.5, width: 4.6 * (5 / count.value) + 1.4 }))
+const drawing = computed(() => roundFlower({ petals: count.value, radius: 11.4 }))
+const fill = computed(() => colourVars(colour.value).strong)
 </script>
 
 <template>
@@ -29,20 +31,17 @@ const drawing = computed(() => drawFlower({ petals: count.value, length: 10.5, w
     :data-flower="colour"
     :data-petals="count"
   >
-    <g :fill="`var(--wt-${colour})`">
-      <path v-for="angle in drawing.angles" :key="angle" :transform="`rotate(${angle})`" :d="drawing.petal" />
+    <g class="workflow-flower__bloom" :fill="fill">
+      <circle v-for="(p, index) in drawing.petals" :key="index" :cx="p.cx" :cy="p.cy" :r="p.r" />
+      <circle :r="drawing.body" />
     </g>
-    <circle class="workflow-flower__centre" r="3" />
-    <circle class="workflow-flower__core" r="1.1" />
+    <circle class="workflow-flower__core" :r="drawing.core" />
   </svg>
 </template>
 
 <style scoped>
 .workflow-flower {
   flex: none;
-}
-.workflow-flower__centre {
-  fill: var(--wt-ink);
 }
 .workflow-flower__core {
   fill: var(--wt-surface);
@@ -51,12 +50,11 @@ const drawing = computed(() => drawFlower({ petals: count.value, length: 10.5, w
   .workflow-flower {
     forced-color-adjust: none;
   }
-  .workflow-flower g {
+  .workflow-flower__bloom {
     fill: CanvasText;
   }
-  .workflow-flower__centre {
+  .workflow-flower__core {
     fill: Canvas;
-    stroke: CanvasText;
   }
 }
 </style>

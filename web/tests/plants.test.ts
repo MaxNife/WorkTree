@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bud, clampPetals, flower, flowerFor, MAX_PETALS, MIN_PETALS, num, petal, seed } from '@/plants'
+import { bud, clampPetals, flower, flowerFor, MAX_PETALS, MIN_PETALS, num, petal, roundFlower, seed } from '@/plants'
 import { FLOWER_NAMES } from '@/theme/tokens'
 
 /** Every number in a path, in order. */
@@ -53,21 +53,25 @@ describe('flower', () => {
   })
 })
 
-describe('seed and bud', () => {
-  it('draws a seed pointing along the flow, its eye in the round end', () => {
-    const drawing = seed(20)
-    const values = numbers(drawing.body)
-    expect(values.every(Number.isFinite)).toBe(true)
-    expect(Math.max(...values)).toBe(10)
-    expect(drawing.eye.cx).toBeLessThan(0)
-    expect(drawing.eye.r).toBeGreaterThan(0)
+describe('round flower, seed and bud', () => {
+  // The mockup sheet's step flower: petals on a ring at 0.58 of the radius, 0.44 across, body 0.62.
+  it('draws the scalloped flower of the mockup, first petal straight up', () => {
+    const drawing = roundFlower({ petals: 8, radius: 26 })
+    expect(drawing.petals).toHaveLength(8)
+    expect(drawing.petals[0]).toEqual({ cx: 0, cy: -15.08, r: 11.44 })
+    expect(drawing.petals[2]).toEqual({ cx: 15.08, cy: 0, r: 11.44 })
+    expect(drawing.body).toBe(16.12)
+    expect(drawing.core).toBe(6.76)
   })
 
-  it('draws a bud upright, its point at the top', () => {
-    const values = numbers(bud(20))
-    expect(values.every(Number.isFinite)).toBe(true)
-    expect(values.slice(0, 2)).toEqual([0, -10])
-    expect(Math.max(...values)).toBe(10)
+  it('draws the mockup seed at 42 units, pointing along the flow with its eye in the round end', () => {
+    expect(seed(42)).toEqual({ body: 'M-20 0C-20 -15 -6 -22 22 0C-6 22 -20 15 -20 0Z', eye: { cx: -6, cy: 0, r: 5 } })
+    expect(Math.max(...numbers(seed(84).body))).toBe(44)
+  })
+
+  it('draws the mockup bud at 42 units, its point at the top', () => {
+    expect(bud(42)).toBe('M0 -22C14 -8 14 10 0 20C-14 10 -14 -8 0 -22Z')
+    expect(numbers(bud(21)).every(Number.isFinite)).toBe(true)
   })
 })
 
