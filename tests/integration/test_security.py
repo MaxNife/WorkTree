@@ -1884,3 +1884,46 @@ def test_a_promotion_request_shows_the_secrets_the_version_uses_and_their_policy
     rows = listed["items"] if isinstance(listed, dict) else listed
     assert [row["secrets"] for row in rows if row["id"] == asked.json()["id"]] == [expected]
     assert "Planted-Api-Key-0042" not in asked.text
+
+
+def test_a_version_saved_before_the_placement_rule_is_refused_at_dispatch(enforced: Any) -> None:
+    """Versions saved before ADR 0001 rule 1 existed never passed it. Unless their author is an
+    active Admin now, a secret outside a credential input is refused when the step runs."""
+    from app.adapters.db.models import Incident
+    from app.domain.workflow import WorkflowDefinition
+
+    container = enforced.container
+    from tests.conftest import allow_secrets
+
+    allow_secrets(container, ["api_key"], hosts=(), environments=("dev",))
+    leaky = _one_step("txt_log", {"path": "out.txt", "text": "{{ secret:api_key }}"}, "old-leaky")
+
+    def save_as(actor: str, name: str) -> str:
+        definition = WorkflowDefinition.model_validate({**leaky, "name": name})
+        with container.database.session() as session:
+            # Saved through the service with Admin rights but recorded under ``actor``: the shape
+            # of a version an Author saved before rule 1 was checked.
+            workflow, _ = container.workflows.save(
+                session, definition, actor=actor, actor_roles=[Role.ADMIN]
+            )
+            return str(workflow.id)
+
+    old = container.engine.start_run(
+        workflow_id=save_as("author", "old-leaky"), requested_by="author"
+    )
+    container.engine.tick()
+    with container.database.session() as session:
+        messages = [
+            row.message
+            for row in session.execute(select(Incident).where(Incident.run_id == old.id)).scalars()
+        ]
+    assert any("credential input" in message for message in messages), messages
+    assert container.workers.process_one() is False
+
+    # The same step in a version an active Admin saved still runs: Admins may place secrets.
+    admins = container.engine.start_run(
+        workflow_id=save_as("admin", "admin-leaky"), requested_by="admin"
+    )
+    container.engine.tick()
+    assert container.workers.process_one() is True
+    assert admins.id

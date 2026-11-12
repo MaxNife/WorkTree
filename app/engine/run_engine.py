@@ -22,11 +22,13 @@ from app.adapters.db.models import (
     Incident,
     Promotion,
     ResumeToken,
+    RoleRow,
     Run,
     RunStep,
     StepAttempt,
     Task,
     User,
+    UserRole,
     Workflow,
     WorkflowVersion,
 )
@@ -40,12 +42,13 @@ from app.domain.enums import (
     Environment,
     Outcome,
     PromotionStatus,
+    Role,
     RunStatus,
     StepState,
     TaskStatus,
 )
 from app.domain.envelope import JobEnvelope, ResultEnvelope
-from app.domain.secret_policy import check_use
+from app.domain.secret_policy import check_use, placement_violations
 from app.domain.workflow import (
     ReferenceError,
     ResolveContext,
@@ -537,12 +540,24 @@ class RunEngine:
         Destinations come from the resolved inputs because they can come from step data. A
         destination that still holds a secret reference cannot be read, so it refuses.
         """
-        if not self.enforce_secret_policy or not step.activity:
+        if not step.activity:
             return None
         names = secret_refs(step.inputs)
         if not names:
             return None
         activity = self.registry.get(step.activity)
+        # Rule 1 again, for versions saved before it existed: unless the version's author is
+        # an active Admin now, a secret outside a credential input is refused.
+        if not self._version_author_is_admin(session, run):
+            credentials = activity.credential_fields() if activity is not None else ()
+            misplaced = placement_violations(step.inputs, step.foreach, credentials)
+            if misplaced:
+                return (
+                    f"step {step.id!r} was refused by the secret policy: a secret may only be "
+                    "used in a credential input (" + ", ".join(misplaced) + ")"
+                )
+        if not self.enforce_secret_policy:
+            return None
         destinations = activity.destination_hosts(inputs) if activity is not None else None
         check = check_use(
             names,
@@ -553,6 +568,26 @@ class RunEngine:
         if check.allowed:
             return None
         return f"step {step.id!r} was refused by the secret policy: " + "; ".join(check.refusals)
+
+    @staticmethod
+    def _version_author_is_admin(session: Session, run: Run) -> bool:
+        """True when the user who saved the run's version is an active Admin. An unknown or
+        deactivated author is not."""
+        version = session.get(WorkflowVersion, run.version_id)
+        if version is None or not version.created_by:
+            return False
+        found = session.execute(
+            select(User.id)
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(RoleRow, RoleRow.id == UserRole.role_id)
+            .where(
+                User.username == version.created_by,
+                User.is_active.is_(True),
+                RoleRow.name == Role.ADMIN.value,
+            )
+            .limit(1)
+        ).first()
+        return found is not None
 
     def _start_subworkflow(
         self,

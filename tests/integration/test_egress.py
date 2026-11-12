@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 
 from activities.network import HttpRequestActivity, SftpActivity
@@ -251,3 +252,90 @@ def _policy_args(raw: str) -> dict[str, Any]:
 def test_a_bad_network_in_the_settings_is_refused() -> None:
     with pytest.raises(ValueError, match="not a network"):
         load_settings(egress={"denied_networks": ["127.0.0.0/33"]})
+
+
+def test_a_dual_stack_name_falls_back_to_the_next_checked_address(
+    server: tuple[int, type[_Recorder]],
+    monkeypatch: pytest.MonkeyPatch,
+    loopback_allowed: None,
+) -> None:
+    """The server listens on IPv4 only; the first (IPv6) address fails and the next is tried."""
+    port, handler = server
+    monkeypatch.setattr(net, "_resolve", lambda host, port: ["::1", "127.0.0.1"])
+    with checked_client(timeout=5) as client:
+        assert client.get(f"http://dual.test:{port}/v4").status_code == 200
+    assert handler.seen[0]["path"] == "/v4"
+    sock = net.checked_socket("dual.test", port, 5)
+    sock.close()
+
+
+def _certificate(tmp_path: Path, name: str) -> tuple[Path, Path]:
+    from datetime import UTC, datetime, timedelta
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import NameOID
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name)])
+    now = datetime.now(UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=5))
+        .not_valid_after(now + timedelta(days=1))
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName(name)]), critical=False)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    cert_path, key_path = tmp_path / f"{name}.crt", tmp_path / f"{name}.key"
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
+
+
+@pytest.mark.parametrize(("served", "trusted_ok"), [("portal.test", True), ("other.test", False)])
+def test_https_through_the_checked_backend_verifies_the_host_name(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    loopback_allowed: None,
+    served: str,
+    trusted_ok: bool,
+) -> None:
+    """The connection goes to a checked address, but TLS still checks the certificate against
+    the name in the URL (SNI and verification), never against the address."""
+    import ssl
+
+    cert_path, key_path = _certificate(tmp_path, served)
+    handler = type("Handler", (_Recorder,), {"seen": [], "redirect_to": ""})
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    server_context.load_cert_chain(cert_path, key_path)
+    httpd.socket = server_context.wrap_socket(httpd.socket, server_side=True)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = httpd.server_address[1]
+        monkeypatch.setattr(net, "_resolve", lambda host, port: ["127.0.0.1"])
+        trust = ssl.create_default_context(cafile=str(cert_path))
+        with checked_client(timeout=5, verify=trust) as client:
+            if trusted_ok:
+                assert client.get(f"https://portal.test:{port}/tls").status_code == 200
+                assert handler.seen == [{"path": "/tls", "host": f"portal.test:{port}"}]
+            else:
+                with pytest.raises(httpx.ConnectError):
+                    client.get(f"https://portal.test:{port}/tls")
+                assert handler.seen == []
+    finally:
+        httpd.shutdown()
+        httpd.server_close()

@@ -10,7 +10,9 @@ The policy reaches an activity child through ``UAF_CHILD_EGRESS`` (the child doe
 config.yaml); without it the defaults apply.
 
 Not covered, and documented as remaining risk: database drivers (their address is inside a
-secret an Admin set), and a Playwright browser, which resolves names itself (Admin-only).
+secret an Admin set), a Playwright browser, which resolves names itself, and ``run_python`` and
+``legacy_robot_wrapper``, which run code with ordinary sockets. All three of the last are
+Admin-only activities.
 """
 
 from __future__ import annotations
@@ -131,9 +133,16 @@ def check_destination(
 
 
 def checked_socket(host: str, port: int, timeout: float | None, purpose: str = "") -> socket.socket:
-    """A TCP socket connected to a checked address of ``host``."""
-    address = check_destination(host, port, purpose)[0]
-    return socket.create_connection((address, port), timeout)
+    """A TCP socket connected to a checked address of ``host``, trying each address in turn
+    (a dual-stack name falls back to IPv4 when IPv6 has no route)."""
+    last: OSError | None = None
+    for address in check_destination(host, port, purpose):
+        try:
+            return socket.create_connection((address, port), timeout)
+        except OSError as exc:
+            last = exc
+    assert last is not None
+    raise last
 
 
 class _CheckedBackend(httpcore.NetworkBackend):
@@ -151,14 +160,20 @@ class _CheckedBackend(httpcore.NetworkBackend):
         local_address: str | None = None,
         socket_options: Iterable[Any] | None = None,
     ) -> httpcore.NetworkStream:
-        address = check_destination(host, port, "an HTTP request")[0]
-        return self._inner.connect_tcp(
-            address,
-            port,
-            timeout=timeout,
-            local_address=local_address,
-            socket_options=socket_options,
-        )
+        last: Exception | None = None
+        for address in check_destination(host, port, "an HTTP request"):
+            try:
+                return self._inner.connect_tcp(
+                    address,
+                    port,
+                    timeout=timeout,
+                    local_address=local_address,
+                    socket_options=socket_options,
+                )
+            except (httpcore.ConnectError, httpcore.ConnectTimeout, OSError) as exc:
+                last = exc
+        assert last is not None
+        raise last
 
     def connect_unix_socket(
         self, path: str, timeout: float | None = None, socket_options: Iterable[Any] | None = None
@@ -182,7 +197,8 @@ def checked_client(**kwargs: Any) -> httpx.Client:
     not followed, and proxy settings from the environment are ignored (a proxy would make the
     check guard the proxy, not the destination)."""
     kwargs.setdefault("follow_redirects", False)
-    return httpx.Client(transport=CheckedTransport(), trust_env=False, **kwargs)
+    transport_options = {key: kwargs.pop(key) for key in ("verify", "cert") if key in kwargs}
+    return httpx.Client(transport=CheckedTransport(**transport_options), trust_env=False, **kwargs)
 
 
 class CheckedSMTP(smtplib.SMTP):
