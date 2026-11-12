@@ -42,6 +42,7 @@ from app.api.serializers import notification as serialize_notification
 from app.api.serializers import saved_view as serialize_saved_view
 from app.domain.enums import Role, StepState, TaskStatus
 from app.domain.envelope import JobEnvelope
+from app.domain.secret_policy import placement_violations
 from app.domain.workflow import ReferenceError as WorkflowReferenceError
 from app.domain.workflow import (
     ResolveContext,
@@ -215,6 +216,12 @@ def test_activity(
             raise ValidationFailed(
                 f"only an Admin can type a value for {', '.join(typed)}; "
                 "use a single {{ secret:name }} reference (an Admin creates the secret)"
+            )
+        misplaced = placement_violations(body.inputs, None, activity.credential_fields())
+        if misplaced:
+            raise ValidationFailed(
+                "a secret may only be used in a credential input; move or remove the secret "
+                "reference in " + ", ".join(misplaced)
             )
     test_id = container.clock.now().strftime("%Y%m%d%H%M%S%f")
     workspace = container.settings.data.root / "activity-tests" / test_id

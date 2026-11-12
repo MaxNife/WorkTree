@@ -53,6 +53,10 @@ def test_metadata_and_input_schema(activity: Activity[Any]) -> None:
     properties = schema.get("properties", {})
     for field in activity.sensitive_fields:
         assert field in properties, f"sensitive field {field!r} is not an input"
+    for field in (*activity.credential_fields(), *activity.destination_inputs):
+        assert field in properties, f"credential or destination field {field!r} is not an input"
+    # A credential is always masked when inputs are stored or shown (ADR 0001).
+    assert set(activity.credential_fields()) <= set(activity.masked_fields())
     for field in activity.option_providers:
         assert field in properties, f"option provider for unknown field {field!r}"
     if activity.operation_fields:

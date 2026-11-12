@@ -381,6 +381,7 @@ class ZipActivity(Activity[ZipInputs]):
     description = "AES ZIP create/extract with zip-slip and size protections."
     input_model = ZipInputs
     sensitive_fields = ("password",)
+    credential_inputs = ("password",)
     operation_fields = {
         "extract": ("path", "output_dir", "password", "max_total_bytes", "max_entries"),
         "list": ("path", "password"),

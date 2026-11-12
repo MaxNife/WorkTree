@@ -656,7 +656,7 @@ def test_secret_values_are_never_returned_listed_audited_or_echoed(
 
 
 def test_platform_secrets_cannot_be_used_by_workflows_or_step_tests(actors: Any) -> None:
-    author = actors("author")
+    author, admin = actors("author"), actors("admin")
     definition = {
         "name": "sec-key",
         "steps": [
@@ -668,7 +668,10 @@ def test_platform_secrets_cannot_be_used_by_workflows_or_step_tests(actors: Any)
         ],
     }
     assert author.call("POST", "/api/workflows", json={"definition": definition}).status_code == 422
-    ran = author.call(
+    assert admin.call("POST", "/api/workflows", json={"definition": definition}).status_code == 422
+    # An Author cannot put a secret in echo at all (ADR 0001 rule 1). An Admin can, and the
+    # platform's own secret still does not resolve for them.
+    ran = admin.call(
         "POST",
         "/api/activities/echo/test",
         json={"inputs": {"message": "{{ secret:session_signing_key }}"}},
@@ -678,17 +681,17 @@ def test_platform_secrets_cannot_be_used_by_workflows_or_step_tests(actors: Any)
 
 
 def test_secret_data_from_a_step_cannot_request_a_secret(actors: Any) -> None:
-    admin, author = actors("admin"), actors("author")
+    admin = actors("admin")
     value = "NonceProtected-987654"
     admin.call("PUT", "/api/admin/secrets/other_secret", json={"value": value})
-    # No reference in the saved step, so the text stays plain even though the secret exists.
-    ran = author.call(
+    # An Admin may name a secret anywhere (an Author may not, ADR 0001 rule 1); the value
+    # must still never come back.
+    ran = admin.call(
         "POST",
         "/api/activities/echo/test",
         json={"inputs": {"message": "{{ secret:other_secret }}"}},
     )
-    # The author named the secret themselves here, which is allowed (see SEC-3 in SECURITY.md);
-    # the value must still never come back.
+    assert ran.status_code == 200, ran.text
     assert value not in ran.text
 
 
@@ -1554,3 +1557,84 @@ def test_an_anonymous_websocket_is_accepted_then_closed_with_1008(client: TestCl
     ):
         socket.receive_json()
     assert caught.value.code == 1008
+
+
+# ---------------------------------------------------------------- ADR 0001 secret policy (S1)
+
+
+def _one_step(activity: str, inputs: dict[str, Any], name: str, **step: Any) -> dict[str, Any]:
+    return {"name": name, "steps": [{"id": "s", "activity": activity, "inputs": inputs, **step}]}
+
+
+@pytest.mark.parametrize(
+    ("activity", "inputs"),
+    [
+        ("http_request", {"url": "https://api.example.com", "body": "{{ secret:api_key }}"}),
+        ("http_request", {"url": "https://x.example.com/?k={{ secret:api_key }}"}),
+        ("http_request", {"url": "https://api.example.com", "json_body": {"k": "{{ secret:a }}"}}),
+        ("http_request", {"url": "https://api.example.com", "params": {"k": "{{ secret:a }}"}}),
+        ("email", {"to": ["a@example.com"], "subject": "s", "body": "{{ secret:api_key }}"}),
+        ("txt_log", {"path": "log.txt", "text": "{{ secret:api_key }}"}),
+        ("echo", {"value": "{{ secret:api_key }}"}),
+        ("human_task", {"title": "Look at {{ secret:api_key }}"}),
+    ],
+)
+def test_an_author_can_put_a_secret_only_in_a_credential_input(
+    actors: Any, activity: str, inputs: dict[str, Any]
+) -> None:
+    """ADR 0001 rule 1: a body, a URL, a message, a file or a person's task cannot carry a
+    secret, so it cannot leave through a field that is not meant for it."""
+    refused = actors("author").call(
+        "POST", "/api/workflows", json={"definition": _one_step(activity, inputs, "placed")}
+    )
+    assert refused.status_code == 422, refused.text
+    assert "credential input" in refused.text and "'s'" in refused.text
+
+
+def test_a_secret_in_foreach_is_refused_for_an_author(actors: Any) -> None:
+    definition = _one_step("echo", {}, "foreach-secret", foreach="{{ secret:api_key }}")
+    refused = actors("author").call("POST", "/api/workflows", json={"definition": definition})
+    assert refused.status_code == 422, refused.text
+    assert "foreach" in refused.text
+
+
+def test_an_author_may_use_a_secret_in_a_credential_input_and_an_admin_anywhere(
+    actors: Any,
+) -> None:
+    author, admin = actors("author"), actors("admin")
+    for index, inputs in enumerate(
+        (
+            {"url": "https://api.example.com", "bearer_token": "{{ secret:api_key }}"},
+            {"url": "https://api.example.com", "headers": {"X-Key": "Key {{ secret:api_key }}"}},
+        )
+    ):
+        definition = _one_step("http_request", inputs, f"cred-{index}")
+        saved = author.call("POST", "/api/workflows", json={"definition": definition})
+        assert saved.status_code == 200, saved.text
+    anywhere = _one_step(
+        "http_request", {"url": "https://api.example.com", "body": "{{ secret:a }}"}, "admin-body"
+    )
+    assert admin.call("POST", "/api/workflows", json={"definition": anywhere}).status_code == 200
+
+
+def test_an_authors_step_test_refuses_a_secret_outside_a_credential_input(actors: Any) -> None:
+    refused = actors("author").call(
+        "POST",
+        "/api/activities/echo/test",
+        json={"inputs": {"value": "{{ secret:api_key }}"}},
+    )
+    assert refused.status_code == 422, refused.text
+    assert "credential input" in refused.text
+
+
+def test_activity_specs_list_credential_and_destination_inputs_and_mask_credentials(
+    actors: Any,
+) -> None:
+    specs = {spec["name"]: spec for spec in actors("viewer").client.get("/api/activities").json()}
+    http = specs["http_request"]
+    assert http["credential_inputs"] == ["bearer_token", "headers"]
+    assert http["destination_inputs"] == ["url"]
+    assert "headers" in http["sensitive_fields"]
+    assert specs["gl_query"]["credential_inputs"] == ["db_url"]
+    assert specs["email"]["destination_inputs"] == ["smtp_host", "graph_base_url", "login_base_url"]
+    assert specs["echo"]["credential_inputs"] == [] and specs["echo"]["destination_inputs"] == []

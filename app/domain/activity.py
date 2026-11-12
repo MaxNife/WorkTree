@@ -113,6 +113,11 @@ def file_artifact(ctx: ActivityContext, path: Path, name: str | None = None) -> 
 OptionProvider = Callable[[dict[str, Any], Path | None], list[dict[str, str]]]
 
 
+def _union(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    """The fields of every group, each once, in the order they first appear."""
+    return tuple(dict.fromkeys(field for group in groups for field in group))
+
+
 class Activity[InputT: BaseModel](ABC):
     name: ClassVar[str] = ""
     category: ClassVar[str] = "Platform"
@@ -129,6 +134,22 @@ class Activity[InputT: BaseModel](ABC):
     # Inputs that reach a connection or a credential. Outside an Admin's hands they may only be
     # a single ``{{ secret:name }}`` reference, so an Author never types the value (SEC-1).
     secret_only_inputs: ClassVar[tuple[str, ...]] = ()
+    # Inputs that carry a credential (ADR 0001, rule 1). Outside an Admin's hands a
+    # ``{{ secret:name }}`` reference may appear only in one of these, so a secret cannot be
+    # written into a body, a message or a file. They are masked like ``sensitive_fields``.
+    credential_inputs: ClassVar[tuple[str, ...]] = ()
+    # Inputs that say where the activity connects: a URL or a host name (ADR 0001, rule 2).
+    destination_inputs: ClassVar[tuple[str, ...]] = ()
+
+    @classmethod
+    def credential_fields(cls) -> tuple[str, ...]:
+        """Every input that may hold a secret: declared credentials and secret-only inputs."""
+        return _union(cls.credential_inputs, cls.secret_only_inputs)
+
+    @classmethod
+    def masked_fields(cls) -> tuple[str, ...]:
+        """Every input whose value is replaced by ``***`` when inputs are stored or shown."""
+        return _union(cls.sensitive_fields, cls.credential_fields())
 
     @abstractmethod
     def run(self, ctx: ActivityContext, inputs: InputT) -> ActivityResult:

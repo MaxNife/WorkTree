@@ -108,9 +108,11 @@ class ActivityRegistry:
             "description": activity.description or inspect.getdoc(activity) or "",
             "input_schema": schema,
             "output_fields": list(activity.output_fields),
-            "sensitive_fields": list(activity.sensitive_fields),
+            "sensitive_fields": list(activity.masked_fields()),
             "requires_admin_author": activity.requires_admin_author,
             "secret_only_inputs": list(activity.secret_only_inputs),
+            "credential_inputs": list(activity.credential_fields()),
+            "destination_inputs": list(activity.destination_inputs),
             "option_fields": sorted(activity.option_providers),
             "operation_fields": {
                 operation: list(fields) for operation, fields in activity.operation_fields.items()

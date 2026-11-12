@@ -44,6 +44,8 @@ class HttpRequestActivity(Activity[HttpInputs]):
     description = "Call an internal HTTP endpoint with an explicit timeout and response cap."
     input_model = HttpInputs
     sensitive_fields = ("bearer_token",)
+    credential_inputs = ("bearer_token", "headers")
+    destination_inputs = ("url",)
 
     def run(self, ctx: ActivityContext, inputs: HttpInputs) -> ActivityResult:
         validate_url(inputs.url)
@@ -107,6 +109,8 @@ class DownloadFileActivity(Activity[DownloadInputs]):
     description = "Stream a file into the run workspace with size and checksum verification."
     input_model = DownloadInputs
     sensitive_fields = ("bearer_token",)
+    credential_inputs = ("bearer_token", "headers")
+    destination_inputs = ("url",)
 
     def run(self, ctx: ActivityContext, inputs: DownloadInputs) -> ActivityResult:
         validate_url(inputs.url)
@@ -164,6 +168,8 @@ class SftpActivity(Activity[SftpInputs]):
     description = "SFTP get/put/list using paramiko."
     input_model = SftpInputs
     sensitive_fields = ("password",)
+    credential_inputs = ("password",)
+    destination_inputs = ("host",)
 
     def run(self, ctx: ActivityContext, inputs: SftpInputs) -> ActivityResult:
         import paramiko
@@ -252,6 +258,8 @@ class EmailActivity(Activity[EmailInputs]):
     description = "Send mail through Microsoft Graph client-secret auth or SMTP fallback."
     input_model = EmailInputs
     sensitive_fields = ("smtp_password", "client_secret")
+    credential_inputs = ("smtp_password", "client_secret")
+    destination_inputs = ("smtp_host", "graph_base_url", "login_base_url")
 
     def run(self, ctx: ActivityContext, inputs: EmailInputs) -> ActivityResult:
         if inputs.provider == "graph":
@@ -344,6 +352,8 @@ class GraphReadMailActivity(Activity[GraphReadMailInputs]):
     description = "Read the newest messages for a mailbox and optionally extract a code."
     input_model = GraphReadMailInputs
     sensitive_fields = ("client_secret",)
+    credential_inputs = ("client_secret",)
+    destination_inputs = ("graph_base_url", "login_base_url")
 
     def run(self, ctx: ActivityContext, inputs: GraphReadMailInputs) -> ActivityResult:
         token = _graph_token(inputs)

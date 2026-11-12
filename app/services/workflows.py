@@ -17,6 +17,7 @@ from app.audit.writer import AuditWriter
 from app.domain.activity_registry import ActivityRegistry
 from app.domain.clock import Clock
 from app.domain.enums import Environment, PromotionStatus, Role
+from app.domain.secret_policy import placement_violations
 from app.domain.workflow import (
     WorkflowDefinition,
     assert_valid,
@@ -71,6 +72,26 @@ class WorkflowService:
                 + "; use a single {{ secret:name }} reference (an Admin creates the secret)"
             )
 
+    def _require_secret_placement(self, definition: WorkflowDefinition) -> None:
+        """Outside an Admin's hands, a secret goes only into a credential input (ADR 0001 rule 1).
+
+        Any other place (a body, a message, a file, a sub-workflow's inputs, a person's task) could
+        carry the value somewhere it does not belong, so it is refused.
+        """
+        problems: list[str] = []
+        for step in definition.steps:
+            activity = self.registry.get(step.activity) if step.activity else None
+            credentials = activity.credential_fields() if activity is not None else ()
+            problems.extend(
+                f"step {step.id!r} {where}"
+                for where in placement_violations(step.inputs, step.foreach, credentials)
+            )
+        if problems:
+            raise ValidationFailed(
+                "a secret may only be used in a credential input; move or remove the secret "
+                "reference in " + ", ".join(problems)
+            )
+
     def save(
         self,
         session: Session,
@@ -113,6 +134,7 @@ class WorkflowService:
                     + " (these activities run code on the server)"
                 )
             self._require_secret_only_inputs(definition)
+            self._require_secret_placement(definition)
 
         if workflow_id is None:
             workflow = session.execute(

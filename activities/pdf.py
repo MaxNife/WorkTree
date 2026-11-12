@@ -95,6 +95,7 @@ class PdfActivity(Activity[PdfInputs]):
     )
     input_model = PdfInputs
     sensitive_fields = ("password", "open_password", "permissions_password")
+    credential_inputs = ("password", "open_password", "permissions_password")
     operation_fields = {
         "info": ("path", "password"),
         "text": ("path", "password", "pages", "output_path"),

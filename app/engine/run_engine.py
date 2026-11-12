@@ -1090,7 +1090,7 @@ class RunEngine:
         activity = self.registry.get(step.activity) if step.activity else None
         redacted = dict(inputs)
         if activity is not None:
-            for field in activity.sensitive_fields:
+            for field in activity.masked_fields():
                 if field in redacted:
                     redacted[field] = "***"
         serialized = json.dumps(redacted, default=str)

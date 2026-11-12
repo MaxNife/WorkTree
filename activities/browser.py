@@ -113,6 +113,15 @@ class PlaywrightRobotActivity(Activity[RobotInputs]):
     )
     input_model = RobotInputs
     sensitive_fields = ("password", "otp", "api_token", "otp_client_secret")
+    credential_inputs = ("password", "otp", "api_token", "otp_client_secret")
+    destination_inputs = (
+        "base_url",
+        "start_url",
+        "login_url",
+        "session_check_url",
+        "otp_graph_base_url",
+        "otp_login_base_url",
+    )
     requires_admin_author = True
 
     operation_fields = {
@@ -451,6 +460,7 @@ class PlaywrightScriptActivity(Activity[ScriptInputs]):
     description = "Run an existing Playwright Python script with page/context injected."
     input_model = ScriptInputs
     requires_admin_author = True
+    destination_inputs = ("start_url",)
 
     def run(self, ctx: ActivityContext, inputs: ScriptInputs) -> ActivityResult:
         if inputs.start_url:
