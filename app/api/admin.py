@@ -19,15 +19,44 @@ from app.api.deps import (
     get_session,
     require,
 )
-from app.api.schemas import RolesUpdateRequest, SecretSetRequest, UserCreateRequest
+from app.api.schemas import (
+    RolesUpdateRequest,
+    SecretPolicyRequest,
+    SecretSetRequest,
+    UserCreateRequest,
+)
 from app.api.serializers import iso
 from app.api.serializers import user as serialize_user
-from app.errors import ValidationFailed
+from app.domain.enums import Environment
+from app.domain.secret_policy import normalise_host, valid_host_pattern
+from app.errors import NotFound, ValidationFailed
 from app.security.rbac import Permission
 
 SECRET_NAME_RE = re.compile(r"[A-Za-z0-9_.\-/]{1,100}")
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+def _clean_hosts(hosts: list[str]) -> list[str]:
+    """Normalised, de-duplicated host patterns; 422 naming any that is not a host or ``*.d``."""
+    bad = [host for host in hosts if not valid_host_pattern(host)]
+    if bad:
+        raise ValidationFailed(
+            "allowed hosts are exact host names, IP addresses or '*.' and a domain "
+            "(subdomains only); not valid: " + ", ".join(bad[:10])
+        )
+    return list(dict.fromkeys(normalise_host(host) for host in hosts))
+
+
+def _clean_environments(environments: list[Environment]) -> list[str]:
+    return [env.value for env in Environment if env in environments]
+
+
+def _policy(row: SecretMetadata | None) -> dict[str, list[str]]:
+    return {
+        "allowed_hosts": list(row.allowed_hosts) if row else [],
+        "environments": list(row.environments) if row else [],
+    }
 
 
 @router.get("/users")
@@ -130,6 +159,7 @@ def list_secrets(
                     info.last_rotated_at or (row.last_rotated_at if row else None)
                 ),
                 "source": info.source,
+                **_policy(row),
             }
         )
     return result
@@ -151,14 +181,26 @@ def set_secret(
         )
     if is_internal_secret(name):
         raise ValidationFailed(f"{name} is reserved for the platform and cannot be set here")
+    hosts = None if body.allowed_hosts is None else _clean_hosts(body.allowed_hosts)
     container.secrets.set(name, body.value)
     row = session.get(SecretMetadata, name)
     now = container.clock.now()
     if row is None:
-        row = SecretMetadata(name=name, description=body.description, created_at=now)
+        # A new secret may be used in dev only and sent nowhere until an Admin says where.
+        row = SecretMetadata(
+            name=name,
+            description=body.description,
+            created_at=now,
+            allowed_hosts=[],
+            environments=[Environment.DEV.value],
+        )
         session.add(row)
     row.description = body.description or row.description
     row.last_rotated_at = now
+    if hosts is not None:
+        row.allowed_hosts = hosts
+    if body.environments is not None:
+        row.environments = _clean_environments(body.environments)
     container.audit.write(
         session,
         actor=actor.username,
@@ -166,10 +208,48 @@ def set_secret(
         resource_type="secret",
         resource_id=name,
         source_ip=client_ip(request),
-        after={"name": name},
+        after={"name": name, **_policy(row)},
         correlation_id=correlation_id(request),
     )
-    return {"name": name, "last_rotated_at": iso(now), "value": None}
+    return {"name": name, "last_rotated_at": iso(now), "value": None, **_policy(row)}
+
+
+@router.put("/secrets/{name}/policy")
+def set_secret_policy(
+    name: str,
+    body: SecretPolicyRequest,
+    request: Request,
+    actor: Annotated[Any, Depends(csrf_guard)],
+    session: Annotated[Session, Depends(get_session)],
+    _permission: Annotated[Any, require(Permission.ADMIN_SECRETS)],
+) -> dict[str, Any]:
+    """Set where a secret may be sent and in which environments, without changing its value
+    (ADR 0001). Empty lists refuse every use."""
+    container = request.app.state.container
+    if is_internal_secret(name):
+        raise ValidationFailed(f"{name} is reserved for the platform and has no policy")
+    if name not in container.secrets.names():
+        raise NotFound(f"secret {name} not found")
+    hosts = _clean_hosts(body.allowed_hosts)
+    row = session.get(SecretMetadata, name)
+    before = _policy(row)
+    if row is None:
+        row = SecretMetadata(name=name, created_at=container.clock.now())
+        session.add(row)
+    row.allowed_hosts = hosts
+    row.environments = _clean_environments(body.environments)
+    container.audit.write(
+        session,
+        actor=actor.username,
+        action="secret.policy",
+        resource_type="secret",
+        resource_id=name,
+        source_ip=client_ip(request),
+        before=before,
+        after=_policy(row),
+        correlation_id=correlation_id(request),
+    )
+    return {"name": name, **_policy(row)}
 
 
 @router.get("/audit")

@@ -12,12 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.adapters.db.models import Promotion, Workflow, WorkflowVersion
+from app.adapters.db.secret_policies import load_policies
 from app.adapters.secrets.base import is_internal_secret
 from app.audit.writer import AuditWriter
 from app.domain.activity_registry import ActivityRegistry
 from app.domain.clock import Clock
 from app.domain.enums import Environment, PromotionStatus, Role
-from app.domain.secret_policy import placement_violations
+from app.domain.secret_policy import check_use, placement_violations
 from app.domain.workflow import (
     WorkflowDefinition,
     assert_valid,
@@ -49,10 +50,18 @@ class VersionSummary:
 
 
 class WorkflowService:
-    def __init__(self, clock: Clock, audit: AuditWriter, registry: ActivityRegistry) -> None:
+    def __init__(
+        self,
+        clock: Clock,
+        audit: AuditWriter,
+        registry: ActivityRegistry,
+        *,
+        enforce_secret_policy: bool = True,
+    ) -> None:
         self.clock = clock
         self.audit = audit
         self.registry = registry
+        self.enforce_secret_policy = enforce_secret_policy
 
     def _require_secret_only_inputs(self, definition: WorkflowDefinition) -> None:
         """Outside an Admin's hands, connection inputs must be a secret reference (SEC-1)."""
@@ -91,6 +100,27 @@ class WorkflowService:
                 "a secret may only be used in a credential input; move or remove the secret "
                 "reference in " + ", ".join(problems)
             )
+
+    def _require_allowed_destinations(
+        self, session: Session, definition: WorkflowDefinition
+    ) -> None:
+        """ADR 0001 rule 2 at save, for destinations typed into the step. Destinations that
+        come from references are checked at dispatch once resolved; environments too."""
+        problems: list[str] = []
+        for step in definition.steps:
+            activity = self.registry.get(step.activity) if step.activity else None
+            names = secret_refs(step.inputs)
+            if activity is None or not names:
+                continue
+            hosts = activity.destination_hosts(step.inputs, literal_only=True)
+            if not hosts:
+                continue
+            check = check_use(
+                names, load_policies(session, names), environment=None, destinations=hosts
+            )
+            problems.extend(f"step {step.id!r}: {refusal}" for refusal in check.refusals)
+        if problems:
+            raise ValidationFailed("refused by the secret policy: " + "; ".join(problems))
 
     def save(
         self,
@@ -135,6 +165,8 @@ class WorkflowService:
                 )
             self._require_secret_only_inputs(definition)
             self._require_secret_placement(definition)
+        if self.enforce_secret_policy:
+            self._require_allowed_destinations(session, definition)
 
         if workflow_id is None:
             workflow = session.execute(

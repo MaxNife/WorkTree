@@ -77,6 +77,16 @@ class RolesUpdateRequest(StrictModel):
 class SecretSetRequest(StrictModel):
     value: str = Field(min_length=1, max_length=100_000)
     description: str = Field(default="", max_length=255)
+    # ADR 0001. Left out: unchanged, or for a new secret no hosts and dev only.
+    allowed_hosts: list[str] | None = Field(default=None, max_length=100)
+    environments: list[Environment] | None = None
+
+
+class SecretPolicyRequest(StrictModel):
+    """Where a secret may be sent and in which environments (ADR 0001). Empty refuses."""
+
+    allowed_hosts: list[str] = Field(default_factory=list, max_length=100)
+    environments: list[Environment] = Field(default_factory=list)
 
 
 class SavedViewRequest(StrictModel):

@@ -88,6 +88,10 @@ class SecretSettings(BaseModel):
     # lives in config.yaml.
     vault_token_env: str = "VAULT_TOKEN"
     vault_mount: str = "secret"
+    # ADR 0001 rules 2 and 3: a secret is used only towards its allowed hosts and in its
+    # environments. Off is for local development and tests only; a prod server refuses to start
+    # with it off.
+    enforce_policy: bool = True
 
     @model_validator(mode="after")
     def _vault_requires_url(self) -> SecretSettings:
@@ -216,6 +220,13 @@ def assert_startup_safe(settings: Settings) -> None:
             "app.environment is 'prod' but security.cookie_secure is false: the session cookie "
             "would be sent without the Secure flag. Set security.cookie_secure: true "
             "(UAF_SECURITY__COOKIE_SECURE=true) and serve the app over HTTPS."
+        )
+    if settings.app.environment == "prod" and not settings.secrets.enforce_policy:
+        raise InsecureConfiguration(
+            "app.environment is 'prod' but secrets.enforce_policy is false: any workflow could "
+            "send any secret to any host. Set secrets.enforce_policy: true "
+            "(UAF_SECRETS__ENFORCE_POLICY=true) and give each secret its allowed hosts and "
+            "environments."
         )
 
 

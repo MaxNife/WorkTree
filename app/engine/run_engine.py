@@ -30,6 +30,7 @@ from app.adapters.db.models import (
     Workflow,
     WorkflowVersion,
 )
+from app.adapters.db.secret_policies import load_policies
 from app.audit.writer import AuditWriter
 from app.bus.db_bus import CANCELLED, DEAD, DONE, DbMessageBus
 from app.domain.activity_registry import ActivityRegistry
@@ -44,6 +45,7 @@ from app.domain.enums import (
     TaskStatus,
 )
 from app.domain.envelope import JobEnvelope, ResultEnvelope
+from app.domain.secret_policy import check_use
 from app.domain.workflow import (
     ReferenceError,
     ResolveContext,
@@ -76,6 +78,7 @@ class RunEngine:
         default_timeout_seconds: int = 300,
         max_persisted_output_bytes: int = 64 * 1024,
         event_sink: Any = None,
+        enforce_secret_policy: bool = True,
     ) -> None:
         self.database = database
         self.clock = clock
@@ -86,6 +89,7 @@ class RunEngine:
         self.default_timeout_seconds = default_timeout_seconds
         self.max_persisted_output_bytes = max_persisted_output_bytes
         self.event_sink = event_sink
+        self.enforce_secret_policy = enforce_secret_policy
         self.log = get_logger(__name__)
         # Serialises engine mutations inside this process (scheduler tick, worker results,
         # run starts). Cross-process safety comes from the database transaction itself.
@@ -462,6 +466,11 @@ class RunEngine:
             self._record_incident(session, run, row, "bad_reference", str(exc), fault=True)
             return
 
+        refusal = self._secret_policy_refusal(session, run, step, inputs)
+        if refusal is not None:
+            self._record_incident(session, run, row, "secret_policy", refusal, fault=True)
+            return
+
         row.inputs = self._persist_inputs(definition, step, inputs)
         row.attempt += 1
         row.started_at = self.clock.now()
@@ -519,6 +528,31 @@ class RunEngine:
             },
             correlation_id=run.correlation_id,
         )
+
+    def _secret_policy_refusal(
+        self, session: Session, run: Run, step: Step, inputs: dict[str, Any]
+    ) -> str | None:
+        """ADR 0001 rules 2 and 3, on the resolved inputs, whoever wrote the workflow.
+
+        Destinations come from the resolved inputs because they can come from step data. A
+        destination that still holds a secret reference cannot be read, so it refuses.
+        """
+        if not self.enforce_secret_policy or not step.activity:
+            return None
+        names = secret_refs(step.inputs)
+        if not names:
+            return None
+        activity = self.registry.get(step.activity)
+        destinations = activity.destination_hosts(inputs) if activity is not None else None
+        check = check_use(
+            names,
+            load_policies(session, names),
+            environment=run.environment,
+            destinations=destinations,
+        )
+        if check.allowed:
+            return None
+        return f"step {step.id!r} was refused by the secret policy: " + "; ".join(check.refusals)
 
     def _start_subworkflow(
         self,

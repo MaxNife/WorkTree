@@ -180,6 +180,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/secrets/{name}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Secret Policy
+         * @description Set where a secret may be sent and in which environments, without changing its value
+         *     (ADR 0001). Empty lists refuse every use.
+         */
+        put: operations["set_secret_policy_api_admin_secrets__name__policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -580,6 +601,27 @@ export interface paths {
         put?: never;
         /** Toggle Schedule */
         post: operations["toggle_schedule_api_schedules__schedule_id__enabled_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/secret-names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Secret Names
+         * @description The names of the secrets an Author can reference: names only, never values or policies.
+         *     Platform-internal secrets are left out.
+         */
+        get: operations["secret_names_api_secret_names_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1166,13 +1208,27 @@ export interface components {
             /** Enabled */
             enabled: boolean;
         };
+        /**
+         * SecretPolicyRequest
+         * @description Where a secret may be sent and in which environments (ADR 0001). Empty refuses.
+         */
+        SecretPolicyRequest: {
+            /** Allowed Hosts */
+            allowed_hosts?: string[];
+            /** Environments */
+            environments?: components["schemas"]["Environment"][];
+        };
         /** SecretSetRequest */
         SecretSetRequest: {
+            /** Allowed Hosts */
+            allowed_hosts?: string[] | null;
             /**
              * Description
              * @default
              */
             description: string;
+            /** Environments */
+            environments?: components["schemas"]["Environment"][] | null;
             /** Value */
             value: string;
         };
@@ -1519,6 +1575,45 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SecretSetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_secret_policy_api_admin_secrets__name__policy_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecretPolicyRequest"];
             };
         };
         responses: {
@@ -2360,6 +2455,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    secret_names_api_secret_names_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
         };

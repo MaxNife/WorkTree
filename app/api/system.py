@@ -22,6 +22,8 @@ from app.adapters.db.models import (
     User,
     Workflow,
 )
+from app.adapters.db.secret_policies import load_policies
+from app.adapters.secrets.base import is_internal_secret
 from app.api.deps import (
     CurrentUser,
     client_ip,
@@ -40,9 +42,10 @@ from app.api.schemas import (
 from app.api.serializers import comment as serialize_comment
 from app.api.serializers import notification as serialize_notification
 from app.api.serializers import saved_view as serialize_saved_view
+from app.domain.enums import Environment as EnvironmentName
 from app.domain.enums import Role, StepState, TaskStatus
 from app.domain.envelope import JobEnvelope
-from app.domain.secret_policy import placement_violations
+from app.domain.secret_policy import check_use, placement_violations
 from app.domain.workflow import ReferenceError as WorkflowReferenceError
 from app.domain.workflow import (
     ResolveContext,
@@ -188,6 +191,18 @@ def activity_options(
     return {"field": field, "options": activity.option_values(field, body.values, workspace)}
 
 
+@router.get("/secret-names")
+def secret_names(
+    request: Request,
+    _permission: Annotated[Any, require(Permission.WORKFLOW_EDIT)],
+) -> list[str]:
+    """The names of the secrets an Author can reference: names only, never values or policies.
+    Platform-internal secrets are left out."""
+    return sorted(
+        name for name in request.app.state.container.secrets.names() if not is_internal_secret(name)
+    )
+
+
 @router.post("/activities/{name}/test")
 def test_activity(
     name: str,
@@ -229,11 +244,25 @@ def test_activity(
     names = secret_refs(body.inputs)
     nonce = new_secret_nonce()
     inputs: dict[str, Any] = bind_secret_refs(body.inputs, nonce)
+    pinned = None
     if body.run_id:
         pinned = session.get(Run, body.run_id)
         if pinned is None:
             raise NotFound(f"run {body.run_id} not found")
         inputs = _resolve_pinned_inputs(session, pinned, inputs)
+    shown_inputs = strip_secret_bindings(inputs, nonce)
+    # ADR 0001 rules 2 and 3, after pinned data is merged (it can supply the destination). A
+    # step test is a dev use.
+    if names and container.settings.secrets.enforce_policy:
+        check = check_use(
+            names,
+            load_policies(session, names),
+            environment=EnvironmentName.DEV.value,
+            destinations=activity.destination_hosts(shown_inputs),
+        )
+        if not check.allowed:
+            raise Forbidden("refused by the secret policy: " + "; ".join(check.refusals))
+    if pinned is not None:
         _copy_pinned_workspace(Path(pinned.workspace), workspace)
     workspace.mkdir(parents=True, exist_ok=True)
     container.audit.write(
@@ -246,7 +275,6 @@ def test_activity(
         after={"pinned_run_id": body.run_id, "test_id": test_id},
         correlation_id=correlation_id(request),
     )
-    shown_inputs = strip_secret_bindings(inputs, nonce)
     secrets, missing = resolve_secrets(container.secrets, names)
     if missing:
         return {

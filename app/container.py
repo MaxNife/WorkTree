@@ -165,6 +165,7 @@ def build_container(
         workspaces=settings.data.workspaces,
         default_timeout_seconds=settings.workers.default_timeout_seconds,
         event_sink=events.publish,
+        enforce_secret_policy=settings.secrets.enforce_policy,
     )
     session_codec = SessionCodec(secrets)
     session_factory = SessionFactory(session_codec, clock, settings.security.session_ttl_minutes)
@@ -176,7 +177,9 @@ def build_container(
         account_attempts=settings.security.login_rate_limit_account_attempts,
     )
     auth = AuthService(clock, audit, session_factory, limiter)
-    workflows = WorkflowService(clock, audit, activity_registry)
+    workflows = WorkflowService(
+        clock, audit, activity_registry, enforce_secret_policy=settings.secrets.enforce_policy
+    )
     notifications = NotificationService(clock, settings.notifications, secrets)
     tasks = TaskService(clock, audit, notifications, engine)
     schedules = ScheduleService(clock, audit)

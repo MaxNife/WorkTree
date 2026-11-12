@@ -12,6 +12,7 @@ from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.destinations import destination_host
 from app.domain.enums import Outcome
 from app.domain.envelope import ArtifactRef
 from app.domain.masking import get_masker
@@ -113,6 +114,14 @@ def file_artifact(ctx: ActivityContext, path: Path, name: str | None = None) -> 
 OptionProvider = Callable[[dict[str, Any], Path | None], list[dict[str, str]]]
 
 
+def _default_of(model: type[BaseModel], field: str) -> Any:
+    """The plain default of an input, or None when it has none (required, or a factory)."""
+    info = model.model_fields.get(field)
+    if info is None or info.is_required() or info.default_factory is not None:
+        return None
+    return info.default
+
+
 def _union(*groups: tuple[str, ...]) -> tuple[str, ...]:
     """The fields of every group, each once, in the order they first appear."""
     return tuple(dict.fromkeys(field for group in groups for field in group))
@@ -150,6 +159,44 @@ class Activity[InputT: BaseModel](ABC):
     def masked_fields(cls) -> tuple[str, ...]:
         """Every input whose value is replaced by ``***`` when inputs are stored or shown."""
         return _union(cls.sensitive_fields, cls.credential_fields())
+
+    @classmethod
+    def active_destination_fields(cls, values: Mapping[str, Any]) -> tuple[str, ...]:
+        """The destination inputs these values use. With ``operation_fields``, a destination
+        listed only for other operations is not used. Activities whose destination depends on
+        another switch (email's ``provider``) override this."""
+        if not cls.operation_fields:
+            return cls.destination_inputs
+        operation = str(values.get("operation", _default_of(cls.input_model, "operation")))
+        listed = {field for fields in cls.operation_fields.values() for field in fields}
+        current = set(cls.operation_fields.get(operation, ()))
+        return tuple(
+            field for field in cls.destination_inputs if field not in listed or field in current
+        )
+
+    @classmethod
+    def destination_hosts(
+        cls, values: Mapping[str, Any], *, literal_only: bool = False
+    ) -> list[str] | None:
+        """The hosts a step with these inputs connects to (ADR 0001 rule 2), or None when the
+        activity has no network destination.
+
+        A field the step leaves out takes the input model's default, so a default host (Graph's,
+        for example) is checked like a typed one. A value that cannot be read gives ``""``, which
+        a policy refuses. With ``literal_only`` (a save, before references resolve), fields that
+        still hold a ``{{ }}`` reference are skipped; dispatch checks them once resolved.
+        """
+        if not cls.destination_inputs:
+            return None
+        hosts: list[str] = []
+        for field in cls.active_destination_fields(values):
+            value = values[field] if field in values else _default_of(cls.input_model, field)
+            if literal_only and isinstance(value, str) and "{{" in value:
+                continue
+            host = destination_host(value)
+            if host is not None and host not in hosts:
+                hosts.append(host)
+        return hosts
 
     @abstractmethod
     def run(self, ctx: ActivityContext, inputs: InputT) -> ActivityResult:

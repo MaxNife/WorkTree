@@ -183,8 +183,10 @@ def test_prod_environment_refuses_to_start_without_secure_cookies(
     assert settings.security.cookie_secure is False
     with pytest.raises(InsecureConfiguration, match="cookie_secure"):
         create_app(settings, container=container, start_background=False)
-    # The same prod settings with the flag set start, and the cookies carry Secure.
+    # The same prod settings with the flag set start, and the cookies carry Secure. (A prod
+    # server also needs the secret policy on; the test settings turn it off.)
     settings.security.cookie_secure = True
+    settings.secrets.enforce_policy = True
     application = create_app(settings, container=container, start_background=False)
     with TestClient(application, base_url="https://testserver") as client:
         response = client.post("/api/auth/login", json={"username": "admin", "password": PASSWORD})
@@ -1638,3 +1640,199 @@ def test_activity_specs_list_credential_and_destination_inputs_and_mask_credenti
     assert specs["gl_query"]["credential_inputs"] == ["db_url"]
     assert specs["email"]["destination_inputs"] == ["smtp_host", "graph_base_url", "login_base_url"]
     assert specs["echo"]["credential_inputs"] == [] and specs["echo"]["destination_inputs"] == []
+
+
+@pytest.fixture
+def enforced(settings: Settings, make_client: Any) -> Any:
+    """An app with ADR 0001 rules 2 and 3 on, and a secret ``api_key`` an Admin created."""
+    settings.secrets.enforce_policy = True
+    client, container = make_client()
+
+    class Enforced:
+        def __init__(self) -> None:
+            self.client, self.container = client, container
+
+        def actor(self, role: str) -> Actor:
+            return Actor(TestClient(client.app), role)
+
+    world = Enforced()
+    created = world.actor("admin").call(
+        "PUT", "/api/admin/secrets/api_key", json={"value": "Planted-Api-Key-0042"}
+    )
+    assert created.status_code == 200, created.text
+    return world
+
+
+def _http_step(url: str, name: str) -> dict[str, Any]:
+    return _one_step("http_request", {"url": url, "bearer_token": "{{ secret:api_key }}"}, name)
+
+
+def test_a_new_secret_may_be_used_in_dev_only_and_sent_nowhere(enforced: Any) -> None:
+    admin = enforced.actor("admin")
+    listed = {row["name"]: row for row in admin.client.get("/api/admin/secrets").json()}
+    assert listed["api_key"]["allowed_hosts"] == []
+    assert listed["api_key"]["environments"] == ["dev"]
+
+
+def test_an_admin_sets_a_policy_without_rotating_the_value_and_it_is_audited(
+    enforced: Any,
+) -> None:
+    admin, author = enforced.actor("admin"), enforced.actor("author")
+    before = enforced.container.secrets.get("api_key")
+    policy = {
+        "allowed_hosts": ["API.example.com.", "*.corp.example"],
+        "environments": ["dev", "test"],
+    }
+    set_ = admin.call("PUT", "/api/admin/secrets/api_key/policy", json=policy)
+    assert set_.status_code == 200, set_.text
+    assert set_.json()["allowed_hosts"] == ["api.example.com", "*.corp.example"]
+    assert set_.json()["environments"] == ["dev", "test"]
+    assert enforced.container.secrets.get("api_key") == before
+    audit = admin.client.get("/api/admin/audit?limit=50").text
+    assert "secret.policy" in audit and "Planted-Api-Key-0042" not in audit
+    bad = admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["*"], "environments": []},
+    )
+    assert bad.status_code == 422 and "not valid" in bad.text
+    assert admin.call("PUT", "/api/admin/secrets/nope/policy", json={}).status_code == 404
+    reserved = admin.call("PUT", "/api/admin/secrets/session_signing_key/policy", json={})
+    assert reserved.status_code == 422
+    assert author.call("PUT", "/api/admin/secrets/api_key/policy", json=policy).status_code == 403
+
+
+def test_authors_see_secret_names_only(enforced: Any) -> None:
+    names = enforced.actor("author").client.get("/api/secret-names")
+    assert names.status_code == 200, names.text
+    assert names.json() == ["api_key"]
+    assert "Planted" not in names.text and "session_signing_key" not in names.text
+    assert enforced.actor("viewer").client.get("/api/secret-names").status_code == 403
+
+
+def test_posting_a_secret_to_loopback_is_refused_at_save_and_at_dispatch(enforced: Any) -> None:
+    """The phase 1 exit check: an Author posting a secret to 127.0.0.1 is refused at save and,
+    when the address only arrives at run time, at dispatch, before any worker sees the value."""
+    from app.adapters.db.models import Incident, Run
+
+    admin, author = enforced.actor("admin"), enforced.actor("author")
+    admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["api.example.com"], "environments": ["dev"]},
+    )
+    saved = author.call(
+        "POST", "/api/workflows", json={"definition": _http_step("http://127.0.0.1:9/x", "loop")}
+    )
+    assert saved.status_code == 422, saved.text
+    assert "127.0.0.1" in saved.text and "allowed hosts" in saved.text
+    allowed = author.call(
+        "POST", "/api/workflows", json={"definition": _http_step("https://api.example.com/x", "ok")}
+    )
+    assert allowed.status_code == 200, allowed.text
+
+    dynamic = author.call(
+        "POST",
+        "/api/workflows",
+        json={"definition": _http_step("{{ inputs.target }}", "dynamic")},
+    )
+    assert dynamic.status_code == 200, dynamic.text
+    workflow_id = dynamic.json()["workflow"]["id"]
+    engine = enforced.container.engine
+    run = engine.start_run(
+        workflow_id=workflow_id, requested_by="author", inputs={"target": "http://127.0.0.1:9/x"}
+    )
+    for _ in range(3):
+        engine.tick()
+    with enforced.container.database.session() as session:
+        row = session.get(Run, run.id)
+        assert row is not None and row.status == "failed"
+        incidents = session.execute(select(Incident).where(Incident.run_id == run.id)).scalars()
+        kinds = {incident.kind: incident.message for incident in incidents}
+    assert "secret_policy" in kinds
+    assert "api_key" in kinds["secret_policy"] and "127.0.0.1" in kinds["secret_policy"]
+    # Refused before dispatch: no job was ever queued for a worker.
+    assert enforced.container.workers.process_one() is False
+
+
+def test_a_secret_is_refused_outside_its_environments_at_dispatch(enforced: Any) -> None:
+    from app.adapters.db.models import Incident
+
+    admin, author = enforced.actor("admin"), enforced.actor("author")
+    admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["api.example.com"], "environments": ["prod"]},
+    )
+    saved = author.call(
+        "POST", "/api/workflows", json={"definition": _http_step("https://api.example.com", "env")}
+    )
+    assert saved.status_code == 200, saved.text
+    run = enforced.container.engine.start_run(
+        workflow_id=saved.json()["workflow"]["id"], requested_by="author"
+    )
+    enforced.container.engine.tick()
+    with enforced.container.database.session() as session:
+        messages = [
+            incident.message
+            for incident in session.execute(
+                select(Incident).where(Incident.run_id == run.id)
+            ).scalars()
+        ]
+    assert any("may not be used in dev" in message for message in messages), messages
+
+
+def test_a_secret_without_a_policy_row_is_refused(enforced: Any) -> None:
+    """A secret created outside the API (the CLI, an environment variable) has no policy."""
+    enforced.container.secrets.set("cli_made", "Cli-Made-Value-77")
+    refused = enforced.actor("author").call(
+        "POST",
+        "/api/workflows",
+        json={
+            "definition": _one_step(
+                "http_request",
+                {"url": "https://api.example.com", "bearer_token": "{{ secret:cli_made }}"},
+                "no-policy",
+            )
+        },
+    )
+    assert refused.status_code == 422 and "no policy" in refused.text
+
+
+def test_a_step_test_checks_the_policy_as_dev(enforced: Any) -> None:
+    admin, author = enforced.actor("admin"), enforced.actor("author")
+    admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["api.example.com"], "environments": ["dev"]},
+    )
+    refused = author.call(
+        "POST",
+        "/api/activities/http_request/test",
+        json={"inputs": {"url": "http://127.0.0.1:9/x", "bearer_token": "{{ secret:api_key }}"}},
+    )
+    assert refused.status_code == 403, refused.text
+    assert "127.0.0.1" in refused.text and "Planted" not in refused.text
+    admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["api.example.com"], "environments": ["test"]},
+    )
+    off_env = author.call(
+        "POST",
+        "/api/activities/http_request/test",
+        json={"inputs": {"url": "https://api.example.com", "bearer_token": "{{ secret:api_key }}"}},
+    )
+    assert off_env.status_code == 403 and "may not be used in dev" in off_env.text
+
+
+def test_prod_refuses_to_start_with_the_secret_policy_off(
+    container: Container, settings: Settings
+) -> None:
+    settings.app.environment = "prod"  # type: ignore[assignment]
+    settings.security.cookie_secure = True
+    settings.secrets.enforce_policy = False
+    with pytest.raises(InsecureConfiguration, match="enforce_policy"):
+        create_app(settings, container=container, start_background=False)
+    settings.secrets.enforce_policy = True
+    create_app(settings, container=container, start_background=False)

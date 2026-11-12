@@ -142,6 +142,9 @@ class Promotion(Base):
     requested_by: Mapped[str] = mapped_column(String(32), nullable=False)
     decided_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
     reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    # The secrets the version uses and their policies when the request was made, so the
+    # Approver sees what a promotion would give the version access to (ADR 0001).
+    secrets: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
     requested_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -338,6 +341,9 @@ class SecretMetadata(Base):
     description: Mapped[str] = mapped_column(String(255), default="", nullable=False)
     last_rotated_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # ADR 0001: where and in which environments the secret may be used. Empty refuses.
+    allowed_hosts: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    environments: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
 
 
 class AuditLog(Base):

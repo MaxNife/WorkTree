@@ -81,7 +81,9 @@ def settings(tmp_path: Path) -> Settings:
             "playwright_state": tmp_path / "playwright",
         },
         logging={"directory": tmp_path / "logs", "json_logs": True},
-        secrets={"file": tmp_path / "secrets.json"},
+        # ADR 0001 rules 2 and 3 are off for most tests; the policy tests and the A1 and A6
+        # acceptance runs turn them on.
+        secrets={"file": tmp_path / "secrets.json", "enforce_policy": False},
         activities={"extra_folder": tmp_path / "extra-activities"},
         scheduler={"enabled": False, "tick_seconds": 1},
         workers={"count": 1, "poll_seconds": 0.01},

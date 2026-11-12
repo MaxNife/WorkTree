@@ -8,6 +8,7 @@ import mimetypes
 import os
 import shutil
 import stat
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from pathlib import Path
@@ -260,6 +261,13 @@ class EmailActivity(Activity[EmailInputs]):
     sensitive_fields = ("smtp_password", "client_secret")
     credential_inputs = ("smtp_password", "client_secret")
     destination_inputs = ("smtp_host", "graph_base_url", "login_base_url")
+
+    @classmethod
+    def active_destination_fields(cls, values: Mapping[str, Any]) -> tuple[str, ...]:
+        # SMTP connects to smtp_host only; Graph to its API and its token endpoint only.
+        if values.get("provider", "smtp") == "graph":
+            return ("graph_base_url", "login_base_url")
+        return ("smtp_host",)
 
     def run(self, ctx: ActivityContext, inputs: EmailInputs) -> ActivityResult:
         if inputs.provider == "graph":

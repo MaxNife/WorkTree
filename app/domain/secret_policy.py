@@ -104,7 +104,7 @@ def check_use(
     secrets: Iterable[str],
     policies: Mapping[str, SecretPolicy],
     *,
-    environment: str,
+    environment: str | None,
     destinations: Iterable[str] | None,
 ) -> PolicyCheck:
     """Check rules 2 and 3 for a step that uses ``secrets``.
@@ -112,7 +112,7 @@ def check_use(
     ``destinations`` is the list of hosts the step connects to, or None when the activity has
     no network destination (a local file, or a database whose address is inside the secret);
     then only rule 3 applies. An empty string in ``destinations`` is a destination that could
-    not be parsed, and refuses.
+    not be parsed, and refuses. ``environment`` None skips rule 3 (a save, before any run).
     """
     result = PolicyCheck()
     hosts = None if destinations is None else list(destinations)
@@ -123,7 +123,7 @@ def check_use(
                 f"secret {name!r} has no policy; an Admin sets its environments and allowed hosts"
             )
             continue
-        if environment not in policy.environments:
+        if environment is not None and environment not in policy.environments:
             listed = ", ".join(policy.environments) or "none"
             result.refusals.append(
                 f"secret {name!r} may not be used in {environment} (its environments: {listed}); "
