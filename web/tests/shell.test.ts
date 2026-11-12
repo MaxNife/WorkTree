@@ -115,6 +115,30 @@ describe('sidebar', () => {
     expect(current.text()).toBe('Operations')
   })
 
+  // F5: Dashboard and the Operations row share /operations, and Runs lies under it. Only one lights.
+  it('marks exactly one entry current, the deepest longest match', async () => {
+    const { router } = await mountApp('/operations', { roles: ['admin'] })
+    await wrapper!.get('button[aria-label="Operations items"]').trigger('click')
+    await settle()
+    const currentLabels = () => wrapper!.findAll('#app-nav [aria-current="page"]').map((node) => node.text())
+    expect(currentLabels()).toEqual(['Dashboard'])
+    expect(wrapper!.find('#app-nav .nav-item__row.is-in-area').text()).toContain('Operations')
+    await router.push('/operations/runs/run-1')
+    await settle()
+    expect(currentLabels()).toEqual(['Runs'])
+    await wrapper!.get('button[aria-label="Operations items"]').trigger('click')
+    await settle()
+    expect(currentLabels()).toEqual(['Operations'])
+  })
+
+  it('marks each area with a leaf in its colour', async () => {
+    await mountApp('/operations', { roles: ['admin'] })
+    const leaves = wrapper!.findAll('#app-nav .leaf').map((node) => node.attributes('style'))
+    expect(leaves).toHaveLength(5)
+    expect(leaves[0]).toContain('--wt-hibiscus')
+    expect(leaves[4]).toContain('--wt-ink')
+  })
+
   it('hides Admin from other roles', async () => {
     await mountApp('/operations', { roles: ['operator', 'author'] })
     expect(navLabels()).toEqual(['Operations', 'Inbox', 'Studio', 'Data'])
@@ -273,7 +297,7 @@ describe('breadcrumbs', () => {
     const page = mount(Page)
     expect(breadcrumbsFor(router.currentRoute.value, 'Bank reconciliation').at(-1)?.label).toBe('Bank reconciliation')
     await settle()
-    expect(wrapper!.get('[aria-current="page"]').text()).toBe('Bank reconciliation')
+    expect(wrapper!.get('nav[aria-label="Breadcrumb"] [aria-current="page"]').text()).toBe('Bank reconciliation')
     page.unmount()
     await settle()
     expect(wrapper!.get('nav[aria-label="Breadcrumb"] [aria-current="page"]').text()).toBe('wf-7')

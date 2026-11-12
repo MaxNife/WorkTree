@@ -2,12 +2,15 @@
 // One sidebar entry and, when expanded, its children (static or loaded on demand). Links and
 // disclosure buttons only, so Tab and Enter/Space are enough to reach and operate everything.
 import { useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import LeafMark from '@/components/LeafMark.vue'
 import UIcon from '@/components/UIcon.vue'
+import { areaColour } from '@/theme/areas'
 import { allowed, type NavItem } from '@/router/types'
 import { useSession } from '@/stores/session'
 import { useShellLayout } from './layout'
+import { pathMatches, useNavRegistry } from './navMatch'
 
 const props = defineProps<{ item: NavItem; depth: number; collapsed: boolean }>()
 
@@ -17,10 +20,22 @@ const session = useSession()
 
 const expandable = computed(() => !props.collapsed && Boolean(props.item.children?.length || props.item.loadChildren))
 const open = computed(() => expandable.value && layout.isExpanded(props.item.id))
-const active = computed(() => {
-  const to = props.item.to
-  return Boolean(to) && (route.path === to || route.path.startsWith(`${to}/`))
-})
+const registry = useNavRegistry()
+// The one current entry (aria-current="page"), and, for an area row, whether the page is in that area.
+const current = computed(() => registry?.isCurrent(props.item.id) ?? false)
+const inArea = computed(() => props.depth === 0 && Boolean(props.item.to) && pathMatches(props.item.to ?? '', route.path))
+const colour = computed(() => (props.depth === 0 ? areaColour(props.item.id) : undefined))
+
+watch(
+  () => props.item.to,
+  (to, before) => {
+    if (!registry) return
+    if (before !== undefined) registry.unregister(props.item.id)
+    if (to) registry.register({ id: props.item.id, to, depth: props.depth })
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => registry?.unregister(props.item.id))
 
 const loaded = useQuery({
   queryKey: computed(() => ['nav', props.item.id]),
@@ -40,7 +55,11 @@ function toggle(): void {
 
 <template>
   <li class="nav-item">
-    <div class="nav-item__row" :class="{ 'is-active': active, 'nav-item__row--rail': collapsed }" :style="{ '--depth': depth }">
+    <div
+      class="nav-item__row"
+      :class="{ 'is-current': current, 'is-in-area': inArea, 'nav-item__row--rail': collapsed }"
+      :style="{ '--depth': depth, '--area-soft': colour ? `var(--wt-${colour === 'night-soil' ? 'sunken' : `${colour}-soft`})` : undefined }"
+    >
       <button
         v-if="expandable && item.to"
         type="button"
@@ -53,15 +72,23 @@ function toggle(): void {
         <UIcon :name="open ? 'chevron-down' : 'chevron-right'" :size="12" />
       </button>
       <span v-else-if="!collapsed && item.to" class="nav-item__spacer" />
-      <RouterLink
-        v-if="item.to"
-        :to="item.to"
-        class="nav-item__link"
-        :aria-label="collapsed ? item.label : undefined"
-        :title="collapsed ? item.label : undefined"
-      >
-        <UIcon v-if="item.icon" :name="item.icon" :size="depth === 0 ? 20 : 16" />
-        <span v-if="!collapsed" class="nav-item__label">{{ item.label }}</span>
+      <!-- custom: aria-current follows the one current entry, not RouterLink's exact-active rule. -->
+      <RouterLink v-if="item.to" v-slot="{ href, navigate }" :to="item.to" custom>
+        <a
+          :href="href"
+          class="nav-item__link"
+          :aria-current="current ? 'page' : undefined"
+          :aria-label="collapsed ? item.label : undefined"
+          :title="collapsed ? item.label : undefined"
+          @click="navigate"
+        >
+          <span v-if="collapsed && colour" class="nav-item__rail-leaf">
+            <UIcon v-if="item.icon" :name="item.icon" :size="18" />
+          </span>
+          <LeafMark v-else-if="colour" :colour="colour" :size="12" class="nav-item__leaf" />
+          <UIcon v-else-if="item.icon" :name="item.icon" :size="depth === 0 ? 20 : 16" />
+          <span v-if="!collapsed" class="nav-item__label">{{ item.label }}</span>
+        </a>
       </RouterLink>
       <button
         v-else
@@ -101,11 +128,33 @@ function toggle(): void {
 .nav-item__row:hover {
   background: var(--wt-surface-hover);
 }
-.nav-item__row.is-active {
-  background: var(--wt-surface-selected);
+.nav-item__row > .nav-item__link {
+  color: var(--wt-text-secondary);
 }
-.nav-item__row.is-active > .nav-item__link {
+.nav-item__row.is-in-area > .nav-item__link,
+.nav-item__row.is-current > .nav-item__link {
+  color: var(--wt-ink);
   font-weight: var(--weight-semibold);
+}
+.nav-item__row.is-current {
+  background: var(--wt-sunken);
+}
+.nav-item__leaf {
+  margin: 0 var(--space-4);
+}
+/* The rail keeps each area's glyph, set on a leaf of its soft tint, so colour is not the only cue. */
+.nav-item__rail-leaf {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--wt-leaf);
+  background: var(--area-soft);
+  color: var(--wt-ink);
+}
+.nav-item__row--rail.is-current,
+.nav-item__row--rail.is-in-area {
+  background: var(--wt-sunken);
 }
 .nav-item__toggle,
 .nav-item__spacer {

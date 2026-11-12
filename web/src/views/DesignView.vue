@@ -14,6 +14,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import PropertyList from '@/components/PropertyList.vue'
 import RelativeTime from '@/components/RelativeTime.vue'
 import RunTimeline, { type TimelineStep } from '@/components/RunTimeline.vue'
+import AreaBand from '@/components/AreaBand.vue'
+import LeafMark from '@/components/LeafMark.vue'
 import AppPage from '@/components/shell/AppPage.vue'
 import MessageBar from '@/components/shell/MessageBar.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -27,11 +29,13 @@ import USwitch from '@/components/USwitch.vue'
 import UTabs from '@/components/UTabs.vue'
 import UTextArea from '@/components/UTextArea.vue'
 import UTextInput from '@/components/UTextInput.vue'
+import WorkflowFlower from '@/components/WorkflowFlower.vue'
 import WorkTreeLogo from '@/components/WorkTreeLogo.vue'
 import { ICONS, type IconName } from '@/icons/paths'
 import { STATUS_NAMES } from '@/status'
 import { usePreferences } from '@/stores/preferences'
 import { DENSITIES, THEME_MODES, type Density, type ThemeMode } from '@/theme/apply'
+import { AREA_COLOURS, type AreaName } from '@/theme/areas'
 import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
 import { THEME_LABELS } from '@/theme/tokens'
 
@@ -53,6 +57,7 @@ const sections = [
   ['d-colour', 'Colour'],
   ['d-type', 'Type, spacing and radius'],
   ['d-logo', 'Logo'],
+  ['d-garden', 'Leaves, flowers and bands'],
   ['d-icons', 'Icons'],
   ['d-canvas', 'Canvas nodes'],
   ['d-status', 'Status'],
@@ -72,9 +77,21 @@ const sections = [
   ['d-dialogs', 'Dialogs'],
 ] as const
 
+const AREA_LABELS: Record<AreaName, string> = {
+  home: 'Home',
+  operations: 'Operations',
+  inbox: 'Inbox',
+  studio: 'Studio',
+  data: 'Data',
+  connections: 'Connections',
+  insights: 'Insights',
+  admin: 'Admin',
+}
+const FLOWER_SAMPLES = ['Bank reconciliation', 'Vendor onboarding', 'Month-end close', 'Payroll check', 'Expense audit']
+
 const principles: { icon: IconName; title: string; text: string }[] = [
-  { icon: 'leaf', title: 'Calm by default', text: 'Warm neutrals, soft corners and dense tables. Nothing competes with the work.' },
-  { icon: 'plant', title: 'Colour grows on the canvas', text: 'Vivid family colours belong to workflow nodes. Everywhere else, green marks the one main action.' },
+  { icon: 'leaf', title: 'A garden on a clean ground', text: 'Seven flower colours on a light, faintly violet base. Tables, forms and long text stay white and exact.' },
+  { icon: 'plant', title: 'Colour means something', text: 'Every area has its colour and every workflow its flower. Iris marks the main action, Night soil the strongest.' },
   { icon: 'tree', title: 'Every state in words', text: 'A dot always comes with its word, every control has a visible focus ring, and contrast passes in all themes.' },
 ]
 
@@ -299,6 +316,29 @@ const rejectOpen = ref(false)
         <section id="d-logo" class="block" aria-labelledby="d-logo-title">
           <h2 id="d-logo-title">Logo</h2>
           <div class="row"><WorkTreeLogo :size="28" /><WorkTreeLogo :size="20" /><WorkTreeLogo mark-only :size="20" /></div>
+        </section>
+
+        <section id="d-garden" class="block" aria-labelledby="d-garden-title">
+          <h2 id="d-garden-title">Leaves, flowers and bands</h2>
+          <p class="note">Each area has a leaf in its colour. Each workflow has a flower: a colour and five to nine petals.</p>
+          <ul class="areas">
+            <li v-for="(colour, area) in AREA_COLOURS" :key="area">
+              <LeafMark :colour="colour" :size="14" />{{ AREA_LABELS[area] }}
+            </li>
+          </ul>
+          <div class="row">
+            <span v-for="id in FLOWER_SAMPLES" :key="id" class="flower-sample">
+              <WorkflowFlower :id="id" :size="24" />{{ id }}
+            </span>
+          </div>
+          <div class="row">
+            <WorkflowFlower v-for="petals in [5, 6, 7, 8, 9]" :key="petals" flower="iris" :petals="petals" :size="32" />
+          </div>
+          <AreaBand colour="hibiscus" title="Operations" summary="4 runs growing, 1 failed in the last hour." size="tall">
+            <template #action><UButton appearance="strong" icon="play">Run now</UButton></template>
+          </AreaBand>
+          <AreaBand colour="iris" title="Invoice reconciliation" summary="Version 12, published 3 days ago." environment="prod" />
+          <AreaBand colour="night-soil" title="Admin" summary="12 people, 3 roles." environment="dev" />
         </section>
 
         <section id="d-icons" class="block" aria-labelledby="d-icons-title">
@@ -636,6 +676,20 @@ const rejectOpen = ref(false)
   flex-wrap: wrap;
   align-items: center;
   gap: var(--wt-gap);
+}
+.areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-20);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.areas li,
+.flower-sample {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
 }
 .row--end {
   align-items: flex-end;

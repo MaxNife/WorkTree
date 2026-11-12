@@ -1,17 +1,29 @@
 <script setup lang="ts">
-// Collapsible left sidebar (Notion/Azure style). Collapsed, it is an icon rail with the five areas.
-import { computed } from 'vue'
+// Collapsible left sidebar. Each area is marked by a leaf in its colour; collapsed, it is a rail of the
+// area glyphs on their leaves. Exactly one entry is current: see navMatch.ts.
+import { computed, provide, reactive } from 'vue'
+import { useRoute } from 'vue-router'
 import UIcon from '@/components/UIcon.vue'
 import WorkTreeLogo from '@/components/WorkTreeLogo.vue'
 import { AREAS } from '@/router/areas'
 import { allowed } from '@/router/types'
 import { useSession } from '@/stores/session'
 import { useShellLayout } from './layout'
+import { currentNavId, NAV_REGISTRY, type NavEntry } from './navMatch'
 import NavTreeItem from './NavTreeItem.vue'
 
 const layout = useShellLayout()
 const session = useSession()
 const items = computed(() => AREAS.flatMap((area) => area.navItems).filter((item) => allowed(item.roles, session.roles)))
+
+const route = useRoute()
+const entries = reactive(new Map<string, NavEntry>())
+const currentId = computed(() => currentNavId(entries.values(), route.path))
+provide(NAV_REGISTRY, {
+  register: (entry) => entries.set(entry.id, entry),
+  unregister: (id) => entries.delete(id),
+  isCurrent: (id) => currentId.value === id,
+})
 </script>
 
 <template>
@@ -47,7 +59,7 @@ const items = computed(() => AREAS.flatMap((area) => area.navItems).filter((item
   width: 240px;
   min-height: 0;
   border-right: var(--stroke-1) solid var(--wt-line);
-  background: var(--wt-sunken);
+  background: var(--wt-surface);
 }
 .sidebar--collapsed {
   width: 52px;
