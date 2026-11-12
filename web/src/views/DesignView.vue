@@ -78,7 +78,7 @@ const principles: { icon: IconName; title: string; text: string }[] = [
   { icon: 'tree', title: 'Every state in words', text: 'A dot always comes with its word, every control has a visible focus ring, and contrast passes in all themes.' },
 ]
 
-const appearances = ['primary', 'secondary', 'outline', 'subtle'] as const
+const appearances = ['primary', 'strong', 'destructive', 'secondary', 'outline', 'subtle'] as const
 const colourGroups: { title: string; tokens: [string, string][] }[] = [
   {
     title: 'Surfaces',

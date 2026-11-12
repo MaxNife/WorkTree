@@ -2,13 +2,15 @@
 // Our button: a native <button>. With an icon and no text it becomes a square icon button, which needs
 // `label` for its name. While `loading` it keeps focus (aria-disabled, not disabled) and refuses clicks,
 // so a keyboard user does not lose their place during the work.
+// Appearances: primary (Iris) is the main action of a view; strong (Night soil) is the single strongest
+// action on a coloured band; destructive (Hibiscus deep) deletes or stops something.
 import { computed, useSlots } from 'vue'
 import type { IconName } from '@/icons/paths'
 import UIcon from './UIcon.vue'
 
 const props = withDefaults(
   defineProps<{
-    appearance?: 'primary' | 'secondary' | 'outline' | 'subtle'
+    appearance?: 'primary' | 'strong' | 'destructive' | 'secondary' | 'outline' | 'subtle'
     icon?: IconName
     disabled?: boolean
     loading?: boolean
@@ -67,8 +69,12 @@ function onClick(event: MouseEvent): void {
   white-space: nowrap;
   cursor: pointer;
   transition:
-    background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
+    background-color var(--motion-instant) var(--ease-out),
+    border-color var(--motion-instant) var(--ease-out),
+    transform var(--motion-instant) var(--ease-out);
+}
+.u-button:active:not(:disabled, [aria-disabled='true']) {
+  transform: translateY(1px);
 }
 .u-button--primary {
   background: var(--wt-accent);
@@ -79,6 +85,22 @@ function onClick(event: MouseEvent): void {
 }
 .u-button--primary:active {
   background: var(--wt-accent-pressed);
+}
+.u-button--strong {
+  background: var(--wt-strong);
+  color: var(--wt-on-strong);
+}
+.u-button--strong:hover,
+.u-button--strong:active {
+  background: var(--wt-strong-hover);
+}
+.u-button--destructive {
+  background: var(--wt-destructive);
+  color: var(--wt-on-destructive);
+}
+.u-button--destructive:hover,
+.u-button--destructive:active {
+  background: var(--wt-destructive-hover);
 }
 .u-button--secondary {
   background: var(--wt-surface);

@@ -10,7 +10,7 @@ const props = defineProps<{
   title: string
   message: string
   confirmLabel: string
-  // Styling stays primary either way: the confirm label states the action, with no red fill.
+  // A destructive confirm (cancel, delete) fills with Hibiscus deep; the label still names the action.
   danger?: boolean
   reasonLabel?: string
   reasonRequired?: boolean
@@ -33,7 +33,7 @@ watch(open, (isOpen) => {
     <UTextArea v-if="reasonLabel" v-model="reason" :label="reasonLabel" :required="reasonRequired" />
     <template #footer>
       <UButton @click="open = false">Cancel</UButton>
-      <UButton appearance="primary" :disabled="busy || reasonMissing" @click="emit('confirm', trimmedReason)">
+      <UButton :appearance="danger ? 'destructive' : 'primary'" :disabled="busy || reasonMissing" @click="emit('confirm', trimmedReason)">
         {{ confirmLabel }}
       </UButton>
     </template>

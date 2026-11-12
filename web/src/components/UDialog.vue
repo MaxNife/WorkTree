@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
   max-height: calc(100% - 2 * var(--space-24));
   padding: 0;
   border: var(--stroke-1) solid var(--wt-line);
-  border-radius: var(--wt-radius-container);
+  border-radius: var(--wt-radius-frame);
   background: var(--wt-surface);
   color: var(--wt-ink);
   box-shadow: var(--wt-shadow-overlay);
@@ -128,6 +128,7 @@ onBeforeUnmount(() => {
 .u-dialog__title {
   font-size: var(--font-size-20);
   line-height: var(--line-height-28);
+  overflow-wrap: anywhere;
 }
 .u-dialog__content {
   min-width: 0;

@@ -369,6 +369,12 @@ describe('ConfirmDialog', () => {
     expect(dialog.emitted('update:open')).toBeUndefined()
   })
 
+  it('fills the confirm button with the destructive colour when danger is set', () => {
+    const dialog = mount(ConfirmDialog, { props: { ...base, danger: true } })
+    expect(dialog.find('.u-button--destructive').text()).toBe('Reject task')
+    expect(dialog.find('.u-button--primary').exists()).toBe(false)
+  })
+
   it('blocks confirm until a required reason is given, and trims it', async () => {
     const dialog = mount(ConfirmDialog, { props: { ...base, reasonLabel: 'Reason', reasonRequired: true } })
     expect(confirmButton(dialog).attributes('disabled')).toBeDefined()
@@ -390,11 +396,6 @@ describe('ConfirmDialog', () => {
   it('disables confirm while busy', () => {
     const dialog = mount(ConfirmDialog, { props: { ...base, busy: true } })
     expect(confirmButton(dialog).attributes('disabled')).toBeDefined()
-  })
-
-  it('uses the primary appearance for a danger confirm', () => {
-    const dialog = mount(ConfirmDialog, { props: { ...base, danger: true } })
-    expect(confirmButton(dialog).text()).toBe('Reject task')
   })
 
   it('cancels and starts blank when reopened', async () => {

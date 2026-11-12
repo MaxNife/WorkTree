@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// A status mark plus its word: no pill, border or tinted fill. Each kind has its own shape as well as
-// its own colour (a tick, a cross, a clock, an alert, a turning ring, a hollow ring), and the word is
-// always shown, so colour is never the only signal.
+// A status pill: a soft tint of the status flower, a mark and the word in its deep value. Each kind has
+// its own mark as well as its own colour (a tick, a cross, a clock, an alert, an open ring, a dashed
+// ring), and the word is always shown, so colour is never the only signal. Nothing here moves: in the
+// garden only the petals of a running step fill (docs/04 3.4).
 import { computed } from 'vue'
 import type { IconName } from '@/icons/paths'
 import { statusStyle, type StatusKind } from '@/status'
@@ -34,7 +35,15 @@ const mark = computed(() => MARKS[style.value.kind])
 .status {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
+  min-height: 20px;
+  padding: 0 var(--space-8) 0 var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--tint);
+  color: var(--word);
+  font-size: var(--font-size-12);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-height-16);
   white-space: nowrap;
 }
 .status__dot {
@@ -45,47 +54,58 @@ const mark = computed(() => MARKS[style.value.kind])
   height: 14px;
   color: var(--dot);
 }
-/* Running: a ring with one bright arc that turns. Neutral: a still, hollow ring. */
+/* Running: a ring with one solid arc. Neutral: a still, dashed ring. */
 .status__ring {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border: var(--stroke-2) solid var(--dot);
   border-radius: var(--radius-full);
 }
 .status--running .status__ring {
-  border-color: color-mix(in srgb, var(--dot) 30%, transparent);
+  border-color: color-mix(in srgb, var(--dot) 35%, transparent);
   border-top-color: var(--dot);
-  animation: status-turn 1.1s linear infinite;
+  border-right-color: var(--dot);
+  transform: rotate(-45deg);
 }
 .status--neutral .status__ring {
   border-width: var(--stroke-1);
   border-style: dashed;
 }
-@keyframes status-turn {
-  to {
-    transform: rotate(360deg);
-  }
-}
 .status--ok {
+  --tint: var(--wt-ok-bg);
+  --word: var(--wt-ok);
   --dot: var(--wt-ok);
 }
 .status--danger {
+  --tint: var(--wt-danger-bg);
+  --word: var(--wt-danger);
   --dot: var(--wt-danger);
 }
 .status--warn {
+  --tint: var(--wt-warn-bg);
+  --word: var(--wt-warn);
   --dot: var(--wt-warn);
 }
 .status--attention {
+  --tint: var(--wt-attention-bg);
+  --word: var(--wt-attention);
   --dot: var(--wt-attention);
 }
 .status--running {
-  --dot: var(--wt-accent-text);
+  --tint: var(--wt-running-bg);
+  --word: var(--wt-running);
+  --dot: var(--wt-running);
 }
 .status--neutral {
+  --tint: var(--wt-sunken);
+  --word: var(--wt-muted);
   --dot: var(--wt-muted);
 }
-/* Forced colours: the shapes still tell the kinds apart, drawn in the text colour. */
+/* Forced colours drop the tint, so the pill gets an edge; the marks still tell the kinds apart. */
 @media (forced-colors: active) {
+  .status {
+    border: var(--stroke-1) solid CanvasText;
+  }
   .status__dot {
     color: CanvasText;
   }
@@ -93,6 +113,10 @@ const mark = computed(() => MARKS[style.value.kind])
   .status--running .status__ring {
     forced-color-adjust: none;
     border-color: CanvasText;
+  }
+  .status--running .status__ring {
+    border-bottom-color: transparent;
+    border-left-color: transparent;
   }
 }
 </style>

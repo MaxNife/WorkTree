@@ -166,6 +166,12 @@ describe('base controls', () => {
     expect(button.find('svg').exists()).toBe(true)
   })
 
+  it('UButton has strong and destructive appearances', () => {
+    for (const appearance of ['strong', 'destructive'] as const) {
+      expect(mount(UButton, { props: { appearance }, slots: { default: 'Go' } }).classes()).toContain(`u-button--${appearance}`)
+    }
+  })
+
   it('UButton marks itself disabled', () => {
     expect(mount(UButton, { props: { disabled: true } }).get('button').attributes('disabled')).toBeDefined()
   })
