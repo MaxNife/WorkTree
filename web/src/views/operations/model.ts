@@ -75,6 +75,7 @@ export interface RunDetail extends RunSummary {
 
 export interface DashboardRun {
   id: string
+  workflowId: string
   workflowName: string
   status: string
   environment: string
@@ -210,6 +211,7 @@ export function readDashboard(value: unknown): Dashboard {
     overdueTasks: count(counts.overdue_tasks),
     recentRuns: asList(raw.recent_runs).map((item) => ({
       id: text(item.id),
+      workflowId: text(item.workflow_id),
       workflowName: text(item.workflow_name),
       status: text(item.status),
       environment: text(item.environment),

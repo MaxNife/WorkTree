@@ -90,6 +90,7 @@ def test_workflow_environment_run_and_artifact_resources(api, container, tmp_pat
     dashboard = api.client.get("/api/dashboard").json()
     assert dashboard["counts"]["runs_total"] == 1 and dashboard["counts"]["done"] == 1
     assert dashboard["recent_runs"][0]["id"] == run_id
+    assert dashboard["recent_runs"][0]["workflow_id"]
 
 
 def test_admin_users_roles_secrets_audit_and_saved_views(api, container) -> None:

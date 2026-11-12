@@ -106,6 +106,7 @@ def dashboard(
         "recent_runs": [
             {
                 "id": row.id,
+                "workflow_id": row.workflow_id,
                 "workflow_name": row.workflow_name,
                 "status": row.status,
                 "environment": row.environment,
