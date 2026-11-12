@@ -36,7 +36,7 @@ import { STATUS_NAMES } from '@/status'
 import { usePreferences } from '@/stores/preferences'
 import { DENSITIES, THEME_MODES, type Density, type ThemeMode } from '@/theme/apply'
 import { AREA_COLOURS, type AreaName } from '@/theme/areas'
-import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
+import { APPS, FLOW_LOOKS } from '@/theme/apps'
 import { THEME_LABELS } from '@/theme/tokens'
 
 const LONG_TEXT =
@@ -87,6 +87,7 @@ const AREA_LABELS: Record<AreaName, string> = {
   insights: 'Insights',
   admin: 'Admin',
 }
+const openDemo = ref('running')
 const FLOWER_SAMPLES = ['Bank reconciliation', 'Vendor onboarding', 'Month-end close', 'Payroll check', 'Expense audit']
 
 const principles: { icon: IconName; title: string; text: string }[] = [
@@ -354,19 +355,45 @@ const rejectOpen = ref(false)
 
         <section id="d-canvas" class="block" aria-labelledby="d-canvas-title">
           <h2 id="d-canvas-title">Canvas nodes</h2>
-          <p class="note">Rings and Bloom: one colour per activity family, the run state on the outer ring.</p>
+          <p class="note">
+            Solid plants. Shape says what a node does; colour says which app it belongs to. Pointed petals for skills are
+            still a proposal.
+          </p>
+          <h3 class="sub">Kinds</h3>
           <div class="canvas">
-            <NodeCard title="Nightly start" activity="schedule" family="trigger" status="done" :duration-ms="12" />
-            <NodeCard title="Fetch bank file" activity="sftp" family="files" status="done" :duration-ms="42_000" />
-            <NodeCard title="Match ledger" activity="matching" family="matching" status="running" selected />
-            <NodeCard title="Review exceptions" activity="human_task" family="human" status="waiting" />
-            <NodeCard title="Post journal" activity="http_request" family="network" status="failed" :duration-ms="420" />
-            <NodeCard title="Email summary" activity="email" family="messages" />
+            <NodeCard title="Every weekday" :look="FLOW_LOOKS.schedule" summary="06:00" />
+            <NodeCard title="Download statement" activity="sftp" summary="Supplier share" />
+            <NodeCard title="Match to ledger" activity="matching" summary="One to one, 0.01 tolerance" />
+            <NodeCard title="Review unmatched" activity="human_task" summary="Operators, 4 h" />
+            <NodeCard title="Any unmatched?" :look="FLOW_LOOKS.router" summary="2 routes" :routes="['fern', 'marigold']" :ports="['yes', 'no']" />
+            <NodeCard title="Wait for the bank" activity="sleep" summary="Until 07:00" />
+            <NodeCard title="Set period" activity="echo" summary="period_end" />
+            <NodeCard title="Month-end close" :look="FLOW_LOOKS.subworkflow" summary="Version 4" />
+            <NodeCard title="Finish" :look="FLOW_LOOKS.finish" summary="Done" :ports="[]" />
+            <NodeCard title="Stop" activity="fail" summary="With failure" :ports="[]" />
           </div>
-          <ul class="families">
-            <li v-for="name in FAMILY_NAMES" :key="name">
-              <span class="family-dot" :style="{ background: FAMILIES[name].color }" />{{ FAMILIES[name].label }}
-            </li>
+          <h3 class="sub">States</h3>
+          <div class="canvas">
+            <NodeCard title="Read rows" activity="excel" summary="Invoices sheet" />
+            <NodeCard title="Read rows" activity="excel" status="pending" />
+            <NodeCard title="Read rows" activity="excel" status="running" />
+            <NodeCard title="Read rows" activity="excel" status="running" :progress="0.25" summary="1,204 of 4,800 rows" />
+            <NodeCard title="Read rows" activity="excel" status="done" :duration-ms="4200" />
+            <NodeCard title="Read rows" activity="excel" status="failed" :duration-ms="420" />
+            <NodeCard title="Read rows" activity="excel" status="waiting" />
+            <NodeCard title="Read rows" activity="excel" selected />
+            <NodeCard title="Read rows" activity="excel" incomplete summary="Needs a file" />
+            <NodeCard title="Read rows" activity="excel" problem summary="Sheet is missing" />
+          </div>
+          <div class="row">
+            <NodeCard title="Query ledger" activity="gl_query" :status="openDemo" />
+            <UButton @click="openDemo = openDemo === 'done' ? 'running' : 'done'">
+              {{ openDemo === 'done' ? 'Run again' : 'Finish the run' }}
+            </UButton>
+          </div>
+          <h3 class="sub">Apps</h3>
+          <ul class="apps">
+            <li v-for="(app, key) in APPS" :key="key"><LeafMark :colour="app.colour" :size="12" />{{ app.label }}</li>
           </ul>
         </section>
 
@@ -728,7 +755,7 @@ const rejectOpen = ref(false)
 }
 .swatches,
 .icons,
-.families {
+.apps {
   display: grid;
   gap: var(--wt-gap);
   margin: 0;
@@ -766,7 +793,7 @@ const rejectOpen = ref(false)
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
 .icons li,
-.families li {
+.apps li {
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -781,18 +808,16 @@ const rejectOpen = ref(false)
   padding: var(--space-24) var(--space-16);
   border-radius: var(--wt-radius-container);
   background-color: var(--wt-ground);
-  background-image: radial-gradient(var(--wt-line-strong) 1px, transparent 1px);
+  /* A soft dot grid (docs/04 10.3), faint in every theme so it never competes with labels. */
+  background-image: radial-gradient(color-mix(in srgb, var(--wt-line-strong) 55%, transparent) 1px, transparent 1px);
   background-size: 18px 18px;
 }
-.families {
+.apps {
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
-.family-dot {
-  width: 12px;
-  height: 12px;
-  flex: none;
-  border-radius: 50%;
-  box-shadow: 0 0 0 var(--stroke-1) var(--wt-line-strong);
+.sub {
+  font-size: var(--font-size-16);
+  line-height: var(--line-height-22);
 }
 code {
   font-family: var(--wt-font-mono);

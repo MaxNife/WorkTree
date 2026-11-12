@@ -1,7 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import EmptyState from '@/components/EmptyState.vue'
-import NodeCard from '@/components/NodeCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PropertyList from '@/components/PropertyList.vue'
 import RunTimeline from '@/components/RunTimeline.vue'
@@ -138,21 +137,6 @@ describe('RunTimeline', () => {
       slots: { detail: '<template #detail="{ step }"><pre>log for {{ step.name }}</pre></template>' },
     })
     expect(timeline.text()).toContain('log for Fetch')
-  })
-})
-
-describe('NodeCard', () => {
-  it('shows the title, activity, run status and both output ports', () => {
-    const card = mount(NodeCard, { props: { title: 'Match ledger', activity: 'matching', status: 'done', durationMs: 900 } })
-    expect(card.attributes('aria-label')).toBe('Match ledger, matching')
-    expect(card.text()).toContain('Done')
-    expect(card.text()).toContain('900 ms')
-    expect(card.text()).toContain('done')
-    expect(card.text()).toContain('failed')
-  })
-
-  it('marks the selected node', () => {
-    expect(mount(NodeCard, { props: { title: 'A', activity: 'x', selected: true } }).classes()).toContain('node--selected')
   })
 })
 

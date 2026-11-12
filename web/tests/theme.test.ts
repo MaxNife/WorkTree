@@ -2,7 +2,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { applyTheme, resolveTheme } from '@/theme/apply'
-import { FAMILIES, FAMILY_NAMES } from '@/theme/families'
+import { APPS } from '@/theme/apps'
+import type { AreaColour } from '@/theme/areas'
 import { contrastRatio, FLOWER_NAMES, FLOWERS, NIGHT_SOIL, THEMES, type ThemeName } from '@/theme/tokens'
 
 const asMedia = (matching: string[]) => (query: string) => matching.includes(query)
@@ -219,9 +220,32 @@ describe('tokens', () => {
     expect(undefinedNames).toEqual([])
   })
 
-  // WCAG 1.4.11: the icon on a node core is a meaningful mark, so it needs 3:1 against the core.
-  it.each(FAMILY_NAMES)('family %s: the node icon meets 3:1 on its colour', (name) => {
-    expect(contrastRatio(FAMILIES[name].ink, FAMILIES[name].color)).toBeGreaterThanOrEqual(3)
+  // Canvas nodes (NodeCard). The deep value of a colour, as the node uses it: Night soil is the ink.
+  const deep = (theme: ThemeName, name: AreaColour): string =>
+    name === 'night-soil' ? colour(theme, '--wt-ink') : String(THEMES[theme][`wt-${name}-deep`])
+  const nodeColours: AreaColour[] = [...FLOWER_NAMES, 'night-soil']
+
+  it('gives every app a colour the node can draw', () => {
+    for (const app of Object.values(APPS)) expect(nodeColours).toContain(app.colour)
+  })
+
+  // WCAG 1.4.11: a node's glyph is a meaningful mark, drawn in the deep value on the light centre.
+  it.each(names)('%s: every node glyph meets 3:1 on the light centre', (theme) => {
+    for (const name of nodeColours) {
+      expect(contrastRatio(deep(theme, name), colour(theme, '--wt-surface')), name).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  // The sunflower and the router have a dark centre with the glyph in the surface colour.
+  it.each(names)('%s: the glyph on a dark node centre meets 3:1', (theme) => {
+    expect(contrastRatio(colour(theme, '--wt-surface'), colour(theme, '--wt-ink'))).toBeGreaterThanOrEqual(3)
+  })
+
+  // The waiting halo and the selection ring sit on the canvas ground in the deep value.
+  it.each(names)('%s: the halo and selection ring of every node colour meet 3:1 on the ground', (theme) => {
+    for (const name of nodeColours) {
+      expect(contrastRatio(deep(theme, name), colour(theme, '--wt-ground')), name).toBeGreaterThanOrEqual(3)
+    }
   })
 
   it('has no shadows in high contrast, where borders separate what floats', () => {
