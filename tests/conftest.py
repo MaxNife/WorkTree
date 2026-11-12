@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.adapters.net import DEFAULT_DENIED_NETWORKS, EGRESS_ENV
+from app.adapters.net import env_value as egress_env_value
 from app.config import Settings, load_settings
 from app.container import Container, build_container, seed_reference_data
 from app.domain.clock import FakeClock
@@ -64,6 +66,48 @@ def archive_roots_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+# The test fakes (portal, Graph, SFTP, SMTP, HTTP) listen on loopback, so tests allow it; every
+# other default denied network stays denied. The egress tests set their own policy.
+TEST_DENIED_NETWORKS = [
+    network for network in DEFAULT_DENIED_NETWORKS if network not in ("127.0.0.0/8", "::1/128")
+]
+
+
+@pytest.fixture(autouse=True)
+def egress_allows_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Activities run in-process read the egress policy from the environment, like a child."""
+    monkeypatch.setenv(EGRESS_ENV, egress_env_value(TEST_DENIED_NETWORKS))
+
+
+def allow_secrets(
+    container: Container,
+    names: Iterable[str],
+    *,
+    hosts: Iterable[str] = ("127.0.0.1", "localhost"),
+    environments: Iterable[str] = ("dev",),
+) -> None:
+    """Give secrets a policy (ADR 0001), as an Admin would, for runs with the policy enforced."""
+    from app.adapters.db.models import SecretMetadata
+
+    with container.database.session() as session:
+        for name in names:
+            row = session.get(SecretMetadata, name)
+            if row is None:
+                row = SecretMetadata(name=name, created_at=container.clock.now())
+                session.add(row)
+            row.allowed_hosts = list(hosts)
+            row.environments = list(environments)
+
+
+@pytest.fixture
+def enforce_secret_policy(container: Container) -> Container:
+    """Turn ADR 0001 rules 2 and 3 on for this container, as in production."""
+    container.settings.secrets.enforce_policy = True
+    container.engine.enforce_secret_policy = True
+    container.workflows.enforce_secret_policy = True
+    return container
+
+
 @pytest.fixture
 def fake_clock() -> FakeClock:
     return FakeClock()
@@ -85,6 +129,7 @@ def settings(tmp_path: Path) -> Settings:
         # acceptance runs turn them on.
         secrets={"file": tmp_path / "secrets.json", "enforce_policy": False},
         activities={"extra_folder": tmp_path / "extra-activities"},
+        egress={"denied_networks": TEST_DENIED_NETWORKS},
         scheduler={"enabled": False, "tick_seconds": 1},
         workers={"count": 1, "poll_seconds": 0.01},
         ai={"enabled": True, "endpoint": ""},

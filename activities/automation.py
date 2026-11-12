@@ -13,13 +13,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
-import httpx
 import psutil
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 from pydantic import BaseModel, ConfigDict, Field
 
 from activities._common import artifact_for, safe_path, validate_url, write_json
+from app.adapters.net import checked_client
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 from app.domain.enums import Role
 from app.domain.masking import get_masker
@@ -327,7 +327,7 @@ class AiExtractActivity(Activity[AiExtractInputs]):
         headers: dict[str, str] = {}
         if "ai_api_key" in ctx.resolved_secrets:
             headers["Authorization"] = f"Bearer {ctx.secret('ai_api_key')}"
-        with httpx.Client(timeout=inputs.timeout_seconds) as client:
+        with checked_client(timeout=inputs.timeout_seconds) as client:
             response = client.post(
                 ctx.ai_endpoint.rstrip("/") + "/chat/completions",
                 headers=headers,

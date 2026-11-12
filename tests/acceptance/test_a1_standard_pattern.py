@@ -47,6 +47,7 @@ from app.domain.masking import get_masker
 from app.domain.workflow import WorkflowDefinition, load_workflow_yaml, validate_definition
 from fixtures.data import ZIP_PASSWORD
 from fixtures.fake_services import FixtureState, RunningServer, build_fake_app, start_server
+from tests.conftest import allow_secrets
 
 REPO = Path(__file__).resolve().parents[2]
 EXAMPLE = REPO / "examples" / "a1_standard_pattern.yaml"
@@ -364,7 +365,10 @@ def test_a1_standard_pattern_end_to_end(
     portal: RunningServer,
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    enforce_secret_policy: Any,
 ) -> None:
+    """Runs with the secret policy enforced (ADR 0001): each secret is allowed for the local
+    fakes on loopback, in dev, as an Admin would set it."""
     gl_path = _create_gl(tmp_path / "gl.db")
     archive_dir = tmp_path / "unc" / "finance" / "recon"
     secret_values = {
@@ -375,6 +379,7 @@ def test_a1_standard_pattern_end_to_end(
     }
     for name, value in secret_values.items():
         container.secrets.set(name, value)
+    allow_secrets(container, secret_values)
 
     definition = load_workflow_yaml(EXAMPLE.read_text(encoding="utf-8"))
     assert validate_definition(definition, container.registry.names(), set(secret_values)) == []

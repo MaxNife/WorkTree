@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 
-import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from activities._common import artifact_for, safe_path, sha256_file, validate_url
+from app.adapters.net import checked_client, checked_socket
 from app.adapters.smtp import SmtpCredentialsRefused, smtp_connection
 from app.domain.activity import Activity, ActivityContext, ActivityResult
 
@@ -54,7 +54,7 @@ class HttpRequestActivity(Activity[HttpInputs]):
         if inputs.bearer_token:
             headers["Authorization"] = f"Bearer {inputs.bearer_token}"
         with (
-            httpx.Client(timeout=inputs.timeout_seconds, follow_redirects=False) as client,
+            checked_client(timeout=inputs.timeout_seconds) as client,
             client.stream(
                 inputs.method,
                 inputs.url,
@@ -121,7 +121,7 @@ class DownloadFileActivity(Activity[DownloadInputs]):
             headers["Authorization"] = f"Bearer {inputs.bearer_token}"
         total = 0
         with (
-            httpx.Client(timeout=inputs.timeout_seconds, follow_redirects=False) as client,
+            checked_client(timeout=inputs.timeout_seconds) as client,
             client.stream("GET", inputs.url, headers=headers) as response,
         ):
             if response.status_code >= 400:
@@ -189,6 +189,8 @@ class SftpActivity(Activity[SftpInputs]):
             client.connect(
                 inputs.host,
                 port=inputs.port,
+                # Connect to the checked address; the host name still selects the host key.
+                sock=checked_socket(inputs.host, inputs.port, inputs.timeout_seconds, "SFTP"),
                 username=inputs.username,
                 password=inputs.password or None,
                 pkey=key,
@@ -296,6 +298,7 @@ class EmailActivity(Activity[EmailInputs]):
                 user=inputs.smtp_user,
                 password=inputs.smtp_password,
                 timeout=30,
+                checked=True,
             ) as (smtp, encrypted):
                 smtp.send_message(message)
         except SmtpCredentialsRefused as exc:
@@ -328,7 +331,7 @@ class EmailActivity(Activity[EmailInputs]):
             )
         if attachments:
             message["attachments"] = attachments
-        with httpx.Client(timeout=30) as client:
+        with checked_client(timeout=30) as client:
             response = client.post(
                 f"{inputs.graph_base_url.rstrip('/')}/users/{quote(sender, safe='@')}/sendMail",
                 headers={"Authorization": f"Bearer {token}"},
@@ -381,7 +384,7 @@ class GraphReadMailActivity(Activity[GraphReadMailInputs]):
             filters.append(f"from/emailAddress/address eq '{_odata_literal(inputs.sender)}'")
         if filters:
             params["$filter"] = " and ".join(filters)
-        with httpx.Client(timeout=30) as client:
+        with checked_client(timeout=30) as client:
             response = client.get(
                 f"{inputs.graph_base_url.rstrip('/')}/users/{quote(inputs.mailbox, safe='@')}/messages",
                 headers={"Authorization": f"Bearer {token}"},
@@ -513,7 +516,7 @@ def _odata_literal(value: str) -> str:
 
 
 def _graph_token(inputs: EmailInputs | GraphReadMailInputs) -> str | None:
-    with httpx.Client(timeout=30) as client:
+    with checked_client(timeout=30) as client:
         response = client.post(
             f"{inputs.login_base_url.rstrip('/')}/{inputs.tenant_id}/oauth2/v2.0/token",
             data={

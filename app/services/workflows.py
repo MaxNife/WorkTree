@@ -452,6 +452,7 @@ class WorkflowService:
             requested_by=actor,
             reason=reason,
             requested_at=self.clock.now(),
+            secrets=self._secrets_used(session, version.definition),
         )
         session.add(promotion)
         session.flush()
@@ -470,6 +471,27 @@ class WorkflowService:
             correlation_id=correlation_id,
         )
         return promotion
+
+    @staticmethod
+    def _secrets_used(session: Session, definition: dict[str, Any]) -> list[dict[str, Any]]:
+        """The secrets a version references, each with its policy as it stands now, so the
+        Approver sees what the promotion would let the version use (ADR 0001)."""
+        names = sorted(
+            {
+                name
+                for step in definition.get("steps", [])
+                for name in secret_refs([step.get("inputs", {}), step.get("foreach") or ""])
+            }
+        )
+        policies = load_policies(session, names)
+        return [
+            {
+                "name": name,
+                "allowed_hosts": list(policies[name].allowed_hosts) if name in policies else [],
+                "environments": list(policies[name].environments) if name in policies else [],
+            }
+            for name in names
+        ]
 
     def decide_promotion(
         self,

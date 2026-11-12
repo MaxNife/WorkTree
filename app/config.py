@@ -6,6 +6,7 @@ they are referenced by name and resolved through the secret store.
 
 from __future__ import annotations
 
+import ipaddress
 import os
 from pathlib import Path
 from typing import Any, Literal
@@ -107,6 +108,35 @@ class ActivitySettings(BaseModel):
     archive_roots: list[Path] = Field(default_factory=list)
 
 
+class EgressSettings(BaseModel):
+    """Where activities may connect (ADR 0001 rule 4, docs/02 9.4). Every address a host name
+    resolves to is checked, and the connection goes to the checked address."""
+
+    # Loopback, link-local and the cloud metadata addresses. Private ranges stay open on purpose.
+    denied_networks: list[str] = Field(
+        default_factory=lambda: [
+            "0.0.0.0/8",
+            "127.0.0.0/8",
+            "169.254.0.0/16",
+            "::/128",
+            "::1/128",
+            "fe80::/10",
+            "fd00:ec2::254/128",
+        ]
+    )
+    # Empty: anything not denied. Set to confine activities to these networks.
+    allowed_networks: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _networks_parse(self) -> EgressSettings:
+        for network in (*self.denied_networks, *self.allowed_networks):
+            try:
+                ipaddress.ip_network(network, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"egress: {network!r} is not a network") from exc
+        return self
+
+
 class SchedulerSettings(BaseModel):
     enabled: bool = True
     tick_seconds: int = Field(default=15, ge=1)
@@ -158,6 +188,7 @@ class Settings(BaseSettings):
     bus: BusSettings = BusSettings()
     secrets: SecretSettings = SecretSettings()
     activities: ActivitySettings = ActivitySettings()
+    egress: EgressSettings = EgressSettings()
     scheduler: SchedulerSettings = SchedulerSettings()
     notifications: NotificationSettings = NotificationSettings()
     ai: AISettings = AISettings()

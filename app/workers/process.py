@@ -13,6 +13,8 @@ from pathlib import Path
 import psutil
 from sqlalchemy.engine import make_url
 
+from app.adapters.net import EGRESS_ENV
+from app.adapters.net import env_value as egress_env_value
 from app.config import Settings
 from app.domain.envelope import JobEnvelope, ResultEnvelope
 from app.logging_setup import get_logger
@@ -70,6 +72,10 @@ def child_environment(settings: Settings) -> dict[str, str]:
         # unc_archive writes only inside these folders (SEC-3); an empty list refuses all.
         "UAF_CHILD_ARCHIVE_ROOTS": json.dumps(
             [str(Path(root).resolve()) for root in settings.activities.archive_roots]
+        ),
+        # Where the child may connect (ADR 0001 rule 4).
+        EGRESS_ENV: egress_env_value(
+            settings.egress.denied_networks, settings.egress.allowed_networks
         ),
     }
     # SQL activities refuse to open the control-plane database file (SEC-1).

@@ -12,6 +12,8 @@ import ssl
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from app.adapters.net import CheckedSMTP
+
 
 class SmtpCredentialsRefused(RuntimeError):
     """Credentials were set but the relay offers no STARTTLS, so nothing was sent."""
@@ -19,10 +21,21 @@ class SmtpCredentialsRefused(RuntimeError):
 
 @contextmanager
 def smtp_connection(
-    host: str, port: int, *, user: str = "", password: str = "", timeout: float = 30
+    host: str,
+    port: int,
+    *,
+    user: str = "",
+    password: str = "",
+    timeout: float = 30,
+    checked: bool = False,
 ) -> Iterator[tuple[smtplib.SMTP, bool]]:
-    """Yield ``(connection, encrypted)``, ready to ``send_message``."""
-    with smtplib.SMTP(host, port, timeout=timeout) as smtp:
+    """Yield ``(connection, encrypted)``, ready to ``send_message``.
+
+    ``checked`` applies the activities' egress policy (ADR 0001 rule 4). The control plane's
+    own notifier leaves it off: its relay is set by the operator and is often on localhost.
+    """
+    factory = CheckedSMTP if checked else smtplib.SMTP
+    with factory(host, port, timeout=timeout) as smtp:
         smtp.ehlo()
         encrypted = False
         if smtp.has_extn("starttls"):

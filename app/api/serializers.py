@@ -85,6 +85,7 @@ def promotion(row: Promotion) -> dict[str, Any]:
         "requested_by": row.requested_by,
         "decided_by": row.decided_by,
         "reason": row.reason,
+        "secrets": list(row.secrets or []),
         "requested_at": iso(row.requested_at),
         "decided_at": iso(row.decided_at),
     }

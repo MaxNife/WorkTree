@@ -1836,3 +1836,51 @@ def test_prod_refuses_to_start_with_the_secret_policy_off(
         create_app(settings, container=container, start_background=False)
     settings.secrets.enforce_policy = True
     create_app(settings, container=container, start_background=False)
+
+
+def test_an_authors_step_test_cannot_reach_the_metadata_address(actors: Any) -> None:
+    """End to end through "Run this step": the child process gets the egress policy too."""
+    ran = actors("author").call(
+        "POST",
+        "/api/activities/http_request/test",
+        json={"inputs": {"url": "http://169.254.169.254/latest/meta-data/"}},
+    )
+    assert ran.status_code == 200, ran.text
+    assert ran.json()["outcome"] == "failed"
+    assert "denied network" in ran.json()["message"]
+
+
+def test_a_promotion_request_shows_the_secrets_the_version_uses_and_their_policy(
+    enforced: Any,
+) -> None:
+    """ADR 0001: an Approver sees what the promotion would let the version use."""
+    admin, author, approver = (
+        enforced.actor("admin"),
+        enforced.actor("author"),
+        enforced.actor("approver"),
+    )
+    admin.call(
+        "PUT",
+        "/api/admin/secrets/api_key/policy",
+        json={"allowed_hosts": ["api.example.com"], "environments": ["dev", "test"]},
+    )
+    saved = author.call(
+        "POST",
+        "/api/workflows",
+        json={"definition": _http_step("https://api.example.com", "promo")},
+    )
+    workflow_id = saved.json()["workflow"]["id"]
+    asked = author.call(
+        "POST",
+        f"/api/workflows/{workflow_id}/promotions",
+        json={"version": 1, "to_environment": "test"},
+    )
+    assert asked.status_code == 200, asked.text
+    expected = [
+        {"name": "api_key", "allowed_hosts": ["api.example.com"], "environments": ["dev", "test"]}
+    ]
+    assert asked.json()["secrets"] == expected
+    listed = approver.client.get("/api/workflows/promotions").json()
+    rows = listed["items"] if isinstance(listed, dict) else listed
+    assert [row["secrets"] for row in rows if row["id"] == asked.json()["id"]] == [expected]
+    assert "Planted-Api-Key-0042" not in asked.text

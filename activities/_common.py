@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
+import httpx
+
+from app.adapters.net import check_destination
 from app.domain.activity import ActivityContext, file_artifact
 from app.domain.envelope import ArtifactRef
 
@@ -42,11 +45,21 @@ def artifact_for(ctx: ActivityContext, path: Path, name: str | None = None) -> A
 
 
 def validate_url(url: str, *, schemes: tuple[str, ...] = ("http", "https")) -> None:
+    """Refuse a URL with another scheme, embedded credentials, or a host whose addresses the
+    egress policy denies (ADR 0001 rule 4). The clients check again when they connect, against
+    the address they connect to, so this is the early, readable refusal."""
     parsed = urlparse(url)
     if parsed.scheme not in schemes or not parsed.netloc:
         raise ValueError(f"unsupported URL: {url!r}")
     if parsed.username or parsed.password:
         raise ValueError("credentials must not be embedded in a URL; use a secret reference")
+    try:
+        target = httpx.URL(url)
+    except Exception as exc:
+        raise ValueError(f"unsupported URL: {url!r}") from exc
+    host = target.raw_host.decode("ascii", errors="replace")
+    port = target.port or (443 if target.scheme == "https" else 80)
+    check_destination(host, port, url)
 
 
 def write_rows(

@@ -41,7 +41,7 @@ from app.domain.workflow import (
     secret_refs,
 )
 from app.logging_setup import configure_logging
-from tests.conftest import run_to_completion
+from tests.conftest import allow_secrets, run_to_completion
 from tests.integration.test_audit import ALLOWED, FORBIDDEN
 
 REPO = Path(__file__).resolve().parents[2]
@@ -476,7 +476,10 @@ def test_a6_planted_secrets_never_leave_the_secret_store(
     container: Any,
     fake_portal: Any,
     monkeypatch: pytest.MonkeyPatch,
+    enforce_secret_policy: Any,
 ) -> None:
+    """Runs with the secret policy enforced (ADR 0001); the planted secrets are allowed for the
+    local fake portal in dev, as an Admin would set them."""
     settings = container.settings
     recorder = Recorder()
     events: list[str] = []
@@ -512,6 +515,7 @@ def test_a6_planted_secrets_never_leave_the_secret_store(
         )
     )
     assert rotated["value"] is None
+    allow_secrets(container, [*STORE_SECRETS, "api_key"])
 
     # The workflow run touches every secret through outputs, failures, scripts and logins.
     workflow_id = ok(admin.post("/api/workflows", {"definition": a6_flow(fake_portal.base_url)}))[
