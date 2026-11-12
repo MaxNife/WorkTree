@@ -59,7 +59,8 @@ class HttpRequestActivity(Activity[HttpInputs]):
                 inputs.method,
                 inputs.url,
                 headers=headers,
-                params=inputs.params,
+                # An empty dict would replace the query string already in the URL (httpx 0.28).
+                params=inputs.params or None,
                 json=inputs.json_body,
                 content=inputs.body,
             ) as response,

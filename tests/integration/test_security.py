@@ -1927,3 +1927,114 @@ def test_a_version_saved_before_the_placement_rule_is_refused_at_dispatch(enforc
     container.engine.tick()
     assert container.workers.process_one() is True
     assert admins.id
+
+
+def test_an_admins_secret_in_a_query_string_is_checked_sent_and_never_stored(
+    enforced: Any, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """ADR 0001 lets an Admin put a secret in a URL. The host is checked from the part before the
+    reference; the value reaches the server and nowhere else: not the stored step, the run, the
+    incidents, the audit log, the API or the log files."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from tests.conftest import allow_secrets, run_to_completion
+
+    planted = "Query-Planted-Key-7Rb2Xw91"
+    received: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            received.append(self.path)
+            body = b'{"ok": true}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    import logging
+
+    import app.logging_setup as logging_setup
+    from app.logging_setup import configure_logging
+    from app.security.masking import get_masker
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    container = enforced.container
+    # Platform logs to files at DEBUG, as A6 does, so the scan covers real log output.
+    get_masker().clear()
+    configure_logging(container.settings, console=False)
+    root = logging.getLogger()
+    previous_level = root.level
+    root.setLevel(logging.DEBUG)
+    admin = enforced.actor("admin")
+    try:
+        container.secrets.set("query_key", planted)
+        allow_secrets(container, ["query_key"], hosts=("127.0.0.1",), environments=("dev",))
+        port = httpd.server_address[1]
+        definition = _one_step(
+            "http_request",
+            {"url": f"http://127.0.0.1:{port}/data?key={{{{ secret:query_key }}}}"},
+            "query-secret",
+        )
+        saved = admin.call("POST", "/api/workflows", json={"definition": definition})
+        assert saved.status_code == 200, saved.text
+        run = container.engine.start_run(
+            workflow_id=saved.json()["workflow"]["id"], requested_by="admin"
+        )
+        finished = run_to_completion(container, run.id)
+        assert finished.status == "done", finished.error
+        assert received == [f"/data?key={planted}"]
+
+        # A host inside the reference is still refused.
+        refused = admin.call(
+            "POST",
+            "/api/workflows",
+            json={
+                "definition": _one_step(
+                    "http_request",
+                    {"url": "http://127.0.0.1{{ secret:query_key }}/x"},
+                    "host-secret",
+                )
+            },
+        )
+        assert refused.status_code == 200  # literal-only at save; dispatch decides
+        bad = container.engine.start_run(
+            workflow_id=refused.json()["workflow"]["id"], requested_by="admin"
+        )
+        container.engine.tick()
+        assert run_to_completion(container, bad.id).status == "failed"
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        root.setLevel(previous_level)
+        for handler in list(root.handlers):
+            handler.flush()
+            handler.close()
+            root.removeHandler(handler)
+        logging_setup._configured = False
+
+    api_text = admin.client.get(f"/api/runs/{run.id}").text
+    audit_text = admin.client.get("/api/admin/audit?limit=500").text
+    assert planted not in api_text and planted not in audit_text
+    container.database.engine.dispose()
+    settings = container.settings
+    blobs: dict[str, bytes] = {}
+    database_file = Path(str(settings.database.url).split("sqlite:///", 1)[1])
+    blobs["database"] = database_file.read_bytes()
+    for path in Path(settings.logging.directory).rglob("*"):
+        if path.is_file():
+            blobs[str(path)] = path.read_bytes()
+    for path in Path(settings.data.workspaces).rglob("*"):
+        if path.is_file():
+            blobs[str(path)] = path.read_bytes()
+    captured = capfd.readouterr()
+    blobs["stdout"], blobs["stderr"] = captured.out.encode(), captured.err.encode()
+    # The scan must have read real log output, or it proves nothing.
+    assert any(name.endswith(".log") and len(blob) > 0 for name, blob in blobs.items()), list(blobs)
+    leaks = [name for name, blob in blobs.items() if planted.encode() in blob]
+    assert leaks == []

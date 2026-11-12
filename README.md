@@ -38,6 +38,23 @@ Alembic migrations are the only way a database gets its tables. `serve`, `create
 
 Back up the database file before upgrading.
 
+## Secret policies
+
+Each secret says where it may be sent and in which environments (dev, test, prod). An empty
+policy refuses every use, so after the upgrade that adds policies every existing secret is
+refused until you set one; `uaf db upgrade` lists the secrets affected.
+
+```bash
+uv run uaf secrets list
+uv run uaf secrets policy portal_password --env dev test --hosts portal.example.com
+uv run uaf secrets policy archive_password --env dev          # a local-only secret: no hosts
+```
+
+A secret created through the Admin API starts as dev only, with no hosts. Activities also cannot
+reach loopback, link-local or cloud metadata addresses (`egress.denied_networks`). For local
+development only, `UAF_SECRETS__ENFORCE_POLICY=false` turns the host and environment checks
+off; a server with `app.environment: prod` refuses to start that way.
+
 ## Developer commands
 
 ```bash

@@ -31,6 +31,7 @@ from app.container import build_container, seed_reference_data
 from app.domain.enums import TERMINAL_RUN_STATUSES, Role, RunStatus
 from app.domain.workflow import load_workflow_yaml, validate_definition
 from app.errors import AppError
+from app.services.secrets import list_secrets, set_policy
 
 
 def _schema_ready(settings: Settings, *, prefix: str = "error") -> bool:
@@ -194,6 +195,81 @@ def serve(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def secrets_list(args: argparse.Namespace, settings: Settings) -> int:
+    """Names, sources and policies of the secrets workflows can use. Never values."""
+    if not _schema_ready(settings):
+        return 2
+    container = _container(settings)
+    try:
+        with container.database.session() as session:
+            rows = list_secrets(session, container.secrets)
+    finally:
+        container.shutdown()
+    if not rows:
+        print("no secrets")
+        return 0
+    for row in rows:
+        flag = "  REFUSED: no environments" if row.refused_everywhere else ""
+        hosts = ", ".join(row.allowed_hosts) or "-"
+        envs = ", ".join(row.environments) or "-"
+        print(f"{row.name}  [{row.source}]  environments: {envs}  hosts: {hosts}{flag}")
+    return 0
+
+
+def secrets_policy(args: argparse.Namespace, settings: Settings) -> int:
+    """Replace a secret's policy (ADR 0001). Empty lists refuse every use."""
+    if not _schema_ready(settings):
+        return 2
+    container = _container(settings)
+    try:
+        with container.database.session() as session:
+            policy = set_policy(
+                session,
+                store=container.secrets,
+                audit=container.audit,
+                clock=container.clock,
+                name=args.name,
+                allowed_hosts=args.hosts,
+                environments=args.env,
+                actor="cli",
+            )
+    except AppError as exc:
+        print(f"error: {exc.message}", file=sys.stderr)
+        return 1
+    finally:
+        container.shutdown()
+    print(
+        f"{args.name}: environments {', '.join(policy['environments']) or 'none'}; "
+        f"hosts {', '.join(policy['allowed_hosts']) or 'none'}"
+    )
+    return 0
+
+
+def _unpoliced_notice(settings: Settings) -> None:
+    """After an upgrade, name the secrets every use of which is now refused (ADR 0001)."""
+    try:
+        container = build_container(settings)
+    except Exception:  # the secret store may need credentials this shell does not have
+        return
+    try:
+        with container.database.session() as session:
+            refused = [
+                row.name
+                for row in list_secrets(session, container.secrets)
+                if row.refused_everywhere
+            ]
+    except Exception:
+        return
+    finally:
+        container.shutdown()
+    if refused and settings.secrets.enforce_policy:
+        print(
+            f"{len(refused)} secret(s) have no policy and every use will be refused: "
+            + ", ".join(refused)
+            + ". Set one with: uaf secrets policy NAME --env dev --hosts HOST ..."
+        )
+
+
 def db_upgrade(args: argparse.Namespace, settings: Settings) -> int:
     try:
         outcome = upgrade_database(settings.database.url)
@@ -207,6 +283,7 @@ def db_upgrade(args: argparse.Namespace, settings: Settings) -> int:
         return 1
     for message in outcome.messages:
         print(message)
+    _unpoliced_notice(settings)
     return 0
 
 
@@ -267,6 +344,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit_parser = sub.add_parser("verify-audit", help="verify the audit hash chain")
     audit_parser.set_defaults(func=verify_audit)
+
+    secrets_parser = sub.add_parser("secrets", help="list secrets and set their policies")
+    secrets_sub = secrets_parser.add_subparsers(dest="secrets_command", required=True)
+    secrets_sub.add_parser("list", help="names, sources and policies (never values)").set_defaults(
+        func=secrets_list
+    )
+    policy_parser = secrets_sub.add_parser(
+        "policy", help="replace a secret's allowed hosts and environments"
+    )
+    policy_parser.add_argument("name")
+    policy_parser.add_argument("--hosts", nargs="*", default=[], help="hosts or *.domain")
+    policy_parser.add_argument(
+        "--env", nargs="*", default=[], choices=["dev", "test", "prod"], help="environments"
+    )
+    policy_parser.set_defaults(func=secrets_policy)
 
     db_parser = sub.add_parser("db", help="manage the database schema (Alembic migrations)")
     db_sub = db_parser.add_subparsers(dest="db_command", required=True)

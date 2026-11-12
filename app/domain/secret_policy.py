@@ -13,6 +13,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
+from app.domain.enums import Environment
 from app.domain.workflow import JsonValue, secret_refs
 
 # A host pattern: an exact name, or ``*.`` followed by a domain for its subdomains only.
@@ -78,6 +79,28 @@ def valid_host_pattern(pattern: str) -> bool:
     if wildcard and len(labels) < 2:
         return False
     return all(re.fullmatch(_LABEL, label) for label in labels)
+
+
+def clean_hosts(hosts: Iterable[str]) -> list[str]:
+    """Normalised, de-duplicated host patterns. ValueError names any that is not valid."""
+    values = list(hosts)
+    bad = [host for host in values if not valid_host_pattern(host)]
+    if bad:
+        raise ValueError(
+            "allowed hosts are exact host names, IP addresses or '*.' and a domain "
+            "(subdomains only); not valid: " + ", ".join(bad[:10])
+        )
+    return list(dict.fromkeys(normalise_host(host) for host in values))
+
+
+def clean_environments(environments: Iterable[object]) -> list[str]:
+    """Environment names in their fixed order (dev, test, prod). ValueError for any other."""
+    wanted = {str(getattr(env, "value", env)).strip().lower() for env in environments}
+    known = [env.value for env in Environment]
+    unknown = sorted(wanted - set(known))
+    if unknown:
+        raise ValueError("unknown environment(s): " + ", ".join(unknown))
+    return [name for name in known if name in wanted]
 
 
 @dataclass(frozen=True)
