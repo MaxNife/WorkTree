@@ -369,8 +369,8 @@ const rejectOpen = ref(false)
             <NodeCard title="Wait for the bank" activity="sleep" summary="Until 07:00" />
             <NodeCard title="Set period" activity="echo" summary="period_end" />
             <NodeCard title="Month-end close" :look="FLOW_LOOKS.subworkflow" summary="Version 4" />
-            <NodeCard title="Finish" :look="FLOW_LOOKS.finish" summary="Done" :ports="[]" />
-            <NodeCard title="Stop" activity="fail" summary="With failure" :ports="[]" />
+            <NodeCard title="Finish" :look="FLOW_LOOKS.finish" summary="Done" />
+            <NodeCard title="Stop" activity="fail" summary="With failure" />
           </div>
           <h3 class="sub">States</h3>
           <div class="canvas">

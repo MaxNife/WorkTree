@@ -136,6 +136,13 @@ describe('NodeCard', () => {
     expect(selected.find('.node__ring').exists()).toBe(true)
   })
 
+  it('gives Finish and Stop no ports, and names a node without a label cleanly', () => {
+    expect(mount(NodeCard, { props: { title: 'Stop', activity: 'fail' } }).find('.node__ports').exists()).toBe(false)
+    expect(mount(NodeCard, { props: { title: 'End', look: { kind: 'finish' } } }).find('.node__ports').exists()).toBe(false)
+    expect(mount(NodeCard, { props: { title: 'Ask', activity: 'human_task', ports: ['approve', 'reject'] } }).findAll('.node__port')).toHaveLength(2)
+    expect(mount(NodeCard, { props: { title: 'End', look: { kind: 'finish' } } }).attributes('aria-label')).toBe('End')
+  })
+
   it('says in its name when it needs setup or has a problem, not only in its drawing', () => {
     const card = mount(NodeCard, { props: { title: 'Read rows', activity: 'excel', incomplete: true, problem: true } })
     expect(card.attributes('aria-label')).toBe('Read rows, Spreadsheet, needs setup, has a problem')

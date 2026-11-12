@@ -37,9 +37,10 @@ const props = withDefaults(
     problem?: boolean
     /** Router only: the colour of the node each route leads to, one petal each. */
     routes?: AreaColour[]
+    /** Output ports. Finish and Stop end the run and have none; everything else has done and failed. */
     ports?: string[]
   }>(),
-  { activity: '', ports: () => ['done', 'failed'] },
+  { activity: '', ports: undefined },
 )
 
 // Skills draw with pointed petals (docs/04 15, open item 2, not yet seen by the owner). Set this to
@@ -139,8 +140,9 @@ const accessibleName = computed(() => {
   const parts = [props.title, look.value.label]
   if (props.incomplete) parts.push('needs setup')
   if (props.problem) parts.push('has a problem')
-  return parts.join(', ')
+  return parts.filter(Boolean).join(', ')
 })
+const shownPorts = computed(() => props.ports ?? (kind.value === 'finish' || kind.value === 'stop' ? [] : ['done', 'failed']))
 const portClass = (port: string) => (port === 'failed' ? 'node__port--failed' : port === 'done' ? 'node__port--done' : '')
 </script>
 
@@ -284,8 +286,8 @@ const portClass = (port: string) => (port === 'failed' ? 'node__port--failed' : 
 
         <circle v-if="state === 'failed' || problem" class="node__alert" cx="27" cy="-27" r="6" />
       </svg>
-      <ul v-if="ports.length" class="node__ports" aria-label="Output ports">
-        <li v-for="port in ports" :key="port" class="node__port" :class="portClass(port)" :title="port">
+      <ul v-if="shownPorts.length" class="node__ports" aria-label="Output ports">
+        <li v-for="port in shownPorts" :key="port" class="node__port" :class="portClass(port)" :title="port">
           <span class="node__port-name">{{ port }}</span>
         </li>
       </ul>
