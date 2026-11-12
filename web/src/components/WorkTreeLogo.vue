@@ -49,10 +49,10 @@ const MONO_PETAL = petal({ length: 14, width: 6.5, start: 8, ratios: [0.25, 5 / 
 .logo__mark--mono {
   display: none;
 }
-:global(:root[data-theme='high-contrast']) .logo__mark--colour {
+:root[data-theme='high-contrast'] .logo__mark--colour {
   display: none;
 }
-:global(:root[data-theme='high-contrast']) .logo__mark--mono {
+:root[data-theme='high-contrast'] .logo__mark--mono {
   display: block;
 }
 .logo__word {

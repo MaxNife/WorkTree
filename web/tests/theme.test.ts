@@ -200,6 +200,15 @@ describe('tokens', () => {
     }
   })
 
+  // Vue's scoped CSS keeps only what is inside :global(...) and drops the rest of the selector, so
+  // `:global(:root[x]) .a` silently becomes a rule on :root. Write `:root[x] .a` instead.
+  it('has no scoped selector that continues after :global()', () => {
+    const offenders = filesIn(SRC)
+      .filter((path) => path.endsWith('.vue'))
+      .flatMap((path) => [...readFileSync(path, 'utf8').matchAll(/:global\([^)]*\)\s*[^\s{,]/g)].map(() => path))
+    expect(offenders).toEqual([])
+  })
+
   it('uses no CSS variable that nothing defines', () => {
     const files = filesIn(SRC).filter((path) => /\.(vue|css)$/.test(path))
     const sources = files.map((path) => readFileSync(path, 'utf8'))
