@@ -3,12 +3,16 @@
 // around a Night soil centre with a light core, beside a one-colour wordmark. The petals never change
 // with the theme; only the centre and the wordmark do. High contrast shows the one-colour mark.
 // Lockup: the gap is a third of the mark's width and the cap height about 40 percent of its height.
+import { petal } from '@/plants'
+
 withDefaults(defineProps<{ size?: number; markOnly?: boolean }>(), { size: 28 })
 
 // Clockwise from the top: Hibiscus, Marigold, Fern, Morning glory, Orchid. Do not reorder.
 const PETALS = ['var(--wt-hibiscus)', 'var(--wt-marigold)', 'var(--wt-fern)', 'var(--wt-morning-glory)', 'var(--wt-orchid)']
-const PETAL = 'M0 0C9.5 -6.3 9.5 -15.75 0 -21C-9.5 -15.75 -9.5 -6.3 0 0Z'
-const MONO_PETAL = 'M0 -8C6.5 -11.5 6.5 -18 0 -22C-6.5 -18 -6.5 -11.5 0 -8Z'
+// Drawn by the shared petal function, like every other plant in the product.
+const PETAL = petal({ length: 21, width: 9.5 })
+// The one-colour petals are narrower and start 8 units out, so they stand apart from the centre dot.
+const MONO_PETAL = petal({ length: 14, width: 6.5, start: 8, ratios: [0.25, 5 / 7] })
 </script>
 
 <template>

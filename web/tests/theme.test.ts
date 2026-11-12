@@ -155,6 +155,31 @@ describe('tokens', () => {
     }
   })
 
+  // Each pill: its tint, its word and its mark, read from the component so a remap is caught.
+  const pills = [...badge.matchAll(/--tint: var\((--wt-[\w-]+)\);\s*--word: var\((--wt-[\w-]+)\);\s*--dot: var\((--wt-[\w-]+)\)/g)].map(
+    (match) => ({ tint: match[1] ?? '', word: match[2] ?? '', dot: match[3] ?? '' }),
+  )
+
+  it('finds a tint, word and mark for every status kind', () => {
+    expect(pills).toHaveLength(6)
+  })
+
+  it.each(names)('%s: every status pill has its word at 4.5:1 and its mark at 3:1 on its own tint', (theme) => {
+    for (const { tint, word, dot } of pills) {
+      expect(contrastRatio(colour(theme, word), colour(theme, tint)), `${word} on ${tint}`).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(colour(theme, dot), colour(theme, tint)), `${dot} on ${tint}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
+  // The area band: a heavy ink title and a Night soil action on each flower's soft tint.
+  it.each(names)('%s: ink text and the strong button stand out on every flower tint', (theme) => {
+    for (const name of FLOWER_NAMES) {
+      const soft = String(THEMES[theme][`wt-${name}-soft`])
+      expect(contrastRatio(colour(theme, '--wt-ink'), soft), `ink on ${name}`).toBeGreaterThanOrEqual(4.5)
+      expect(contrastRatio(colour(theme, '--wt-strong'), soft), `strong on ${name}`).toBeGreaterThanOrEqual(3)
+    }
+  })
+
   it.each(names)('%s: the edge of a text field, checkbox or switch meets 3:1 on every surface', (theme) => {
     for (const surface of surfaces) {
       expect(contrastRatio(colour(theme, '--wt-border-control'), colour(theme, surface)), surface).toBeGreaterThanOrEqual(3)
