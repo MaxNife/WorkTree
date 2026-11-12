@@ -169,6 +169,9 @@ describe('sidebar', () => {
     expect(wrapper!.find('.sidebar--collapsed').exists()).toBe(true)
     // Icon rail: links keep an accessible name.
     expect(wrapper!.find('#app-nav a[aria-label="Inbox"]').exists()).toBe(true)
+    // Each area's glyph sits on a leaf; the current area's row is marked for its ink ring.
+    expect(wrapper!.findAll('#app-nav .nav-item__rail-leaf')).toHaveLength(4)
+    expect(wrapper!.get('#app-nav .nav-item__row--rail.is-in-area a').attributes('aria-label')).toBe('Operations')
     wrapper!.unmount()
     wrapper = null
 

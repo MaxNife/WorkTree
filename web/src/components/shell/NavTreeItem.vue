@@ -156,6 +156,10 @@ function toggle(): void {
 .nav-item__row--rail.is-in-area {
   background: var(--wt-sunken);
 }
+/* The rail has no labels, so the current area also gets an ink ring (the tint alone is too faint). */
+.nav-item__row--rail.is-in-area .nav-item__rail-leaf {
+  box-shadow: inset 0 0 0 var(--stroke-2) var(--wt-ink);
+}
 .nav-item__toggle,
 .nav-item__spacer {
   flex: none;
